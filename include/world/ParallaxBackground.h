@@ -7,6 +7,7 @@ struct Layer {
     sf::RectangleShape shape2;
     float speedMultiplier;
     float textureWidth;
+    float yOffset;
 };
 
 class ParallaxBackground {
@@ -15,6 +16,6 @@ private:
 
 public:
     ParallaxBackground();
-    void update(float cameraX);
+    void update(float cameraX, float cameraY);
     void draw(sf::RenderWindow& window) const;
 };

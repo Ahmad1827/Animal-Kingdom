@@ -1,15 +1,27 @@
 #include "world/WorldManager.h"
 
-WorldManager::WorldManager() {
-    chunkManager = std::make_unique<ChunkManager>();
+WorldManager::WorldManager(uint32_t seed) {
+    chunkManager = std::make_unique<ChunkManager>(seed);
 }
 
 void WorldManager::update(float dt, float playerX) {
     chunkManager->update(playerX);
 }
 
-void WorldManager::draw(sf::RenderWindow& window) const {
-    chunkManager->draw(window);
+void WorldManager::draw(sf::RenderWindow& window, const sf::FloatRect& viewBounds) const {
+    chunkManager->draw(window, viewBounds);
+}
+
+void WorldManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage) const {
+    chunkManager->drawBackground(window, viewBounds, showFoliage);
+}
+
+void WorldManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds) const {
+    chunkManager->drawGeometry(window, viewBounds);
+}
+
+void WorldManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool b1, bool b2, bool b3) const {
+    chunkManager->drawDebug(window, viewBounds, b1, b2, b3);
 }
 
 float WorldManager::getTerrainHeight(float x) const {
@@ -64,4 +76,8 @@ bool WorldManager::checkHangCollision(const sf::FloatRect& bounds, sf::FloatRect
         }
     }
     return false;
+}
+
+ChunkManager* WorldManager::getChunkManager() const {
+    return chunkManager.get();
 }

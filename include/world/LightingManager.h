@@ -4,10 +4,12 @@
 class LightingManager {
 private:
     sf::RectangleShape ambientOverlay;
-    float timeOfDay;
+    sf::RectangleShape fogOverlay;
+    float currentAmbientAlpha;
 
 public:
     LightingManager();
-    void update(float dt, const sf::View& cameraView);
-    void draw(sf::RenderWindow& window) const;
+    void update(float dt, const sf::View& cameraView, float timeOfDay, float fogDensity);
+    void drawAmbient(sf::RenderWindow& window) const;
+    void drawFog(sf::RenderWindow& window) const;
 };

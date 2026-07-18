@@ -5,7 +5,8 @@ enum class ApeState {
     Airborne,
     Grounded,
     ClimbingTrunk,
-    HangingBranch
+    HangingBranch,
+    ClimbingVine
 };
 
 class Ape : public Entity {
@@ -15,14 +16,23 @@ private:
     float jumpForce;
     float climbSpeed;
     bool droppingThrough;
+    
+    // Polish Traversal
+    float coyoteTimer;
+    float coyoteTimeMax;
+    float jumpBufferTimer;
+    float jumpBufferMax;
+    bool spacePressedLastFrame;
 
 public:
     Ape(float x, float y);
     void update(float dt) override;
-    void processInput();
+    void processInput(float dt);
     ApeState getState() const;
     void setState(ApeState state);
     bool isDroppingThrough() const;
     void setDroppingThrough(bool drop);
     void updateVisuals();
+    
+    void resetCoyoteTime();
 };

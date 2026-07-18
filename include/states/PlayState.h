@@ -5,7 +5,10 @@
 #include "world/CameraManager.h"
 #include "world/ParallaxBackground.h"
 #include "world/LightingManager.h"
+#include "world/WeatherManager.h"
+#include "world/ParticleSystem.h"
 #include "core/WorldClock.h"
+#include "core/AudioManager.h"
 #include "core/DebugOverlay.h"
 #include <SFML/Graphics.hpp>
 #include <memory>
@@ -21,13 +24,20 @@ private:
     std::unique_ptr<CameraManager> cameraManager;
     std::unique_ptr<ParallaxBackground> background;
     std::unique_ptr<LightingManager> lightingManager;
+    std::unique_ptr<WeatherManager> weatherManager;
+    std::unique_ptr<ParticleSystem> particleSystem;
+    std::unique_ptr<AudioManager> audioManager;
     std::unique_ptr<WorldClock> worldClock;
     std::unique_ptr<DebugOverlay> debugOverlay;
+
+    ProfilerStats profiler;
 
     bool f3PressedLastFrame;
     bool f4PressedLastFrame;
     bool f5PressedLastFrame;
     bool f6PressedLastFrame;
+    bool f7PressedLastFrame;
+    bool f8PressedLastFrame;
 
 public:
     PlayState(Game* game);

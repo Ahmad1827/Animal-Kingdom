@@ -67,6 +67,13 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
             float bWidth = SeedManager::getRandomFloat(chunkSeed, 120.f, 280.f) * biome.treeSizeMultiplier;
             bool right = SeedManager::getRandomInt(chunkSeed, 0, 1) == 0;
             tree.addBranch(yOff, bWidth, right, trunkColor);
+            
+            // Procedurally add vines hanging from branches
+            if (SeedManager::getRandomInt(chunkSeed, 0, 100) < 40) {
+                float vLen = SeedManager::getRandomFloat(chunkSeed, 100.f, 400.f);
+                float vXOff = right ? trunkWidth + (bWidth * SeedManager::getRandomFloat(chunkSeed, 0.2f, 0.8f)) : -(bWidth * SeedManager::getRandomFloat(chunkSeed, 0.2f, 0.8f));
+                tree.addVine(vXOff, yOff, vLen);
+            }
         }
 
         // Smaller, tighter canopies to prevent overwhelming the screen and blocking jump visibility

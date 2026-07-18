@@ -1,6 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <string>
+#include "core/Profiler.h"
 
 class DebugOverlay {
 private:
@@ -14,6 +15,7 @@ private:
     bool showRegions;
     bool showHeatmaps;
     bool showFoliage;
+    bool showProfiler;
 
 public:
     DebugOverlay();
@@ -22,8 +24,9 @@ public:
     void toggleRegions();
     void toggleHeatmaps();
     void toggleFoliage();
+    void toggleProfiler();
     
-    void updateInfo(float dt, float fps, int chunkX, float pX, float pY, uint32_t seed, const std::string& biomeName, size_t chunks);
+    void updateInfo(float dt, int chunkX, float pX, float pY, uint32_t seed, const std::string& biomeName, const ProfilerStats& profiler);
     void draw(sf::RenderWindow& window) const;
     bool getVisible() const;
     

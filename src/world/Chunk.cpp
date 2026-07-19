@@ -13,7 +13,8 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed) : pos(
     BiomeProperties props = Biome::getProperties(regionType);
     
     sf::Clock stepClock;
-    terrainMesh = TerrainGenerator::generateTerrainMesh(bounds, 50.f, worldSeed, props.groundColor, props.undergroundColor);
+    terrainMesh = TerrainGenerator::generateSurfaceMesh(bounds, 50.f, worldSeed);
+    undergroundMesh = TerrainGenerator::generateUndergroundMesh(bounds, 50.f, worldSeed, props.undergroundColor);
     
     // Procedural Water Body Generation (Water level at Y = 750)
     waterMesh.setPrimitiveType(sf::Quads);
@@ -74,32 +75,26 @@ RegionType Chunk::getRegionType() const { return regionType; }
 ChunkPos Chunk::getPos() const { return pos; }
 sf::FloatRect Chunk::getBounds() const { return bounds; }
 
-void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler) const {
-    if (!bounds.intersects(viewBounds)) return; 
+void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
+    if (!bounds.intersects(viewBounds)) return;
+
+    if (undergroundMesh.getVertexCount() > 0) {
+        window.draw(undergroundMesh); // no texture -> flat color, always seamless
+        profiler.objectsRendered++;
+    }
 
     if (terrainMesh.getVertexCount() > 0) {
-        window.draw(terrainMesh);
+        sf::RenderStates states;
+        states.texture = &tileset;
+        window.draw(terrainMesh, states);
         profiler.objectsRendered++;
     }
-    
+
     if (waterMesh.getVertexCount() > 0) {
-        window.draw(waterMesh);
+        sf::RenderStates waterStates;
+        waterStates.texture = nullptr;
+        window.draw(waterMesh, waterStates);
         profiler.objectsRendered++;
-    }
-    
-    for (const auto& dec : decorations) {
-        if (dec.getBounds().intersects(viewBounds)) {
-            dec.draw(window);
-            profiler.objectsRendered++;
-        } else profiler.objectsCulled++;
-    }
-    
-    if (showFoliage) {
-        for (const auto& tree : trees) {
-            if (tree.getBounds().intersects(viewBounds)) {
-                tree.drawCanopy(window, viewBounds, profiler);
-            } else profiler.objectsCulled++;
-        }
     }
 }
 

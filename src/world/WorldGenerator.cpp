@@ -24,7 +24,12 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         float trunkHeight = SeedManager::getRandomFloat(chunkSeed, 400.f, 900.f) * config.treeSizeMultiplier;
         sf::Color trunkColor(70 + (chunkSeed % 20), 50 + (chunkSeed % 10), 30);
         
-        Tree tree(currentX, terrainY, trunkWidth, trunkHeight, trunkColor);
+        static sf::Texture realTex;
+        if (realTex.getSize().x == 0) {
+            realTex.loadFromFile("assets/sprites/Decors.png");
+        }
+        
+        Tree tree(currentX, terrainY, trunkWidth, trunkHeight, trunkColor, realTex);
 
         // Readable Climbing Path Generation
         int branchCount = SeedManager::getRandomInt(chunkSeed, config.branchCountMin, config.branchCountMax);
@@ -35,8 +40,7 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
             if (currentBranchY > trunkHeight - 100.f) break; // Don't clip through canopy
 
             float bWidth = SeedManager::getRandomFloat(chunkSeed, 150.f, 300.f) * config.treeSizeMultiplier;
-            tree.addBranch(currentBranchY, bWidth, rightSide, trunkColor);
-            
+            tree.addBranch(currentBranchY, bWidth, rightSide, trunkColor, realTex);
             // Add decorative vines exclusively to branch tips for readability
             if (chunkSeed % 100 < 60) {
                 float vX = rightSide ? bWidth - 10.f : -10.f;
@@ -83,11 +87,11 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
             type = SeedManager::getRandomInt(chunkSeed, 0, 4); // 30% chance for random chaos
         }
 
-        static sf::Texture dummyTex; 
-        if (dummyTex.getSize().x == 0) {
-            dummyTex.create(32, 32);
+        static sf::Texture realTex;
+        if (realTex.getSize().x == 0) {
+            realTex.loadFromFile("assets/sprites/Decors.png");
         }
-        decorations.push_back(Decoration(currentX, terrainY, type, chunkSeed, dummyTex));
+        decorations.push_back(Decoration(currentX, terrainY, type, chunkSeed, realTex));
         chunkSeed++;
     }
     return decorations;

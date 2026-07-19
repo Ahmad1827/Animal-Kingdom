@@ -3,17 +3,17 @@
 #include "world/Biome.h"
 #include <cstdlib>
 #include <ctime>
+#include <cmath>
 
 PlayState::PlayState(Game* game) : game(game), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false) {}
 
 void PlayState::init() {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     activeSeed = std::rand();
-
+    background = std::make_unique<Background>(game->getAssetManager());
     player = std::make_unique<Ape>(0.f, 0.f);
     worldManager = std::make_unique<WorldManager>(activeSeed);
     cameraManager = std::make_unique<CameraManager>(sf::Vector2f(1280.f, 720.f));
-    background = std::make_unique<ParallaxBackground>();
     lightingManager = std::make_unique<LightingManager>();
     weatherManager = std::make_unique<WeatherManager>();
     particleSystem = std::make_unique<ParticleSystem>();
@@ -71,6 +71,13 @@ void PlayState::update(float dt) {
     if (f10Pressed && !f10PressedLastFrame) debugOverlay->toggleGenerationDebug();
     f10PressedLastFrame = f10Pressed;
 
+    background->update(
+    cameraManager->getViewBounds().left + cameraManager->getViewBounds().width / 2.f,
+    cameraManager->getViewBounds().top + cameraManager->getViewBounds().height / 2.f,
+    cameraManager->getView().getSize(),
+    dt
+    );
+    
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
     else cameraManager->setZoom(1.35f);
@@ -180,7 +187,12 @@ void PlayState::update(float dt) {
         profiler.particleTime = pClock.getElapsedTime().asSeconds();
         
         audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
-        background->update(cameraManager->getView().getCenter().x, cameraManager->getView().getCenter().y);
+        background->update(
+            cameraManager->getView().getCenter().x,
+            cameraManager->getView().getCenter().y,
+            cameraManager->getView().getSize(),
+            dt
+        );
         lightingManager->update(dt, cameraManager->getView(), worldClock->getTimeOfDay(), weatherManager->getFogDensity());
 
         // Debug info rendering
@@ -204,14 +216,13 @@ void PlayState::update(float dt) {
 void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
-    if (background) background->draw(window);
-
-    window.setView(cameraManager->getView());
+    window.setView(cameraManager->getView());   // set world view FIRST
+    background->draw(window);
     
     if (lightingManager) lightingManager->drawFog(window);
 
     if (worldManager) {
-        worldManager->drawBackground(window, cameraManager->getViewBounds(), debugOverlay ? debugOverlay->getShowFoliage() : true, profiler);
+        worldManager->drawBackground(window, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
         worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
         
         if (particleSystem) particleSystem->draw(window);

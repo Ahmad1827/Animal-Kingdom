@@ -12,6 +12,7 @@
 #include "core/DebugOverlay.h"
 #include <SFML/Graphics.hpp>
 #include <memory>
+#include "world/Background.h"
 
 class Game;
 
@@ -22,14 +23,13 @@ private:
     std::unique_ptr<Ape> player;
     std::unique_ptr<WorldManager> worldManager;
     std::unique_ptr<CameraManager> cameraManager;
-    std::unique_ptr<ParallaxBackground> background;
+    std::unique_ptr<Background> background;
     std::unique_ptr<LightingManager> lightingManager;
     std::unique_ptr<WeatherManager> weatherManager;
     std::unique_ptr<ParticleSystem> particleSystem;
     std::unique_ptr<AudioManager> audioManager;
     std::unique_ptr<WorldClock> worldClock;
     std::unique_ptr<DebugOverlay> debugOverlay;
-
     ProfilerStats profiler;
 
     bool f3PressedLastFrame;

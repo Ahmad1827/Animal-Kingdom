@@ -21,6 +21,7 @@ private:
     std::vector<Tree> trees;
     std::vector<Decoration> decorations;
     RegionType regionType;
+    sf::VertexArray undergroundMesh;
 
     float terrainGenTime;
     float treeGenTime;
@@ -28,7 +29,7 @@ private:
 
 public:
     Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed);
-    void drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler) const;
+    void drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const;
     void drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const;
     void updateSway(float globalTime, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector);
     const std::vector<Decoration>& getDecorations() const { return decorations; }

@@ -7,9 +7,10 @@ AssetManager::AssetManager() {
     placeholderTexture.update(pixels);
 }
 
-void AssetManager::loadTexture(const std::string& name, const std::string& filename) {
+void AssetManager::loadTexture(const std::string& name, const std::string& filename, bool repeated) {
     auto tex = std::make_unique<sf::Texture>();
     if (tex->loadFromFile(filename)) {
+        tex->setRepeated(repeated);
         textures[name] = std::move(tex);
     }
 }

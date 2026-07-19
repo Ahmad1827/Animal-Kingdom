@@ -1,6 +1,5 @@
 #pragma once
 #include <SFML/Graphics.hpp>
-#include <SFML/Audio.hpp>
 #include <unordered_map>
 #include <string>
 #include <memory>
@@ -12,6 +11,6 @@ private:
 
 public:
     AssetManager();
-    void loadTexture(const std::string& name, const std::string& filename);
+    void loadTexture(const std::string& name, const std::string& filename, bool repeated = false);
     sf::Texture& getTexture(const std::string& name);
 };

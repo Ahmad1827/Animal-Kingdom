@@ -111,7 +111,7 @@ Chunk* ChunkManager::getChunk(int cx, int cy) const {
 
 const std::unordered_map<uint64_t, std::unique_ptr<Chunk>>& ChunkManager::getActiveChunks() const { return chunks; }
 
-void ChunkManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler) const {
+void ChunkManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
     sf::FloatRect renderBounds = viewBounds;
     renderBounds.left -= 3000.f; renderBounds.width += 6000.f;
     renderBounds.top -= 3000.f; renderBounds.height += 6000.f;
@@ -124,7 +124,7 @@ void ChunkManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect&
     for (int x = minX; x <= maxX; ++x) {
         for (int y = minY; y <= maxY; ++y) {
             Chunk* chunk = getChunk(x, y);
-            if (chunk) chunk->drawBackground(window, renderBounds, showFoliage, profiler);
+            if (chunk) chunk->drawBackground(window, renderBounds, showFoliage, profiler, tileset);
         }
     }
 }

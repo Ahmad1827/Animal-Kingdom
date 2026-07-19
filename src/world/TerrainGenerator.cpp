@@ -1,4 +1,6 @@
 #include "world/TerrainGenerator.h"
+#include "core/VisualConfig.h"
+#include <algorithm>
 #include <cmath>
 
 float TerrainGenerator::getTerrainHeight(float x, uint32_t worldSeed) {
@@ -10,29 +12,51 @@ float TerrainGenerator::getTerrainHeight(float x, uint32_t worldSeed) {
     return base + macro + detail + micro;
 }
 
-sf::VertexArray TerrainGenerator::generateTerrainMesh(const sf::FloatRect& chunkBounds, float resolution, uint32_t worldSeed, sf::Color topColor, sf::Color bottomColor) {
-    sf::VertexArray mesh(sf::TriangleStrip);
-
-    int points = static_cast<int>(chunkBounds.width / resolution) + 1;
-    bool hasVisibleTerrain = false;
+sf::VertexArray TerrainGenerator::generateSurfaceMesh(const sf::FloatRect& bounds, float resolution, uint32_t seed) {
+    sf::VertexArray mesh(sf::Quads);
+    int points = static_cast<int>(bounds.width / resolution);
+    float texScale = VisualConfig::TERRAIN_TEXTURE_SCALE;
+    sf::IntRect sTile = VisualConfig::TILE_SURFACE;
 
     for (int i = 0; i < points; ++i) {
-        float currentX = chunkBounds.left + (i * resolution);
-        float surfaceY = getTerrainHeight(currentX, worldSeed);
+        float x1 = bounds.left + (i * resolution);
+        float x2 = x1 + resolution;
+        float y1 = getTerrainHeight(x1, seed);
+        float y2 = getTerrainHeight(x2, seed);
 
-        // If the entire chunk is in the sky above the surface, draw nothing.
-        if (chunkBounds.top + chunkBounds.height < surfaceY) continue;
+        float uvX1 = std::fmod(std::abs(x1), texScale);
+        float uvX2 = uvX1 + (x2 - x1);
 
-        hasVisibleTerrain = true;
-        
-        // Clamp top to surface, or chunk top if underground
-        float topY = std::max(surfaceY, chunkBounds.top);
-        float bottomY = chunkBounds.top + chunkBounds.height;
-
-        mesh.append(sf::Vertex(sf::Vector2f(currentX, topY), topColor));
-        mesh.append(sf::Vertex(sf::Vector2f(currentX, bottomY), bottomColor));
+        mesh.append(sf::Vertex(sf::Vector2f(x1, y1), sf::Color::White, sf::Vector2f(sTile.left + uvX1, sTile.top)));
+        mesh.append(sf::Vertex(sf::Vector2f(x2, y2), sf::Color::White, sf::Vector2f(sTile.left + uvX2, sTile.top)));
+        mesh.append(sf::Vertex(sf::Vector2f(x2, y2 + texScale), sf::Color::White, sf::Vector2f(sTile.left + uvX2, sTile.top + sTile.height)));
+        mesh.append(sf::Vertex(sf::Vector2f(x1, y1 + texScale), sf::Color::White, sf::Vector2f(sTile.left + uvX1, sTile.top + sTile.height)));
     }
+    return mesh;
+}
 
-    if (!hasVisibleTerrain) mesh.clear();
+sf::VertexArray TerrainGenerator::generateUndergroundMesh(const sf::FloatRect& bounds, float resolution, uint32_t seed, sf::Color undergroundColor) {
+    sf::VertexArray mesh(sf::Quads);
+    int points = static_cast<int>(bounds.width / resolution);
+    float texScale = VisualConfig::TERRAIN_TEXTURE_SCALE;
+    float bottom = bounds.top + bounds.height;
+
+    for (int i = 0; i < points; ++i) {
+        float x1 = bounds.left + (i * resolution);
+        float x2 = x1 + resolution;
+        float y1 = getTerrainHeight(x1, seed);
+        float y2 = getTerrainHeight(x2, seed);
+
+        // Follow the SAME slope as the surface mesh's bottom edge - no flattening
+        float top1 = y1 + texScale;
+        float top2 = y2 + texScale;
+
+        if (top1 >= bottom && top2 >= bottom) continue;
+
+        mesh.append(sf::Vertex(sf::Vector2f(x1, top1), undergroundColor));
+        mesh.append(sf::Vertex(sf::Vector2f(x2, top2), undergroundColor));
+        mesh.append(sf::Vertex(sf::Vector2f(x2, bottom), undergroundColor));
+        mesh.append(sf::Vertex(sf::Vector2f(x1, bottom), undergroundColor));
+    }
     return mesh;
 }

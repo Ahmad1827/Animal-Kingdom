@@ -1,33 +1,32 @@
 #include "world/Decoration.h"
 #include "world/SeedManager.h"
+#include "core/VisualConfig.h"
 
 Decoration::Decoration(float x, float y, int type, uint32_t seed, sf::Texture& texture) : decorType(type) {
     sprite.setTexture(texture);
     
-    float width = 32.f;
-    float height = 32.f;
+    // 0=Grass, 1=Flower, 2=Fern map to BUSH_RECT in this basic pack implementation
+    // 3=Rock maps to ROCK_RECT
+    // 4=Log maps to a rotated or scaled trunk slice
     
-    if (type == 0) { width = 20.f; height = 15.f; }
-    else if (type == 1) { width = 10.f; height = 25.f; }
-    else if (type == 2) { width = 40.f; height = 30.f; }
-    else if (type == 3) { width = 30.f; height = 15.f; }
-    else if (type == 4) { width = 80.f; height = 18.f; }
-
-    sprite.setTextureRect(sf::IntRect(0, 0, static_cast<int>(width), static_cast<int>(height)));
+    sf::IntRect sourceRect = VisualConfig::DECOR_BUSH;
+    if (type == 3) sourceRect = VisualConfig::DECOR_ROCK;
+    if (type == 4) sourceRect = VisualConfig::DECOR_ROCK; // Default fallback to rock if log isn't in pack
     
-    sprite.setOrigin(width / 2.f, height);
+    sprite.setTextureRect(sourceRect);
+    sprite.setOrigin(sourceRect.width / 2.f, sourceRect.height);
     sprite.setPosition(x, y);
 
-    if (type == 0) sprite.setColor(sf::Color(50, 180, 50));
-    else if (type == 1) sprite.setColor(sf::Color(200, 50, 50));
-    else if (type == 2) sprite.setColor(sf::Color(20, 100, 30));
-    else if (type == 3) sprite.setColor(sf::Color(100, 100, 100));
-    else if (type == 4) sprite.setColor(sf::Color(80, 50, 30));
+    // Add slight random scaling based on seed for variety
+    float scaleVar = SeedManager::getRandomFloat(seed, 0.8f, 1.2f);
+    sprite.setScale(scaleVar, scaleVar);
 
-    collisionBounds = sf::FloatRect(x - width / 2.f, y - height, width, height);
+    collisionBounds = sf::FloatRect(x - (sourceRect.width * scaleVar) / 2.f, y - (sourceRect.height * scaleVar), sourceRect.width * scaleVar, sourceRect.height * scaleVar);
 }
 
 void Decoration::update(float dt) {}
-void Decoration::draw(sf::RenderWindow& window) const { window.draw(sprite); }
+void Decoration::draw(sf::RenderWindow& window) const { 
+    window.draw(sprite); 
+}
 sf::FloatRect Decoration::getBounds() const { return collisionBounds; }
 sf::Vector2f Decoration::getOrigin() const { return sprite.getOrigin(); }

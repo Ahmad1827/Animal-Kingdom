@@ -10,12 +10,16 @@ void WorldManager::update(float dt, const sf::FloatRect& preloadBounds, const sf
 
 void WorldManager::draw(sf::RenderWindow& window, const sf::FloatRect& viewBounds) const {
     ProfilerStats dummyProfiler;
-    chunkManager->drawBackground(window, viewBounds, true, dummyProfiler);
+    static sf::Texture dummyTilesetTex;
+    if (dummyTilesetTex.getSize().x == 0) {
+        dummyTilesetTex.create(32, 32);
+    }
+    chunkManager->drawBackground(window, viewBounds, true, dummyProfiler, dummyTilesetTex);
     chunkManager->drawGeometry(window, viewBounds, dummyProfiler);
 }
 
-void WorldManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler) const {
-    chunkManager->drawBackground(window, viewBounds, showFoliage, profiler);
+void WorldManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
+    chunkManager->drawBackground(window, viewBounds, showFoliage, profiler, tileset);
 }
 
 void WorldManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {

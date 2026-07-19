@@ -13,4 +13,5 @@ private:
 public:
     Game();
     void run();
+    AssetManager& getAssetManager() { return assetManager; }
 };

@@ -13,6 +13,9 @@ class Tree : public WorldObject {
 private:
     sf::FloatRect totalBounds;
     sf::FloatRect trunkBounds;
+
+    sf::Sprite trunkSprite;
+    std::vector<sf::Sprite> branchSprites;
     
     std::vector<BranchData> branchData;
     std::vector<VineData> vineData;
@@ -25,8 +28,8 @@ private:
     void appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, float radius, sf::Color color);
 
 public:
-    Tree(float x, float y, float width, float height, sf::Color trunkColor);
-    void addBranch(float yOffset, float width, bool rightSide, sf::Color color);
+    Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture);
+    void addBranch(float yOffset, float width, bool rightSide, sf::Color color, sf::Texture& decorTexture);
     void addVine(float xOffset, float yOffset, float length);
     void buildCanopy(uint32_t& seed, float baseRadius, float yOffset, sf::Color color, int clusterCount);
     void initDynamicMesh(); // Pre-allocates vertex arrays to prevent render-loop reallocations

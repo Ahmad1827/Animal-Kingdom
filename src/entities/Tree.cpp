@@ -1,12 +1,21 @@
 #include "entities/Tree.h"
 #include "world/SeedManager.h"
 #include <cmath>
+#include "core/VisualConfig.h"
+#include <algorithm>
 
-Tree::Tree(float x, float y, float width, float height, sf::Color trunkColor) 
-    : staticMesh(sf::Triangles), dynamicMesh(sf::Triangles) {
-    trunkBounds = sf::FloatRect(x, y - height, width, height);
+Tree::Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture) {
+    trunkBounds = sf::FloatRect(x - width / 2.f, y - height, width, height);
     totalBounds = trunkBounds;
-    appendQuad(staticMesh, trunkBounds, trunkColor);
+
+    trunkSprite.setTexture(decorTexture);
+    trunkSprite.setTextureRect(VisualConfig::DECOR_TREE);
+    trunkSprite.setOrigin(VisualConfig::DECOR_TREE.width / 2.f, VisualConfig::DECOR_TREE.height);
+    trunkSprite.setPosition(x, y);
+    
+    // FIX: Uniform scaling to preserve pixel art aspect ratio!
+    float scale = height / VisualConfig::DECOR_TREE.height;
+    trunkSprite.setScale(scale, scale); 
 }
 
 void Tree::appendQuad(sf::VertexArray& mesh, const sf::FloatRect& rect, sf::Color color) {
@@ -29,19 +38,34 @@ void Tree::appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, floa
     }
 }
 
-void Tree::addBranch(float yOffset, float width, bool rightSide, sf::Color color) {
-    float branchHeight = 16.f; 
-    float branchX = rightSide ? trunkBounds.left + trunkBounds.width : trunkBounds.left - width;
-    float branchY = trunkBounds.top + trunkBounds.height - yOffset;
-    
-    sf::FloatRect bBounds(branchX, branchY, width, branchHeight);
-    branchData.push_back({bBounds});
-    appendQuad(staticMesh, bBounds, color);
+void Tree::addBranch(float yOffset, float width, bool rightSide, sf::Color color, sf::Texture& decorTexture) {
+    float startX = trunkBounds.left + (rightSide ? trunkBounds.width : 0.f);
+    float bHeight = 45.f; // taller footprint so the bush isn't squashed into a sliver
 
-    // Expand total bounds
-    if (bBounds.left < totalBounds.left) { totalBounds.width += (totalBounds.left - bBounds.left); totalBounds.left = bBounds.left; }
-    if (bBounds.top < totalBounds.top) { totalBounds.height += (totalBounds.top - bBounds.top); totalBounds.top = bBounds.top; }
-    if (bBounds.left + bBounds.width > totalBounds.left + totalBounds.width) totalBounds.width = (bBounds.left + bBounds.width) - totalBounds.left;
+    sf::FloatRect branchRect(rightSide ? startX : startX - width, trunkBounds.top + trunkBounds.height - yOffset, width, bHeight);
+    branchData.push_back({branchRect}); // FIX: was never recorded -> branch collision was dead code
+
+    // Tile several bush sprites at a UNIFORM scale (no stretching) so it reads as a
+    // leafy cluster instead of one squashed streak.
+    float bushW = static_cast<float>(VisualConfig::DECOR_BUSH.width);
+    float bushH = static_cast<float>(VisualConfig::DECOR_BUSH.height);
+    float uniformScale = bHeight / bushH;
+    float drawnW = bushW * uniformScale;
+
+    int count = std::max(1, static_cast<int>(std::ceil(width / (drawnW * 0.7f)))); // slight overlap
+    float step = (count > 1) ? (width - drawnW) / (count - 1) : 0.f;
+
+    for (int i = 0; i < count; ++i) {
+        float localX = rightSide ? (startX + i * step) : (startX - width + i * step);
+
+        sf::Sprite bSprite(decorTexture);
+        bSprite.setTextureRect(VisualConfig::DECOR_BUSH);
+        bSprite.setOrigin(bushW / 2.f, bushH / 2.f);
+        bSprite.setPosition(localX + drawnW / 2.f, trunkBounds.top + trunkBounds.height - yOffset + bHeight / 2.f);
+        bSprite.setScale(uniformScale, uniformScale);
+
+        branchSprites.push_back(bSprite);
+    }
 }
 
 void Tree::addVine(float xOffset, float yOffset, float length) {
@@ -145,8 +169,13 @@ void Tree::drawCanopy(sf::RenderWindow& window, const sf::FloatRect& viewBounds,
 }
 
 void Tree::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
-    window.draw(staticMesh);
-    profiler.objectsRendered++;
+    window.draw(trunkSprite);
+    for (const auto& bs : branchSprites) {
+        window.draw(bs);
+    }
+    if (dynamicMesh.getVertexCount() > 0) window.draw(dynamicMesh);
+    
+    profiler.objectsRendered += 1 + branchSprites.size() + (dynamicMesh.getVertexCount() > 0 ? 1 : 0);
 }
 
 sf::FloatRect Tree::getBounds() const { return totalBounds; }

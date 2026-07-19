@@ -2,6 +2,11 @@
 #include "states/PlayState.h"
 
 Game::Game() : window(sf::VideoMode(1280, 720), "Ape Dynasty") {
+    assetManager.loadTexture("bg1", "assets/sprites/BG1.png", true);
+    assetManager.loadTexture("bg2", "assets/sprites/BG2.png", true);
+    assetManager.loadTexture("bg3", "assets/sprites/BG3.png", true);
+    assetManager.loadTexture("tileset", "assets/sprites/Tileset.png", true);
+    assetManager.loadTexture("decors", "assets/sprites/Decors.png", false);
     window.setFramerateLimit(60);
     stateMachine.addState(std::make_unique<PlayState>(this));
 }

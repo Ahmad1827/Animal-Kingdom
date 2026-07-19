@@ -22,8 +22,8 @@ void WorldManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& v
     chunkManager->drawGeometry(window, viewBounds, profiler);
 }
 
-void WorldManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, bool b1, bool b2, bool b3) const {
-    chunkManager->drawDebug(window, viewBounds, preloadBounds, unloadBounds, b1, b2, b3);
+void WorldManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, DebugOverlay* debugOverlay) const {
+    chunkManager->drawDebug(window, viewBounds, preloadBounds, unloadBounds, debugOverlay);
 }
 
 float WorldManager::getTerrainHeight(float x) const {

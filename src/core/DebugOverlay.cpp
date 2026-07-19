@@ -1,7 +1,7 @@
 #include "core/DebugOverlay.h"
 #include <cmath>
 
-DebugOverlay::DebugOverlay() : isVisible(false), fontLoaded(false), updateTimer(0.f), showChunkBorders(false), showRegions(false), showHeatmaps(false), showFoliage(true), showProfiler(false), showEngineInternals(false) {
+DebugOverlay::DebugOverlay() : isVisible(false), fontLoaded(false), updateTimer(0.f), showChunkBorders(false), showRegions(false), showHeatmaps(false), showFoliage(true), showProfiler(false), showEngineInternals(false), showGenerationDebug(false) {
     if (font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")) {
         fontLoaded = true;
     } else if (font.loadFromFile("assets/fonts/arial.ttf")) {
@@ -25,6 +25,8 @@ void DebugOverlay::toggleHeatmaps() { showHeatmaps = !showHeatmaps; }
 void DebugOverlay::toggleFoliage() { showFoliage = !showFoliage; }
 void DebugOverlay::toggleProfiler() { showProfiler = !showProfiler; }
 void DebugOverlay::toggleEngineInternals() { showEngineInternals = !showEngineInternals; }
+void DebugOverlay::toggleGenerationDebug() { showGenerationDebug = !showGenerationDebug; }
+bool DebugOverlay::getShowGenerationDebug() const { return showGenerationDebug; }
 
 void DebugOverlay::updateInfo(float dt, int chunkX, float pX, float pY, uint32_t seed, const std::string& biomeName, const ProfilerStats& profiler) {
     if (!isVisible || !fontLoaded) return;

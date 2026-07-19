@@ -1,32 +1,32 @@
 #pragma once
-#include <SFML/Graphics.hpp>
-#include <cstdint>
 #include <string>
+#include <SFML/Graphics.hpp>
 
 enum class RegionType {
+    YoungForest,
     OldGrowth,
     Clearing,
-    YoungForest,
-    AncientGrove,
+    RockyArea,
     DenseJungle
 };
 
 struct BiomeProperties {
     std::string name;
-    int minTrees;
-    int maxTrees;
-    int minDecorations;
-    int maxDecorations;
-    float treeSizeMultiplier;
-    int branchCountModifier;
-    float canopyDensity;
     sf::Color groundColor;
     sf::Color undergroundColor;
-    sf::Color trunkColorMin;
-    sf::Color trunkColorMax;
-    sf::Color leafColorMin;
-    sf::Color leafColorMax;
     sf::Color debugColor;
+    
+    // Tuning Constants
+    float minTreeSpacing;
+    float maxTreeSpacing;
+    float treeSizeMultiplier;
+    float treeWidthBase;
+    int branchCountMin;
+    int branchCountMax;
+    float branchVerticalSpacing;
+    float canopyBaseRadius;
+    int decorationDensity;
+    int preferredDecorationType; // 0=Grass, 1=Flower, 2=Fern, 3=Rock, 4=Log
 };
 
 class Biome {

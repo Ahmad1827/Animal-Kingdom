@@ -31,7 +31,7 @@ public:
     void drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler) const;
     void drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const;
     void updateSway(float globalTime, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector);
-    
+    const std::vector<Decoration>& getDecorations() const { return decorations; }
     const std::vector<Tree>& getTrees() const;
     RegionType getRegionType() const;
     ChunkPos getPos() const;

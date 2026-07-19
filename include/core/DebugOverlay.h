@@ -17,10 +17,13 @@ private:
     bool showFoliage;
     bool showProfiler;
     bool showEngineInternals;
+    bool showGenerationDebug;
 
 public:
     DebugOverlay();
     void toggleEngineInternals();
+    void toggleGenerationDebug();
+    bool getShowGenerationDebug() const;
     void toggle();
     void toggleBorders();
     void toggleRegions();

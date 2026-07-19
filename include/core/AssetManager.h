@@ -1,12 +1,17 @@
 #pragma once
 #include <SFML/Graphics.hpp>
-#include <map>
+#include <SFML/Audio.hpp>
+#include <unordered_map>
 #include <string>
+#include <memory>
 
 class AssetManager {
 private:
-    std::map<std::string, sf::Texture> textures;
+    std::unordered_map<std::string, std::unique_ptr<sf::Texture>> textures;
+    sf::Texture placeholderTexture;
 
 public:
-    sf::Texture& getTexture(const std::string& filepath, sf::Vector2u fallbackSize, sf::Color fallbackColor);
+    AssetManager();
+    void loadTexture(const std::string& name, const std::string& filename);
+    sf::Texture& getTexture(const std::string& name);
 };

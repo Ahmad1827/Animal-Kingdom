@@ -1,5 +1,6 @@
 #include "world/ChunkManager.h"
 #include "world/TerrainGenerator.h"
+#include "core/DebugOverlay.h"
 #include <cmath>
 #include <chrono>
 
@@ -146,7 +147,9 @@ void ChunkManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& v
     }
 }
 
-void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, bool showBorders, bool showRegions, bool showHeatmaps) const {
+void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, DebugOverlay* debugOverlay) const {
+    if (!debugOverlay) return;
+    
     // 1. Draw view bounds outline
     sf::RectangleShape cam(sf::Vector2f(viewBounds.width, viewBounds.height));
     cam.setPosition(viewBounds.left, viewBounds.top);
@@ -177,7 +180,7 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
         float startX = cb.left;
         float startY = cb.top;
         
-        if (showBorders) {
+        if (debugOverlay->getShowBorders()) {
             sf::RectangleShape border({chunkWidth, chunkHeight});
             border.setPosition(startX, startY);
             border.setFillColor(sf::Color::Transparent);
@@ -186,7 +189,7 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
             window.draw(border);
         }
         
-        if (showRegions) {
+        if (debugOverlay->getShowRegions()) {
             BiomeProperties props = Biome::getProperties(pair.second->getRegionType());
             sf::RectangleShape regionOverlay({chunkWidth, chunkHeight});
             regionOverlay.setPosition(startX, startY);
@@ -194,7 +197,7 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
             window.draw(regionOverlay);
         }
 
-        if (showHeatmaps) {
+        if (debugOverlay->getShowHeatmaps()) {
             for (const auto& tree : pair.second->getTrees()) {
                 sf::RectangleShape tb;
                 sf::FloatRect trBounds = tree.getBounds();
@@ -204,6 +207,41 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
                 tb.setOutlineColor(sf::Color::Red);
                 tb.setOutlineThickness(1.f);
                 window.draw(tb);
+            }
+        }
+        
+        // F10 Generation Tuning Visualization
+        if (debugOverlay->getShowGenerationDebug()) {
+            BiomeProperties props = Biome::getProperties(pair.second->getRegionType());
+            for (const auto& tree : pair.second->getTrees()) {
+                sf::FloatRect trBounds = tree.getTrunkBounds();
+                
+                sf::CircleShape anchor(4.f);
+                anchor.setFillColor(sf::Color::Yellow);
+                anchor.setOrigin(4.f, 4.f);
+                anchor.setPosition(trBounds.left + trBounds.width/2.f, trBounds.top + trBounds.height);
+                window.draw(anchor);
+                
+                sf::RectangleShape exclusion({props.minTreeSpacing, 10.f});
+                exclusion.setPosition(trBounds.left + trBounds.width/2.f - props.minTreeSpacing/2.f, trBounds.top + trBounds.height);
+                exclusion.setFillColor(sf::Color(255, 0, 255, 100));
+                window.draw(exclusion);
+            }
+
+            for (const auto& decor : pair.second->getDecorations()) {
+                sf::FloatRect cBounds = decor.getBounds();
+                sf::RectangleShape cb({cBounds.width, cBounds.height});
+                cb.setPosition(cBounds.left, cBounds.top);
+                cb.setFillColor(sf::Color::Transparent);
+                cb.setOutlineColor(sf::Color::Cyan);
+                cb.setOutlineThickness(1.f);
+                window.draw(cb);
+
+                sf::CircleShape dAnchor(2.f);
+                dAnchor.setFillColor(sf::Color::Red);
+                dAnchor.setOrigin(2.f, 2.f);
+                dAnchor.setPosition(cBounds.left + cBounds.width / 2.f, cBounds.top + cBounds.height);
+                window.draw(dAnchor);
             }
         }
     }

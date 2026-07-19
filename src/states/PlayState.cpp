@@ -66,6 +66,11 @@ void PlayState::update(float dt) {
     if (f9Pressed && !f9PressedLastFrame) debugOverlay->toggleEngineInternals();
     f9PressedLastFrame = f9Pressed;
 
+    static bool f10PressedLastFrame = false;
+    bool f10Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F10);
+    if (f10Pressed && !f10PressedLastFrame) debugOverlay->toggleGenerationDebug();
+    f10PressedLastFrame = f10Pressed;
+
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
     else cameraManager->setZoom(1.35f);
@@ -216,9 +221,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                 cameraManager->getViewBounds(), 
                 cameraManager->getPreloadBounds(player->getVelocity()), 
                 cameraManager->getUnloadBounds(),
-                debugOverlay->getShowBorders(), 
-                debugOverlay->getShowRegions(), 
-                debugOverlay->getShowHeatmaps());
+                debugOverlay.get());
         }
     }
     

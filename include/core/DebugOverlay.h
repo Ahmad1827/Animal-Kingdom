@@ -16,9 +16,11 @@ private:
     bool showHeatmaps;
     bool showFoliage;
     bool showProfiler;
+    bool showEngineInternals;
 
 public:
     DebugOverlay();
+    void toggleEngineInternals();
     void toggle();
     void toggleBorders();
     void toggleRegions();

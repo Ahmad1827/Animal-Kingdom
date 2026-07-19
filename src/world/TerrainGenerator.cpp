@@ -10,19 +10,29 @@ float TerrainGenerator::getTerrainHeight(float x, uint32_t worldSeed) {
     return base + macro + detail + micro;
 }
 
-sf::VertexArray TerrainGenerator::generateTerrainMesh(float startX, float width, float resolution, uint32_t worldSeed, sf::Color topColor, sf::Color bottomColor) {
-    int points = static_cast<int>(width / resolution) + 1;
-    sf::VertexArray mesh(sf::TriangleStrip, points * 2);
+sf::VertexArray TerrainGenerator::generateTerrainMesh(const sf::FloatRect& chunkBounds, float resolution, uint32_t worldSeed, sf::Color topColor, sf::Color bottomColor) {
+    sf::VertexArray mesh(sf::TriangleStrip);
+
+    int points = static_cast<int>(chunkBounds.width / resolution) + 1;
+    bool hasVisibleTerrain = false;
 
     for (int i = 0; i < points; ++i) {
-        float currentX = startX + (i * resolution);
-        float currentY = getTerrainHeight(currentX, worldSeed);
+        float currentX = chunkBounds.left + (i * resolution);
+        float surfaceY = getTerrainHeight(currentX, worldSeed);
 
-        mesh[i * 2].position = sf::Vector2f(currentX, currentY);
-        mesh[i * 2].color = topColor;
+        // If the entire chunk is in the sky above the surface, draw nothing.
+        if (chunkBounds.top + chunkBounds.height < surfaceY) continue;
 
-        mesh[i * 2 + 1].position = sf::Vector2f(currentX, currentY + 1500.f);
-        mesh[i * 2 + 1].color = bottomColor;
+        hasVisibleTerrain = true;
+        
+        // Clamp top to surface, or chunk top if underground
+        float topY = std::max(surfaceY, chunkBounds.top);
+        float bottomY = chunkBounds.top + chunkBounds.height;
+
+        mesh.append(sf::Vertex(sf::Vector2f(currentX, topY), topColor));
+        mesh.append(sf::Vertex(sf::Vector2f(currentX, bottomY), bottomColor));
     }
+
+    if (!hasVisibleTerrain) mesh.clear();
     return mesh;
 }

@@ -81,6 +81,8 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         float cOff = SeedManager::getRandomFloat(chunkSeed, heightBase - 50.f, heightBase + 20.f);
         int clusters = static_cast<int>(2 * biome.canopyDensity) + SeedManager::getRandomInt(chunkSeed, 1, 3);
         tree.buildCanopy(chunkSeed, radius, cOff, leafColor, clusters);
+
+        tree.initDynamicMesh(); // Lock geometry array allocations on generation thread
         trees.push_back(tree);
     }
     return trees;

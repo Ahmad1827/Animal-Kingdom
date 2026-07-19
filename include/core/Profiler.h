@@ -6,6 +6,8 @@ struct ProfilerStats {
     float updateTime = 0.f;
     float renderTime = 0.f;
     float collisionTime = 0.f;
+    float asyncLoadTime = 0.f;
+    float particleTime = 0.f;
     
     float lastChunkGenTime = 0.f;
     float lastTerrainGenTime = 0.f;
@@ -16,6 +18,12 @@ struct ProfilerStats {
     int chunksLoaded = 0;
     int chunksGenerating = 0;
     int chunksCached = 0;
+    int chunksQueuedForInsertion = 0;
+    
+    std::string weatherString = "";
+    std::string seasonString = "";
+    size_t particleCount = 0;
+    float timeOfDay = 0.f;
 
     void resetPerFrame() {
         objectsRendered = 0;
@@ -23,5 +31,6 @@ struct ProfilerStats {
         chunksLoaded = 0;
         chunksGenerating = 0;
         chunksCached = 0;
+        chunksQueuedForInsertion = 0;
     }
 };

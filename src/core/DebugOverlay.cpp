@@ -1,6 +1,7 @@
 #include "core/DebugOverlay.h"
+#include <cmath>
 
-DebugOverlay::DebugOverlay() : isVisible(false), fontLoaded(false), updateTimer(0.f), showChunkBorders(false), showRegions(false), showHeatmaps(false), showFoliage(true), showProfiler(false) {
+DebugOverlay::DebugOverlay() : isVisible(false), fontLoaded(false), updateTimer(0.f), showChunkBorders(false), showRegions(false), showHeatmaps(false), showFoliage(true), showProfiler(false), showEngineInternals(false) {
     if (font.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf")) {
         fontLoaded = true;
     } else if (font.loadFromFile("assets/fonts/arial.ttf")) {
@@ -23,6 +24,7 @@ void DebugOverlay::toggleRegions() { showRegions = !showRegions; }
 void DebugOverlay::toggleHeatmaps() { showHeatmaps = !showHeatmaps; }
 void DebugOverlay::toggleFoliage() { showFoliage = !showFoliage; }
 void DebugOverlay::toggleProfiler() { showProfiler = !showProfiler; }
+void DebugOverlay::toggleEngineInternals() { showEngineInternals = !showEngineInternals; }
 
 void DebugOverlay::updateInfo(float dt, int chunkX, float pX, float pY, uint32_t seed, const std::string& biomeName, const ProfilerStats& profiler) {
     if (!isVisible || !fontLoaded) return;
@@ -42,14 +44,28 @@ void DebugOverlay::updateInfo(float dt, int chunkX, float pX, float pY, uint32_t
             info += "Update Time: " + std::to_string(static_cast<int>(profiler.updateTime * 1000.f)) + " ms\n";
             info += "Render Time: " + std::to_string(static_cast<int>(profiler.renderTime * 1000.f)) + " ms\n";
             info += "Collision Time: " + std::to_string(static_cast<int>(profiler.collisionTime * 1000.f)) + " ms\n";
+            info += "Async Dispatch: " + std::to_string(static_cast<int>(profiler.asyncLoadTime * 1000.f)) + " ms\n";
+            info += "Particle Update: " + std::to_string(static_cast<int>(profiler.particleTime * 1000.f)) + " ms\n";
+            info += "Objects Rendered: " + std::to_string(profiler.objectsRendered) + "\n";
+            info += "Objects Culled: " + std::to_string(profiler.objectsCulled) + "\n";
+        }
+        
+        if (showEngineInternals) {
+            info += "--- ENGINE INTERNALS (F9) ---\n";
             info += "Chunk Gen Time: " + std::to_string(static_cast<int>(profiler.lastChunkGenTime * 1000.f)) + " ms\n";
             info += "Terrain Gen: " + std::to_string(static_cast<int>(profiler.lastTerrainGenTime * 1000.f)) + " ms\n";
             info += "Tree Gen: " + std::to_string(static_cast<int>(profiler.lastTreeGenTime * 1000.f)) + " ms\n";
-            info += "Loaded Chunks: " + std::to_string(profiler.chunksLoaded) + "\n";
-            info += "Generating: " + std::to_string(profiler.chunksGenerating) + "\n";
+            info += "Loaded Chunks (2D): " + std::to_string(profiler.chunksLoaded) + "\n";
+            info += "Generating (Threads): " + std::to_string(profiler.chunksGenerating) + "\n";
+            info += "Pending Insertion Queue: " + std::to_string(profiler.chunksQueuedForInsertion) + "\n";
             info += "Cached Chunks: " + std::to_string(profiler.chunksCached) + "\n";
-            info += "Objects Rendered: " + std::to_string(profiler.objectsRendered) + "\n";
-            info += "Objects Culled: " + std::to_string(profiler.objectsCulled) + "\n";
+            info += "Cam Rect Center: " + std::to_string(static_cast<int>(pX)) + ", " + std::to_string(static_cast<int>(pY)) + "\n";
+            info += "Vertical Grid Y: " + std::to_string(static_cast<int>(std::floor(pY / 2000.f))) + "\n";
+            info += "\n--- ATMOSPHERE ---\n";
+            info += "Weather: " + profiler.weatherString + "\n";
+            info += "Season: " + profiler.seasonString + "\n";
+            info += "Particles Active: " + std::to_string(profiler.particleCount) + "\n";
+            info += "Time (0-1): " + std::to_string(profiler.timeOfDay) + "\n";
         }
 
         text.setString(info);

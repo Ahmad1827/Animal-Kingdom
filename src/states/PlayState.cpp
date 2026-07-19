@@ -61,32 +61,32 @@ void PlayState::update(float dt) {
     if (f8Pressed && !f8PressedLastFrame) debugOverlay->toggleProfiler();
     f8PressedLastFrame = f8Pressed;
 
+    static bool f9PressedLastFrame = false;
+    bool f9Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F9);
+    if (f9Pressed && !f9PressedLastFrame) debugOverlay->toggleEngineInternals();
+    f9PressedLastFrame = f9Pressed;
+
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
     else cameraManager->setZoom(1.35f);
 
     if (player) {
+        // 1. Input & Physics
         player->update(dt);
-
-        cameraManager->update(dt, player->getPosition(), player->getVelocity(), player->getState());
-
-        sf::FloatRect preloadBounds = cameraManager->getPreloadBounds(player->getVelocity());
-        sf::FloatRect unloadBounds = cameraManager->getUnloadBounds();
-
-        if (worldManager) {
-            worldManager->update(dt, preloadBounds, unloadBounds, profiler);
-        }
 
         sf::Clock collisionClock;
         sf::FloatRect playerBounds = player->getBounds();
         sf::FloatRect platformBounds;
         
+        // 2. Collision Resolution BEFORE Camera Update (Fixes camera jitter)
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::HangingBranch && player->getState() != ApeState::ClimbingVine) {
             player->setState(ApeState::Airborne);
         }
 
         float playerCenterX = playerBounds.left + (playerBounds.width / 2.f);
         float groundHeight = worldManager->getTerrainHeight(playerCenterX);
+
+        ApeState previousState = player->getState();
 
         if (player->getVelocity().y > 0.f && (playerBounds.top + playerBounds.height) >= groundHeight) {
             player->setPosition(player->getPosition().x, groundHeight - playerBounds.height);
@@ -101,6 +101,16 @@ void PlayState::update(float dt) {
                 player->setVelocity(player->getVelocity().x, 0.f);
                 player->setState(ApeState::Grounded);
             }
+        }
+
+        // Environmental Physical Impact (Leaves fall on hard landing)
+        if (previousState == ApeState::Airborne && player->getState() == ApeState::Grounded && std::abs(player->getVelocity().y) > 300.f) {
+            particleSystem->spawnImpactLeaves(player->getPosition() + sf::Vector2f(playerBounds.width/2.f, playerBounds.height), 8);
+        }
+        
+        // Vines swing when player moves through them
+        if (std::abs(player->getVelocity().x) > 10.f) {
+            worldManager->disturbEnvironment(playerBounds, player->getVelocity().x);
         }
 
         float trunkCenter = 0.f;
@@ -144,14 +154,37 @@ void PlayState::update(float dt) {
         
         profiler.collisionTime = collisionClock.getElapsedTime().asSeconds();
 
-        worldManager->updateSway(dt);
+        // 3. Camera Update AFTER precise player positioning
+        cameraManager->update(dt, player->getPosition(), player->getVelocity(), player->getState());
+
+        // 4. Streaming based on exactly resolved camera bounds
+        sf::FloatRect preloadBounds = cameraManager->getPreloadBounds(player->getVelocity());
+        sf::FloatRect unloadBounds = cameraManager->getUnloadBounds();
+
+        if (worldManager) {
+            worldManager->update(dt, preloadBounds, unloadBounds, profiler);
+        }
+
+        // 5. Sway and Particle Updates
+        // 5. Sway and Particle Updates
+        // 5. Sway and Particle Updates
+        sf::Clock pClock;
         weatherManager->update(dt);
-        particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
-        audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
+        worldManager->updateSway(dt, cameraManager->getViewBounds(), weatherManager->getWindVector());
+        particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
+        profiler.particleTime = pClock.getElapsedTime().asSeconds();
         
+        audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
         background->update(cameraManager->getView().getCenter().x, cameraManager->getView().getCenter().y);
         lightingManager->update(dt, cameraManager->getView(), worldClock->getTimeOfDay(), weatherManager->getFogDensity());
 
+        // Debug info rendering
+        profiler.weatherString = weatherManager->getWeatherString();
+        profiler.seasonString = weatherManager->getSeasonString();
+        profiler.particleCount = particleSystem->getParticleCount();
+        profiler.timeOfDay = worldClock->getTimeOfDay();
+
+        // Debug info rendering
         if (debugOverlay->getVisible()) {
             ChunkManager* cm = worldManager->getChunkManager();
             std::string regionName = Biome::getProperties(cm->getCurrentRegion(player->getPosition().x)).name;

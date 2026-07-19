@@ -75,11 +75,14 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
 
     // 5. Apply Movement
     sf::Vector2f currentCenter = view.getCenter();
-    sf::Vector2f newCenter;
-    newCenter.x = currentCenter.x + (idealPos.x - currentCenter.x) * currentLerpX * dt;
-    newCenter.y = currentCenter.y + (idealPos.y - currentCenter.y) * currentLerpY * dt;
+    // Frame-rate independent dampening formula
+    float tX = 1.0f - std::exp(-currentLerpX * dt);
+    float tY = 1.0f - std::exp(-currentLerpY * dt);
 
-    // 6. Screenshake & Zoom
+    sf::Vector2f newCenter;
+    newCenter.x = currentCenter.x + (idealPos.x - currentCenter.x) * tX;
+    newCenter.y = currentCenter.y + (idealPos.y - currentCenter.y) * tY;
+
     if (shakeTrauma > 0.f) {
         shakeOffset.x = ((std::rand() % 100) / 50.f - 1.f) * shakeTrauma * 20.f;
         shakeOffset.y = ((std::rand() % 100) / 50.f - 1.f) * shakeTrauma * 20.f;
@@ -91,7 +94,12 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
 
     currentZoom += (targetZoom - currentZoom) * dt * 3.0f;
     view.setSize(1280.f * currentZoom, 720.f * currentZoom);
-    view.setCenter(newCenter + shakeOffset);
+    
+    sf::Vector2f finalCenter = newCenter + shakeOffset;
+    // Removed std::round(). Fractional coordinates are required for smooth interpolation.
+    // Integer-snapping the camera while world geometry updates via floating point 
+    // causes static geometry to desync by fractions of a pixel every frame, creating severe jitter.
+    view.setCenter(finalCenter.x, finalCenter.y);
 }
 
 void CameraManager::addShake(float amount) { shakeTrauma += amount; }

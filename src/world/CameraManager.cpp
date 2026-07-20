@@ -75,13 +75,16 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
 
     // 5. Apply Movement
     sf::Vector2f currentCenter = view.getCenter();
-    // Frame-rate independent dampening formula
     float tX = 1.0f - std::exp(-currentLerpX * dt);
     float tY = 1.0f - std::exp(-currentLerpY * dt);
 
     sf::Vector2f newCenter;
     newCenter.x = currentCenter.x + (idealPos.x - currentCenter.x) * tX;
     newCenter.y = currentCenter.y + (idealPos.y - currentCenter.y) * tY;
+
+    // FIX 1: Cut off Zeno's paradox micro-adjustments
+    if (std::abs(idealPos.x - newCenter.x) < 0.5f) newCenter.x = idealPos.x;
+    if (std::abs(idealPos.y - newCenter.y) < 0.5f) newCenter.y = idealPos.y;
 
     if (shakeTrauma > 0.f) {
         shakeOffset.x = ((std::rand() % 100) / 50.f - 1.f) * shakeTrauma * 20.f;
@@ -96,9 +99,11 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
     view.setSize(1280.f * currentZoom, 720.f * currentZoom);
     
     sf::Vector2f finalCenter = newCenter + shakeOffset;
-    // Removed std::round(). Fractional coordinates are required for smooth interpolation.
-    // Integer-snapping the camera while world geometry updates via floating point 
-    // causes static geometry to desync by fractions of a pixel every frame, creating severe jitter.
+    
+    // FIX 2: Floor the final camera coordinates to enforce strict pixel-perfect rendering
+    finalCenter.x = std::floor(finalCenter.x);
+    finalCenter.y = std::floor(finalCenter.y);
+    
     view.setCenter(finalCenter.x, finalCenter.y);
 }
 
@@ -134,4 +139,11 @@ sf::FloatRect CameraManager::getUnloadBounds() const {
     bounds.width += margin * 2.f;
     bounds.height += margin * 2.f;
     return bounds;
+}
+
+sf::Vector2f CameraManager::getIdealPosition() const {
+    sf::Vector2f ideal = anchorPos;
+    ideal.x += lookAheadOffset.x;
+    ideal.y -= 100.f;
+    return ideal;
 }

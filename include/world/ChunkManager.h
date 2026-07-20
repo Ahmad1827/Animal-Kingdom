@@ -12,6 +12,7 @@ private:
     float chunkWidth;
     float chunkHeight;
     uint32_t worldSeed;
+    sf::Texture& globalDecorTex;
     
     std::unordered_map<uint64_t, std::unique_ptr<Chunk>> chunks;
     std::unordered_map<uint64_t, std::unique_ptr<Chunk>> cachedChunks;
@@ -23,7 +24,7 @@ private:
     uint64_t getChunkKey(int x, int y) const;
 
 public:
-    ChunkManager(uint32_t seed);
+    ChunkManager(uint32_t seed, sf::Texture& decorTex);
     void update(const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, ProfilerStats& profiler);
     void drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const;
     void drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const;

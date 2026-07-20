@@ -32,6 +32,7 @@ public:
     void addShake(float amount);
     void setZoom(float zoom);
     
+    sf::Vector2f getIdealPosition() const;
     CameraTuning& getTuning();
     const sf::View& getView() const;
     sf::FloatRect getViewBounds() const;

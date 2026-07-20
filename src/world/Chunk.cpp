@@ -3,11 +3,11 @@
 #include "world/WorldGenerator.h"
 #include "world/SeedManager.h"
 
-Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed) : pos(pos) {
+Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Texture& decorTex) : pos(pos) {
     sf::Clock totalClock;
     
     bounds = sf::FloatRect(pos.x * width, pos.y * height, width, height);
-    uint32_t chunkSeed = SeedManager::getChunkSeed(worldSeed, pos.x) + pos.y; // Mix Y for local variance
+    uint32_t chunkSeed = SeedManager::getChunkSeed(worldSeed, pos.x) + pos.y;
     
     regionType = Biome::determineRegion(pos.x, worldSeed);
     BiomeProperties props = Biome::getProperties(regionType);
@@ -16,11 +16,11 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed) : pos(
     terrainMesh = TerrainGenerator::generateSurfaceMesh(bounds, 50.f, worldSeed);
     undergroundMesh = TerrainGenerator::generateUndergroundMesh(bounds, 50.f, worldSeed, props.undergroundColor);
     
-    // Procedural Water Body Generation (Water level at Y = 750)
     waterMesh.setPrimitiveType(sf::Quads);
     const float WATER_LEVEL = 750.f;
     float res = 50.f;
     int points = static_cast<int>(bounds.width / res);
+    
     for (int i = 0; i < points; ++i) {
         float x1 = bounds.left + (i * res);
         float x2 = x1 + res;
@@ -38,11 +38,11 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed) : pos(
     
     terrainGenTime = stepClock.restart().asSeconds();
     
-    // Expand generation area horizontally to catch trees that bleed into this chunk from neighbors
     float genStartX = bounds.left - 1000.f;
     float genWidth = bounds.width + 2000.f;
     
-    std::vector<Tree> candidateTrees = WorldGenerator::generateTrees(genStartX, genWidth, SeedManager::getChunkSeed(worldSeed, pos.x), worldSeed, props);
+    trees.reserve(20);
+    std::vector<Tree> candidateTrees = WorldGenerator::generateTrees(genStartX, genWidth, SeedManager::getChunkSeed(worldSeed, pos.x), worldSeed, props, decorTex);
     for (auto& tree : candidateTrees) {
         if (tree.getBounds().intersects(bounds)) {
             trees.push_back(std::move(tree));
@@ -50,7 +50,8 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed) : pos(
     }
     treeGenTime = stepClock.restart().asSeconds();
     
-    std::vector<Decoration> candidateDecs = WorldGenerator::generateDecorations(bounds.left, bounds.width, chunkSeed, worldSeed, props);
+    decorations.reserve(30);
+    std::vector<Decoration> candidateDecs = WorldGenerator::generateDecorations(bounds.left, bounds.width, chunkSeed, worldSeed, props, decorTex);
     for (auto& dec : candidateDecs) {
         if (dec.getBounds().intersects(bounds)) decorations.push_back(std::move(dec));
     }
@@ -79,7 +80,8 @@ void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBo
     if (!bounds.intersects(viewBounds)) return;
 
     if (undergroundMesh.getVertexCount() > 0) {
-        window.draw(undergroundMesh); // no texture -> flat color, always seamless
+        window.draw(undergroundMesh);
+        profiler.drawCalls++;
         profiler.objectsRendered++;
     }
 
@@ -87,6 +89,7 @@ void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBo
         sf::RenderStates states;
         states.texture = &tileset;
         window.draw(terrainMesh, states);
+        profiler.drawCalls++;
         profiler.objectsRendered++;
     }
 
@@ -94,6 +97,7 @@ void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBo
         sf::RenderStates waterStates;
         waterStates.texture = nullptr;
         window.draw(waterMesh, waterStates);
+        profiler.drawCalls++;
         profiler.objectsRendered++;
     }
 }
@@ -101,9 +105,18 @@ void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBo
 void Chunk::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
     if (!bounds.intersects(viewBounds)) return; 
 
+    for (const auto& dec : decorations) {
+        if (dec.getBounds().intersects(viewBounds)) {
+            dec.draw(window);
+            profiler.drawCalls++;
+            profiler.visibleDecorations++;
+        }
+    }
+
     for (const auto& tree : trees) {
         if (tree.getBounds().intersects(viewBounds)) {
             tree.drawGeometry(window, viewBounds, profiler);
+            profiler.visibleTrees++;
         } else profiler.objectsCulled++;
     }
 }

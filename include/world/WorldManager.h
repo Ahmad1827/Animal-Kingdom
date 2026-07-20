@@ -10,7 +10,8 @@ private:
     float swayTime;
 
 public:
-    WorldManager(uint32_t seed);
+    public:
+    WorldManager(uint32_t seed, sf::Texture& decorTex);
     void update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, ProfilerStats& profiler);
     void draw(sf::RenderWindow& window, const sf::FloatRect& viewBounds) const;
     void drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const;

@@ -12,7 +12,7 @@ void PlayState::init() {
     activeSeed = std::rand();
     background = std::make_unique<Background>(game->getAssetManager());
     player = std::make_unique<Ape>(0.f, 0.f);
-    worldManager = std::make_unique<WorldManager>(activeSeed);
+    worldManager = std::make_unique<WorldManager>(activeSeed, game->getAssetManager().getTexture("decors"));
     cameraManager = std::make_unique<CameraManager>(sf::Vector2f(1280.f, 720.f));
     lightingManager = std::make_unique<LightingManager>();
     weatherManager = std::make_unique<WeatherManager>();
@@ -21,7 +21,6 @@ void PlayState::init() {
     worldClock = std::make_unique<WorldClock>();
     debugOverlay = std::make_unique<DebugOverlay>();
     
-    // Set default day length fast for testing cycles
     worldClock->setMultiplier(50.f);
 }
 
@@ -34,7 +33,6 @@ void PlayState::update(float dt) {
     profiler.frameTime = dt * 1000.f;
     
     sf::Clock updateClock;
-
     worldClock->update(dt);
 
     bool f3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F3);
@@ -68,8 +66,14 @@ void PlayState::update(float dt) {
 
     static bool f10PressedLastFrame = false;
     bool f10Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F10);
-    if (f10Pressed && !f10PressedLastFrame) debugOverlay->toggleGenerationDebug();
+    if (f10Pressed && !f10PressedLastFrame) debugOverlay->toggleGenerationDebug(); // Or toggleProfiler based on your mapping
     f10PressedLastFrame = f10Pressed;
+
+    // F11 Toggle Integration
+    static bool f11PressedLastFrame = false;
+    bool f11Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F11);
+    if (f11Pressed && !f11PressedLastFrame) debugOverlay->toggleKinematicsDebug();
+    f11PressedLastFrame = f11Pressed;
 
     background->update(
     cameraManager->getViewBounds().left + cameraManager->getViewBounds().width / 2.f,
@@ -83,14 +87,16 @@ void PlayState::update(float dt) {
     else cameraManager->setZoom(1.35f);
 
     if (player) {
-        // 1. Input & Physics
         player->update(dt);
 
-        sf::Clock collisionClock;
+        sf::Clock physicsClock;
         sf::FloatRect playerBounds = player->getBounds();
         sf::FloatRect platformBounds;
         
-        // 2. Collision Resolution BEFORE Camera Update (Fixes camera jitter)
+        // 1. CAPTURE STATE BEFORE MODIFICATION
+        bool wasGrounded = (player->getState() == ApeState::Grounded);
+
+        // 2. FORCED RESET
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::HangingBranch && player->getState() != ApeState::ClimbingVine) {
             player->setState(ApeState::Airborne);
         }
@@ -98,15 +104,26 @@ void PlayState::update(float dt) {
         float playerCenterX = playerBounds.left + (playerBounds.width / 2.f);
         float groundHeight = worldManager->getTerrainHeight(playerCenterX);
 
-        ApeState previousState = player->getState();
+        float bottomY = playerBounds.top + playerBounds.height;
+        float distanceToGround = groundHeight - bottomY;
 
-        if (player->getVelocity().y > 0.f && (playerBounds.top + playerBounds.height) >= groundHeight) {
+        // 3. SLOPE STICKINESS RESOLUTION
+        if (player->getVelocity().y >= 0.f && bottomY >= groundHeight) {
+            // Direct collision (Uphill or falling onto flat ground)
+            player->setPosition(player->getPosition().x, groundHeight - playerBounds.height);
+            player->setVelocity(player->getVelocity().x, 0.f);
+            player->setState(ApeState::Grounded);
+            player->setDroppingThrough(false);
+        } 
+        else if (wasGrounded && player->getVelocity().y >= 0.f && distanceToGround > 0.f && distanceToGround < 25.f) {
+            // Downhill Stickiness: Snap down to the terrain if it falls out from under us
             player->setPosition(player->getPosition().x, groundHeight - playerBounds.height);
             player->setVelocity(player->getVelocity().x, 0.f);
             player->setState(ApeState::Grounded);
             player->setDroppingThrough(false);
         }
 
+        // 4. ONE WAY PLATFORMS
         if (player->getState() == ApeState::Airborne && !player->isDroppingThrough()) {
             if (worldManager->checkOneWayCollision(playerBounds, player->getVelocity(), dt, platformBounds)) {
                 player->setPosition(player->getPosition().x, platformBounds.top - playerBounds.height);
@@ -115,12 +132,11 @@ void PlayState::update(float dt) {
             }
         }
 
-        // Environmental Physical Impact (Leaves fall on hard landing)
-        if (previousState == ApeState::Airborne && player->getState() == ApeState::Grounded && std::abs(player->getVelocity().y) > 300.f) {
+        // 5. PHYSICAL IMPACTS
+        if (!wasGrounded && player->getState() == ApeState::Grounded && std::abs(player->getVelocity().y) > 300.f) {
             particleSystem->spawnImpactLeaves(player->getPosition() + sf::Vector2f(playerBounds.width/2.f, playerBounds.height), 8);
         }
         
-        // Vines swing when player moves through them
         if (std::abs(player->getVelocity().x) > 10.f) {
             worldManager->disturbEnvironment(playerBounds, player->getVelocity().x);
         }
@@ -164,12 +180,12 @@ void PlayState::update(float dt) {
             }
         }
         
-        profiler.collisionTime = collisionClock.getElapsedTime().asSeconds();
+        profiler.physicsTime = physicsClock.getElapsedTime().asSeconds();
 
-        // 3. Camera Update AFTER precise player positioning
+        sf::Clock cameraClock;
         cameraManager->update(dt, player->getPosition(), player->getVelocity(), player->getState());
+        profiler.cameraTime = cameraClock.getElapsedTime().asSeconds();
 
-        // 4. Streaming based on exactly resolved camera bounds
         sf::FloatRect preloadBounds = cameraManager->getPreloadBounds(player->getVelocity());
         sf::FloatRect unloadBounds = cameraManager->getUnloadBounds();
 
@@ -177,9 +193,6 @@ void PlayState::update(float dt) {
             worldManager->update(dt, preloadBounds, unloadBounds, profiler);
         }
 
-        // 5. Sway and Particle Updates
-        // 5. Sway and Particle Updates
-        // 5. Sway and Particle Updates
         sf::Clock pClock;
         weatherManager->update(dt);
         worldManager->updateSway(dt, cameraManager->getViewBounds(), weatherManager->getWindVector());
@@ -187,21 +200,15 @@ void PlayState::update(float dt) {
         profiler.particleTime = pClock.getElapsedTime().asSeconds();
         
         audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
-        background->update(
-            cameraManager->getView().getCenter().x,
-            cameraManager->getView().getCenter().y,
-            cameraManager->getView().getSize(),
-            dt
-        );
         lightingManager->update(dt, cameraManager->getView(), worldClock->getTimeOfDay(), weatherManager->getFogDensity());
 
-        // Debug info rendering
-        profiler.weatherString = weatherManager->getWeatherString();
-        profiler.seasonString = weatherManager->getSeasonString();
-        profiler.particleCount = particleSystem->getParticleCount();
-        profiler.timeOfDay = worldClock->getTimeOfDay();
+        profiler.playerPos = player->getPosition();
+        profiler.cameraPos = cameraManager->getView().getCenter();
+        profiler.cameraTarget = cameraManager->getIdealPosition();
+        profiler.groundHeight = groundHeight;
+        profiler.verticalVelocity = player->getVelocity().y;
+        profiler.isGrounded = (player->getState() == ApeState::Grounded);
 
-        // Debug info rendering
         if (debugOverlay->getVisible()) {
             ChunkManager* cm = worldManager->getChunkManager();
             std::string regionName = Biome::getProperties(cm->getCurrentRegion(player->getPosition().x)).name;
@@ -216,7 +223,7 @@ void PlayState::update(float dt) {
 void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
-    window.setView(cameraManager->getView());   // set world view FIRST
+    window.setView(cameraManager->getView());
     background->draw(window);
     
     if (lightingManager) lightingManager->drawFog(window);

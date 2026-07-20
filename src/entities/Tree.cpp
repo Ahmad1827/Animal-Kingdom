@@ -13,7 +13,6 @@ Tree::Tree(float x, float y, float width, float height, sf::Color trunkColor, sf
     trunkSprite.setOrigin(VisualConfig::DECOR_TREE.width / 2.f, VisualConfig::DECOR_TREE.height);
     trunkSprite.setPosition(x, y);
     
-    // FIX: Uniform scaling to preserve pixel art aspect ratio!
     float scale = height / VisualConfig::DECOR_TREE.height;
     trunkSprite.setScale(scale, scale); 
 }
@@ -40,20 +39,20 @@ void Tree::appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, floa
 
 void Tree::addBranch(float yOffset, float width, bool rightSide, sf::Color color, sf::Texture& decorTexture) {
     float startX = trunkBounds.left + (rightSide ? trunkBounds.width : 0.f);
-    float bHeight = 45.f; // taller footprint so the bush isn't squashed into a sliver
+    float bHeight = 45.f; 
 
     sf::FloatRect branchRect(rightSide ? startX : startX - width, trunkBounds.top + trunkBounds.height - yOffset, width, bHeight);
-    branchData.push_back({branchRect}); // FIX: was never recorded -> branch collision was dead code
+    branchData.push_back({branchRect}); 
 
-    // Tile several bush sprites at a UNIFORM scale (no stretching) so it reads as a
-    // leafy cluster instead of one squashed streak.
     float bushW = static_cast<float>(VisualConfig::DECOR_BUSH.width);
     float bushH = static_cast<float>(VisualConfig::DECOR_BUSH.height);
     float uniformScale = bHeight / bushH;
     float drawnW = bushW * uniformScale;
 
-    int count = std::max(1, static_cast<int>(std::ceil(width / (drawnW * 0.7f)))); // slight overlap
+    int count = std::max(1, static_cast<int>(std::ceil(width / (drawnW * 0.7f)))); 
     float step = (count > 1) ? (width - drawnW) / (count - 1) : 0.f;
+
+    branchSprites.reserve(branchSprites.size() + count);
 
     for (int i = 0; i < count; ++i) {
         float localX = rightSide ? (startX + i * step) : (startX - width + i * step);
@@ -72,13 +71,14 @@ void Tree::addVine(float xOffset, float yOffset, float length) {
     sf::Vector2f origin(trunkBounds.left + xOffset, trunkBounds.top + trunkBounds.height - yOffset);
     vineData.push_back({origin, length, 0.f});
     
-    // Expand total bounds for vines falling straight down
     if (origin.y + length > totalBounds.top + totalBounds.height) totalBounds.height = (origin.y + length) - totalBounds.top;
 }
 
 void Tree::buildCanopy(uint32_t& seed, float baseRadius, float yOffset, sf::Color color, int clusterCount) {
     float centerX = trunkBounds.left + (trunkBounds.width / 2.f);
     float centerY = trunkBounds.top + trunkBounds.height - yOffset;
+
+    canopyData.reserve(canopyData.size() + clusterCount);
 
     for (int i = 0; i < clusterCount; ++i) {
         float r = baseRadius * SeedManager::getRandomFloat(seed, 0.6f, 1.2f);
@@ -92,7 +92,6 @@ void Tree::buildCanopy(uint32_t& seed, float baseRadius, float yOffset, sf::Colo
         
         canopyData.push_back({sf::Vector2f(centerX + ox, centerY + oy), r, c});
         
-        // Expand total bounds
         if (centerY + oy - r < totalBounds.top) { totalBounds.height += (totalBounds.top - (centerY + oy - r)); totalBounds.top = centerY + oy - r; }
         if (centerX + ox - r < totalBounds.left) { totalBounds.width += (totalBounds.left - (centerX + ox - r)); totalBounds.left = centerX + ox - r; }
         if (centerX + ox + r > totalBounds.left + totalBounds.width) totalBounds.width = (centerX + ox + r) - totalBounds.left;
@@ -100,11 +99,8 @@ void Tree::buildCanopy(uint32_t& seed, float baseRadius, float yOffset, sf::Colo
 }
 
 void Tree::initDynamicMesh() {
-    // Exactly preallocate to avoid dynamicMesh.clear() during rendering
-    // 24 vertices per octagon cluster, 6 vertices per vine quad
     dynamicMesh.resize(canopyData.size() * 24 + vineData.size() * 6);
     
-    // Assign base colors once
     size_t vIdx = 0;
     for (const auto& cluster : canopyData) {
         for (int i = 0; i < 24; ++i) dynamicMesh[vIdx++].color = cluster.color;
@@ -113,7 +109,7 @@ void Tree::initDynamicMesh() {
         for (int i = 0; i < 6; ++i) dynamicMesh[vIdx++].color = sf::Color(40, 100, 30);
     }
     
-    updateSway(0.f, sf::Vector2f(0.f, 0.f)); // Force initial position calculation
+    updateSway(0.f, sf::Vector2f(0.f, 0.f)); 
 }
 
 void Tree::updateSway(float globalTime, const sf::Vector2f& windVector) {
@@ -134,10 +130,9 @@ void Tree::updateSway(float globalTime, const sf::Vector2f& windVector) {
     }
     
     for (auto& vine : vineData) {
-        // Wind + Player Physical Disturbance Decay
         float swayAngle = std::sin(globalTime * 2.f + vine.origin.x * 0.05f) * (0.1f + std::abs(windVector.x) * 0.2f) + (windVector.x * 0.3f);
         swayAngle += vine.disturbance;
-        vine.disturbance *= 0.95f; // Damping spring
+        vine.disturbance *= 0.95f; 
 
         sf::Vector2f endPoint(vine.origin.x + std::sin(swayAngle) * vine.length, vine.origin.y + std::cos(swayAngle) * vine.length);
         sf::Vector2f perp(std::cos(swayAngle) * 3.f, -std::sin(swayAngle) * 3.f);
@@ -161,19 +156,26 @@ void Tree::disturbVines(const sf::FloatRect& bounds, float velocityX) {
 }
 
 void Tree::update(float dt) {}
-void Tree::draw(sf::RenderWindow& window) const {} // Handled via specific layer passes
+void Tree::draw(sf::RenderWindow& window) const {} 
 
 void Tree::drawCanopy(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
     window.draw(dynamicMesh);
     profiler.objectsRendered++;
+    profiler.drawCalls++;
 }
 
 void Tree::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
     window.draw(trunkSprite);
+    profiler.drawCalls++;
+    
     for (const auto& bs : branchSprites) {
         window.draw(bs);
+        profiler.drawCalls++;
     }
-    if (dynamicMesh.getVertexCount() > 0) window.draw(dynamicMesh);
+    if (dynamicMesh.getVertexCount() > 0) {
+        window.draw(dynamicMesh);
+        profiler.drawCalls++;
+    }
     
     profiler.objectsRendered += 1 + branchSprites.size() + (dynamicMesh.getVertexCount() > 0 ? 1 : 0);
 }

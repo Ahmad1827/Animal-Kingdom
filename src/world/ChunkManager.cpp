@@ -4,7 +4,7 @@
 #include <cmath>
 #include <chrono>
 
-ChunkManager::ChunkManager(uint32_t seed) : chunkWidth(2000.f), chunkHeight(2000.f), worldSeed(seed), currentChunkIdx(0) {}
+ChunkManager::ChunkManager(uint32_t seed, sf::Texture& decorTex) : chunkWidth(2000.f), chunkHeight(2000.f), worldSeed(seed), globalDecorTex(decorTex), currentChunkIdx(0) {}
 
 uint64_t ChunkManager::getChunkKey(int x, int y) const {
     return ((uint64_t)(uint32_t)x << 32) | (uint32_t)y;
@@ -18,7 +18,6 @@ void ChunkManager::update(const sf::FloatRect& preloadBounds, const sf::FloatRec
     int minLoadY = static_cast<int>(std::floor(preloadBounds.top / chunkHeight));
     int maxLoadY = static_cast<int>(std::floor((preloadBounds.top + preloadBounds.height) / chunkHeight));
 
-    // 1. Process completed async threads into the queue
     for (auto it = pendingChunks.begin(); it != pendingChunks.end();) {
         if (it->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
             insertionQueue.push(it->second.get());
@@ -28,7 +27,6 @@ void ChunkManager::update(const sf::FloatRect& preloadBounds, const sf::FloatRec
         }
     }
 
-    // 2. Strict Frame Budget for chunk insertion (Max 2 chunks per frame to avoid stutters)
     int insertionsThisFrame = 0;
     while (!insertionQueue.empty() && insertionsThisFrame < 2) {
         auto newChunk = std::move(insertionQueue.front());
@@ -43,7 +41,6 @@ void ChunkManager::update(const sf::FloatRect& preloadBounds, const sf::FloatRec
         insertionsThisFrame++;
     }
 
-    // 3. Request 2D Generation
     for (int x = minLoadX; x <= maxLoadX; ++x) {
         for (int y = minLoadY; y <= maxLoadY; ++y) {
             uint64_t key = getChunkKey(x, y);
@@ -56,18 +53,17 @@ void ChunkManager::update(const sf::FloatRect& preloadBounds, const sf::FloatRec
                     float cw = chunkWidth;
                     float ch = chunkHeight;
                     ChunkPos pos{x, y};
-                    pendingChunks[key] = std::async(std::launch::async, [pos, cw, ch, seed]() {
-                        return std::make_unique<Chunk>(pos, cw, ch, seed);
+                    sf::Texture* texPtr = &globalDecorTex;
+                    pendingChunks[key] = std::async(std::launch::async, [pos, cw, ch, seed, texPtr]() {
+                        return std::make_unique<Chunk>(pos, cw, ch, seed, *texPtr);
                     });
                 }
             }
         }
     }
 
-    // 4. Safely unload 2D chunks
     for (auto it = chunks.begin(); it != chunks.end();) {
         sf::FloatRect cb = it->second->getBounds();
-        
         if (cb.left + cb.width < unloadBounds.left || cb.left > unloadBounds.left + unloadBounds.width ||
             cb.top + cb.height < unloadBounds.top || cb.top > unloadBounds.top + unloadBounds.height) {
             cachedChunks[it->first] = std::move(it->second);
@@ -84,6 +80,11 @@ void ChunkManager::update(const sf::FloatRect& preloadBounds, const sf::FloatRec
     profiler.chunksQueuedForInsertion = insertionQueue.size();
     profiler.chunksCached = cachedChunks.size();
     profiler.asyncLoadTime = loadClock.getElapsedTime().asSeconds();
+
+    for (const auto& pair : chunks) {
+        profiler.loadedTrees += pair.second->getTrees().size();
+        profiler.loadedDecorations += pair.second->getDecorations().size();
+    }
 }
 
 void ChunkManager::updateSway(float globalTime, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector) {
@@ -124,7 +125,12 @@ void ChunkManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect&
     for (int x = minX; x <= maxX; ++x) {
         for (int y = minY; y <= maxY; ++y) {
             Chunk* chunk = getChunk(x, y);
-            if (chunk) chunk->drawBackground(window, renderBounds, showFoliage, profiler, tileset);
+            if (chunk) {
+                chunk->drawBackground(window, renderBounds, showFoliage, profiler, tileset);
+                if (chunk->getBounds().intersects(viewBounds)) {
+                    profiler.visibleChunks++;
+                }
+            }
         }
     }
 }
@@ -150,7 +156,6 @@ void ChunkManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& v
 void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, DebugOverlay* debugOverlay) const {
     if (!debugOverlay) return;
     
-    // 1. Draw view bounds outline
     sf::RectangleShape cam(sf::Vector2f(viewBounds.width, viewBounds.height));
     cam.setPosition(viewBounds.left, viewBounds.top);
     cam.setFillColor(sf::Color::Transparent);
@@ -158,7 +163,6 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
     cam.setOutlineThickness(4.f);
     window.draw(cam);
 
-    // 2. Draw preload bounds outline
     sf::RectangleShape pre(sf::Vector2f(preloadBounds.width, preloadBounds.height));
     pre.setPosition(preloadBounds.left, preloadBounds.top);
     pre.setFillColor(sf::Color::Transparent);
@@ -166,7 +170,6 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
     pre.setOutlineThickness(8.f);
     window.draw(pre);
     
-    // 3. Draw unload bounds outline
     sf::RectangleShape unl(sf::Vector2f(unloadBounds.width, unloadBounds.height));
     unl.setPosition(unloadBounds.left, unloadBounds.top);
     unl.setFillColor(sf::Color::Transparent);
@@ -174,7 +177,6 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
     unl.setOutlineThickness(12.f);
     window.draw(unl);
 
-    // 4. Draw chunk details if active flags match
     for (const auto& pair : chunks) {
         sf::FloatRect cb = pair.second->getBounds();
         float startX = cb.left;
@@ -210,7 +212,6 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
             }
         }
         
-        // F10 Generation Tuning Visualization
         if (debugOverlay->getShowGenerationDebug()) {
             BiomeProperties props = Biome::getProperties(pair.second->getRegionType());
             for (const auto& tree : pair.second->getTrees()) {

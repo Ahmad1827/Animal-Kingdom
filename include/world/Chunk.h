@@ -28,7 +28,7 @@ private:
     float totalGenTime;
 
 public:
-    Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed);
+    Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Texture& decorTex);
     void drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const;
     void drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const;
     void updateSway(float globalTime, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector);

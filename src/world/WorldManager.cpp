@@ -1,7 +1,7 @@
 #include "world/WorldManager.h"
 
-WorldManager::WorldManager(uint32_t seed) : swayTime(0.f) {
-    chunkManager = std::make_unique<ChunkManager>(seed);
+WorldManager::WorldManager(uint32_t seed, sf::Texture& decorTex) : swayTime(0.f) {
+    chunkManager = std::make_unique<ChunkManager>(seed, decorTex);
 }
 
 void WorldManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, ProfilerStats& profiler) {
@@ -42,7 +42,6 @@ bool WorldManager::checkOneWayCollision(const sf::FloatRect& bounds, const sf::V
     int cX = chunkManager->getChunkXAt(bounds.left + bounds.width / 2.f);
     int cY = chunkManager->getChunkYAt(bounds.top + bounds.height / 2.f);
     
-    // Spatial 2D Query
     for (int x = cX - 1; x <= cX + 1; ++x) {
         for (int y = cY - 1; y <= cY + 1; ++y) {
             Chunk* chunk = chunkManager->getChunk(x, y);
@@ -127,9 +126,8 @@ void WorldManager::updateSway(float dt, const sf::FloatRect& viewBounds, const s
     swayTime += dt;
     if (swayTime > 1000.f) swayTime -= 1000.f; 
     
-    // Pass windVector to chunks
     for (const auto& pair : chunkManager->getActiveChunks()) {
-        pair.second->updateSway(swayTime, viewBounds, windVector); // We will update chunk logic next
+        pair.second->updateSway(swayTime, viewBounds, windVector); 
     }
 }
 
@@ -140,7 +138,6 @@ void WorldManager::disturbEnvironment(const sf::FloatRect& bounds, float velocit
         for (int y = cY - 1; y <= cY + 1; ++y) {
             Chunk* chunk = chunkManager->getChunk(x, y);
             if (!chunk) continue;
-            // The tree container is const from getTrees(), we circumvent safely here for interaction
             for (auto& tree : const_cast<std::vector<Tree>&>(chunk->getTrees())) {
                 tree.disturbVines(bounds, velocityX);
             }

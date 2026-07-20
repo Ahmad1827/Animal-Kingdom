@@ -1,288 +1,426 @@
 # Ape Dynasty
 
-> **A 2D pixel-art open-world simulation where you build an ape dynasty through survival, exploration, politics, and generations in a living procedural world.**
+> **A procedurally generated 2D jungle survival & evolution game built with C++ and SFML.**
 
-> **Work in Progress:** Ape Dynasty is currently in early development. Core engine systems are being built before gameplay systems.
-
----
-
-## About
-
-**Ape Dynasty** is an ambitious 2D side-scrolling simulation game inspired by the emergent storytelling of games like **Crusader Kings**, the atmosphere of **Kingdom: Two Crowns**, and living ecosystem simulations.
-
-Instead of playing as a single character, you build an entire **bloodline** across countless generations. Every ape has a life, family, personality, relationships, and descendants. When your current ape dies, the game continues through one of your heirs—your dynasty becomes your true legacy.
-
-The world never resets. Tribes evolve, forests grow, rival families rise and fall, and history is written through gameplay.
+Ape Dynasty is an ambitious sandbox where you begin as a single ape in a living, infinite jungle. Explore procedurally generated environments, climb through dense canopies, survive against predators and rival tribes, establish your own dynasty, and eventually evolve from a lone survivor into the leader of an entire civilization.
 
 ---
 
-# Vision
+# Current Development Status
 
-The goal of Ape Dynasty is to create a world that feels alive without relying on scripted events.
+**Version:** Prototype / Pre-Alpha
 
-There are no predefined heroes.
+Current focus:
+- Engine architecture
+- Infinite procedural world
+- Rendering pipeline
+- Performance optimization
+- Asset integration
 
-No chosen one.
+Gameplay systems are currently being built on top of a completed world-generation framework.
 
-No linear story.
+---
 
-Every memorable moment should emerge naturally from the simulation.
+# Features Implemented
 
-Your dynasty may become legendary...
+## Infinite Procedural World
 
-...or disappear forever.
+- Infinite chunk-based terrain generation
+- Deterministic world generation using seeds
+- Smooth procedural hills
+- Region-based generation
+- Automatic chunk loading and unloading
+- Chunk caching
+- Background chunk generation
+
+---
+
+## Rendering Engine
+
+- Multi-layer rendering pipeline
+- Separate gameplay and atmospheric rendering
+- Frustum culling
+- Layer ordering
+
+Render Order:
+
+Background
+
+↓
+
+Atmosphere
+
+↓
+
+Gameplay Geometry
+
+↓
+
+Player
+
+↓
+
+Particles
+
+↓
+
+Lighting
+
+↓
+
+Debug
+
+---
+
+## Camera System
+
+Custom camera controller featuring:
+
+- Dead-zone camera
+- Smooth interpolation
+- State-based camera speeds
+- Stable vertical movement
+- Improved slope handling
+- Jitter fixes
+- Cinematic movement
+
+---
+
+## World Generation
+
+Current procedural generation includes:
+
+- Jungle terrain
+- Trees
+- Branch platforms
+- Decorative foliage
+- Rocks
+- Water bodies
+- Region variation
+
+Generation supports:
+
+- Ancient forests
+- Dense jungle
+- Clearings
+- Young forests
+
+---
+
+## Tree System
+
+Procedural trees include:
+
+- Variable trunk height
+- Random branching
+- Organic canopy generation
+- Hanging vines
+- Wind sway
+- Sprite-ready architecture
+
+---
+
+## Environmental Systems
+
+Implemented environmental effects include:
+
+### Dynamic Weather
+
+- Clear
+- Rain
+- Storm
+
+Weather affects:
+
+- Wind
+- Tree sway
+- Particle movement
+- Ambient atmosphere
+
+---
+
+### Day / Night Cycle
+
+Multi-stage lighting transition:
+
+- Midnight
+- Pre-Dawn
+- Sunrise
+- Morning
+- Noon
+- Afternoon
+- Sunset
+- Dusk
+- Night
+
+Lighting smoothly interpolates between states.
+
+---
+
+## Ambient Life
+
+The jungle reacts dynamically through lightweight environmental simulation.
+
+Includes:
+
+- Fireflies
+- Birds
+- Butterflies
+- Floating particles
+- Leaf particles
+- Wind-driven motion
+
+---
+
+## Interactive Environment
+
+Player interactions include:
+
+- Vine disturbance
+- Tree sway
+- Landing leaf particles
+- Wind interaction
+
+---
+
+## Performance Optimizations
+
+Implemented optimizations:
+
+- Background chunk generation
+- std::async chunk loading
+- Chunk insertion queue
+- Chunk cache
+- Spatial partitioning
+- O(1) collision queries
+- View-frustum culling
+- Reduced draw calls
+- Camera optimization
+- Slope jitter fixes
+
+---
+
+## Debug Tools
+
+Runtime debugging suite:
+
+F3
+
+- World information
+
+F4
+
+- Chunk borders
+
+F5
+
+- Region visualization
+
+F6
+
+- Collision visualization
+
+F7
+
+- Toggle foliage
+
+F8
+
+- Performance profiler
+
+F9
+
+- Chunk streaming statistics
+
+---
+
+# Asset Pipeline
+
+The engine now supports real production assets.
+
+Features:
+
+- Sprite-based rendering
+- Bottom-center sprite anchoring
+- Placeholder texture fallback
+- Independent collision bounds
+- Automatic scaling
+- Artist-friendly asset replacement
+
+This allows placeholder graphics to be replaced with final artwork without changing gameplay code.
+
+---
+
+# Player
+
+Currently implemented:
+
+- Walking
+- Running
+- Jumping
+- Collision
+- Camera following
+- Terrain traversal
+
+Currently integrating:
+
+- Animated sprite sheets
+- Climbing
+- Vine swinging
 
 ---
 
 # Planned Features
-
-## Living Procedural World
-
-- Infinite side-scrolling world
-- Procedural terrain generation
-- Procedural forests
-- Multiple biomes
-- Dynamic weather
-- Day & night cycle
-- Seasons
-- Rivers and caves
-- Ancient ruins
-- Hidden landmarks
-
----
-
-## Traversal
-
-- Smooth platforming
-- Tree climbing
-- Branch traversal
-- Hanging mechanics
-- Swinging between trees
-- Vertical canopy exploration
-- Physics-based movement
-
----
 
 ## Survival
 
 - Hunger
 - Thirst
 - Stamina
-- Health
-- Sleeping
-- Resource gathering
-- Hunting
-- Fishing
-- Foraging
-- Environmental dangers
+- Injuries
+- Diseases
 
 ---
 
-## Tribe Simulation
+## Wildlife
 
-- Fully simulated ape tribes
-- Dynamic leadership
-- Family structures
+- Predators
+- Herbivores
+- Birds
+- Insects
+
+---
+
+## Tribe System
+
+- Family creation
+- Social hierarchy
 - Relationships
-- Territory control
-- Migration
-- Alliances
-- Rivalries
-- Internal politics
+- Reproduction
+- Generations
 
 ---
 
-## Dynasty System
+## Evolution
 
-The core feature of the game.
-
-- Family trees
 - Genetics
-- Hereditary traits
-- Aging
-- Birth
-- Death
-- Inheritance
-- Bloodlines
-- Successive generations
-- Permanent world history
-
-Death is **not** the end.
-
-You continue playing as your descendants.
+- Traits
+- Mutations
+- Intelligence
+- Adaptation
 
 ---
 
-## Emergent AI
+## Building
 
-Every creature acts independently.
-
-Animals hunt.
-
-Sleep.
-
-Eat.
-
-Protect territory.
-
-Raise offspring.
-
-Compete for resources.
-
-No scripted encounters.
+- Sleeping nests
+- Resource gathering
+- Territory
+- Defensive structures
 
 ---
 
-## Politics
+## Combat
 
-- Alpha leadership
-- Succession
-- Power struggles
-- Reputation
-- Diplomacy
-- Betrayal
-- Influence
+- Rival tribes
+- Predators
+- Territory control
+
+---
+
+## AI
+
+Future plans include autonomous AI capable of:
+
+- Exploration
+- Resource gathering
+- Social interaction
+- Learning
+- Reproduction
 - Tribe expansion
-
----
-
-## Pixel Art
-
-The game is built around a minimalist pixel-art aesthetic inspired by classic side-scrolling games while emphasizing atmosphere, lighting, and environmental storytelling.
-
----
-
-# Current Development
-
-The project is currently focused on building the engine and core gameplay systems.
-
-Current progress includes:
-
-- ✅ Game engine setup
-- ✅ SFML framework
-- ✅ State management
-- ✅ Player controller
-- ✅ Basic platforming
-- ✅ Tree traversal prototype
-- ✅ Branch mechanics
-- ✅ Camera system
-- 🚧 Infinite procedural world
-- ⏳ Survival systems
-- ⏳ Tribe AI
-- ⏳ Dynasty mechanics
-- ⏳ World simulation
 
 ---
 
 # Technology
 
-- **Language:** C++17
-- **Graphics:** SFML 2.6
-- **Build System:** CMake
-- **Platform:** Linux (primary), with future cross-platform support
+Language
+
+- C++17
+
+Framework
+
+- SFML
+
+Architecture
+
+- Chunk-based world streaming
+- Procedural generation
+- Modular game systems
+- Async loading
+- Sprite rendering pipeline
 
 ---
 
-# Project Structure
+# Project Goals
 
-```text
-ape_dynasty/
-├── assets/
-├── include/
-├── src/
-├── CMakeLists.txt
-└── README.md
-```
+Ape Dynasty aims to combine ideas inspired by games such as:
 
----
+- RimWorld
+- Dwarf Fortress
+- Rain World
+- Terraria
+- Noita
 
-# Philosophy
+while creating a unique experience focused on:
 
-Ape Dynasty is designed around **emergent gameplay**.
-
-Instead of scripted quests, the game creates stories through simulation.
-
-Every family, rivalry, alliance, migration, and conflict emerges naturally from the interactions of the world's systems.
-
-The goal is to create a game where every playthrough tells a unique story.
+- Evolution
+- Procedural worlds
+- Emergent storytelling
+- Tribe simulation
+- Infinite exploration
 
 ---
 
-# Roadmap
+# Current Milestone
 
-## Phase 1 – Engine
-- [x] Window & rendering
-- [x] State machine
-- [x] Player movement
-- [x] Basic traversal
-- [ ] Infinite world generation
-- [ ] Procedural terrain
-- [ ] Camera polish
+## Prototype Engine
 
-## Phase 2 – Survival
-- [ ] Hunger
-- [ ] Thirst
-- [ ] Stamina
-- [ ] Weather
-- [ ] Day & night
-- [ ] Seasons
+Completed:
 
-## Phase 3 – Living World
-- [ ] Wildlife
-- [ ] Resource generation
-- [ ] Ecosystem simulation
-- [ ] Procedural biomes
+- Infinite world generation
+- Chunk streaming
+- Rendering pipeline
+- Performance optimization
+- Camera system
+- Sprite-ready asset pipeline
+- Dynamic atmosphere
+- Environmental simulation
 
-## Phase 4 – Tribe Simulation
-- [ ] NPC apes
-- [ ] Tribe AI
-- [ ] Leadership
-- [ ] Relationships
-- [ ] Territory
+Current Work:
 
-## Phase 5 – Dynasty
-- [ ] Genetics
-- [ ] Family trees
-- [ ] Aging
-- [ ] Birth & death
-- [ ] Play as descendants
+- Character sprite integration
+- Animation system
+- Gameplay mechanics
 
-## Phase 6 – World Simulation
-- [ ] Politics
-- [ ] Wars
-- [ ] Alliances
-- [ ] Reputation
-- [ ] Historical events
+Next Milestone:
+
+- Fully animated playable ape
+- Climbing system
+- Vine traversal
+- Initial survival mechanics
 
 ---
 
-# Building
+# Screenshots
 
-```bash
-git clone https://github.com/<your-username>/ape_dynasty.git
-cd ape_dynasty
-
-mkdir build
-cd build
-
-cmake ..
-make
-
-./ApeDynasty
-```
-
----
-
-# Contributing
-
-This project is currently in active early development. Suggestions, bug reports, and discussions are welcome.
+*(To be added)*
 
 ---
 
 # License
 
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+This project is currently under active development.
+
+All artwork and source code © Ape Dynasty.
 
 ---
-
-## "A dynasty is not measured by the strength of one ape, but by the legacy left to generations yet unborn."

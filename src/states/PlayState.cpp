@@ -11,7 +11,7 @@ void PlayState::init() {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
     activeSeed = std::rand();
     background = std::make_unique<Background>(game->getAssetManager());
-    player = std::make_unique<Ape>(0.f, 0.f);
+    player = std::make_unique<Ape>(0.f, 0.f, game->getAssetManager().getTexture("playerTex"));
     worldManager = std::make_unique<WorldManager>(activeSeed, game->getAssetManager().getTexture("decors"));
     cameraManager = std::make_unique<CameraManager>(sf::Vector2f(1280.f, 720.f));
     lightingManager = std::make_unique<LightingManager>();
@@ -208,7 +208,24 @@ void PlayState::update(float dt) {
         profiler.groundHeight = groundHeight;
         profiler.verticalVelocity = player->getVelocity().y;
         profiler.isGrounded = (player->getState() == ApeState::Grounded);
-
+        profiler.animName = player->getAnimator()->getCurrentAnimationName();
+        profiler.animFrame = player->getAnimator()->getCurrentFrame();
+        profiler.animTime = player->getAnimator()->getCurrentTime();
+        profiler.animFPS = player->getAnimator()->getFPS();
+        profiler.currentDt = dt;
+        profiler.playerStateInt = static_cast<int>(player->getState());
+        
+        if (player->getAnimator()) {
+            profiler.animName = player->getAnimator()->getCurrentAnimationName();
+            profiler.animFrame = player->getAnimator()->getCurrentFrame();
+            profiler.animTime = player->getAnimator()->getCurrentTime();
+            profiler.animFPS = player->getAnimator()->getFPS();
+            profiler.animRect = player->getAnimator()->getCurrentRect();
+            profiler.animOffset = player->getAnimator()->getCurrentOffset();
+            profiler.spriteScale = player->getSprite().getScale();
+            profiler.spritePos = player->getSprite().getPosition();
+            profiler.spriteOrigin = player->getSprite().getOrigin();
+        }
         if (debugOverlay->getVisible()) {
             ChunkManager* cm = worldManager->getChunkManager();
             std::string regionName = Biome::getProperties(cm->getCurrentRegion(player->getPosition().x)).name;

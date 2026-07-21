@@ -3,6 +3,20 @@
 #include <SFML/System/Vector2.hpp>
 
 struct ProfilerStats {
+
+    std::string animName;
+    int animFrame = 0;
+    float animTime = 0.f;
+    float animFPS = 0.f;
+    sf::IntRect animRect;
+    sf::Vector2f animOffset;
+    sf::Vector2f spriteScale;
+    sf::Vector2f spritePos;
+    sf::Vector2f spriteOrigin;
+    
+    float currentDt = 0.f;
+    int playerStateInt = 0;
+
     float fps = 0.f;
     float frameTime = 0.f;
     float updateTime = 0.f;

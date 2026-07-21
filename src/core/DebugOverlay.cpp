@@ -45,6 +45,27 @@ void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32
         ss << "Grounded:   " << (profiler.isGrounded ? "TRUE" : "FALSE") << "\n\n";
         ss << "Cam Pos:    (" << profiler.cameraPos.x << ", " << profiler.cameraPos.y << ")\n";
         ss << "Cam Target: (" << profiler.cameraTarget.x << ", " << profiler.cameraTarget.y << ")\n";
+        ss << "--- ANIMATION STATE ---\n";
+        std::string stateStr;
+        switch(profiler.playerStateInt) {
+            case 0: stateStr = "Airborne"; break;
+            case 1: stateStr = "Grounded"; break;
+            case 2: stateStr = "ClimbingTrunk"; break;
+            case 3: stateStr = "ClimbingVine"; break;
+            case 4: stateStr = "HangingBranch"; break;
+            default: stateStr = "Unknown"; break;
+        }
+
+        ss << "--- STRICT ANIMATION TRACE ---\n";
+        ss << "State:      " << stateStr << "\n";
+        ss << "Animation:  " << profiler.animName << " (Frame " << profiler.animFrame << ")\n";
+        ss << "Time / dt:  " << profiler.animTime << " / " << profiler.currentDt << "\n";
+        ss << "Physics Pos:(" << profiler.playerPos.x << ", " << profiler.playerPos.y << ")\n";
+        ss << "Velocity:   (" << profiler.verticalVelocity << " Y)\n";
+        ss << "Scale:      (" << profiler.spriteScale.x << ", " << profiler.spriteScale.y << ")\n";
+        ss << "TexRect:    [" << profiler.animRect.left << ", " << profiler.animRect.top << ", " << profiler.animRect.width << ", " << profiler.animRect.height << "]\n";
+        ss << "Origin:     (" << profiler.spriteOrigin.x << ", " << profiler.spriteOrigin.y << ")\n";
+        ss << "Offset:     (" << profiler.animOffset.x << ", " << profiler.animOffset.y << ")\n";
     }
     else if (showProfiler) {
         ss << std::fixed << std::setprecision(2);

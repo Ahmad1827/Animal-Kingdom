@@ -7,6 +7,7 @@ Game::Game() : window(sf::VideoMode(1280, 720), "Ape Dynasty") {
     assetManager.loadTexture("bg3", "assets/sprites/BG3.png", true);
     assetManager.loadTexture("tileset", "assets/sprites/Tileset.png", true);
     assetManager.loadTexture("decors", "assets/sprites/Decors.png", false);
+    assetManager.loadTexture("playerTex", "assets/sprites/ApeSpriteSheet.png");
     window.setFramerateLimit(60);
     stateMachine.addState(std::make_unique<PlayState>(this));
 }

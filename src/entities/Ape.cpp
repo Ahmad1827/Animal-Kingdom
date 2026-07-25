@@ -10,34 +10,30 @@ Ape::Ape(float x, float y, sf::Texture& texture) {
 
     int texW = texture.getSize().x;
     int texH = texture.getSize().y;
-    int frameW = texW > 0 ? texW / 8 : 240;
-    int frameH = texH > 0 ? texH / 6 : 174;
+
+    int columns = 11;
+    int rows = 6;
+    
+    int frameW = texW > 0 ? texW / columns : 240;
+    int frameH = texH > 0 ? texH / rows : 174;
 
     if (texW > 0) {
         sprite.setTexture(texture);
         sprite.setOrigin(frameW / 2.f, frameH); 
         
-        // BUG 1 FIX: Uncouple the rendering scale from the 32x32 bounds.
-        // The ape occupies only a portion of the 174px frame height. 
-        // 0.35f scales the visible character to roughly match the physical bounds.
-        float visualScale = 0.35f; 
+        float visualScale = 1.20f; 
         sprite.setScale(visualScale, visualScale);
     }
 
     animator = std::make_unique<Animator>(&sprite);
     
-    // BUG 2 FIX: Added negative Y offsets to prevent feet from sliding/jittering.
-    // Hanging animations require a massive negative Y offset because the hands 
-    // are at the top of the frame, but the physics anchor is at the bottom.
-    animator->addAnimation("Idle",  0, 0, frameW, frameH, 8, 6.f,  true,   0.f, 0.f);
-    animator->addAnimation("Walk",  0, 1, frameW, frameH, 8, 10.f, true,   0.f, 2.f);
-    animator->addAnimation("Run",   0, 2, frameW, frameH, 8, 14.f, true,   0.f, 4.f);
-    animator->addAnimation("Jump",  0, 3, frameW, frameH, 2, 6.f,  false,  0.f, 8.f);
-    animator->addAnimation("Fall",  2, 3, frameW, frameH, 2, 6.f,  true,   0.f, 8.f);
-    animator->addAnimation("Land",  4, 3, frameW, frameH, 2, 6.f,  false,  0.f, 0.f);
-    animator->addAnimation("Climb", 0, 4, frameW, frameH, 8, 10.f, true,   0.f, 0.f);
-    animator->addAnimation("Hang",  0, 5, frameW, frameH, 6, 4.f,  true,   0.f, -24.f);
-    animator->addAnimation("Swing", 0, 5, frameW, frameH, 6, 12.f, true,   0.f, -24.f);
+    animator->addAnimation("Idle",  0, 0, frameW, frameH, 8,  6.f,  true,  0.f, 0.f);
+    animator->addAnimation("Walk",  0, 1, frameW, frameH, 8,  10.f, true,  0.f, 0.f);
+    animator->addAnimation("Run",   0, 2, frameW, frameH, 11, 14.f, true,  0.f, 0.f);
+    animator->addAnimation("Jump",  0, 3, frameW, frameH, 2,  6.f,  false, 0.f, 0.f);
+    animator->addAnimation("Fall",  2, 3, frameW, frameH, 2,  6.f,  true,  0.f, 0.f);
+    animator->addAnimation("Land",  4, 3, frameW, frameH, 2,  6.f,  false, 0.f, 0.f);
+    animator->addAnimation("Climb", 0, 4, frameW, frameH, 10, 10.f, true,  0.f, 0.f);
 
     animator->play("Idle");
 }
@@ -45,7 +41,6 @@ Ape::Ape(float x, float y, sf::Texture& texture) {
 void Ape::update(float dt) {
     float moveSpeed = 200.f;
     
-    // --- GROUND / AIR PHYSICS ---
     if (state == ApeState::Grounded || state == ApeState::Airborne) {
         velocity.x = 0.f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
@@ -70,10 +65,9 @@ void Ape::update(float dt) {
         velocity.y += 1000.f * dt;
     }
 
-    // --- BUG 3 FIX: RESTORED CLIMBING & HANGING PHYSICS ---
     if (state == ApeState::ClimbingTrunk || state == ApeState::ClimbingVine) {
         velocity.x = 0.f;
-        velocity.y = 0.f; // Defy gravity while holding on
+        velocity.y = 0.f;
         
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
             velocity.y = -150.f;
@@ -82,7 +76,6 @@ void Ape::update(float dt) {
             velocity.y = 150.f;
         }
 
-        // Exit climb by jumping
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
             velocity.y = -400.f;
             state = ApeState::Airborne;
@@ -94,46 +87,57 @@ void Ape::update(float dt) {
         velocity.x = 0.f;
         
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            velocity.x = -150.f;
+            velocity.x = -moveSpeed;
         }
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            velocity.x = 150.f;
+            velocity.x = moveSpeed;
         }
 
-        // Drop down
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
             state = ApeState::Airborne;
         }
     }
 
-    // Apply movement
     bounds.left += velocity.x * dt;
     bounds.top += velocity.y * dt;
 
-    // --- ANIMATION MAPPING ---
     if (velocity.x > 5.f) animator->setFacingRight(true);
     else if (velocity.x < -5.f) animator->setFacingRight(false);
 
     animator->resume();
 
-    if (state == ApeState::Airborne) {
-        if (velocity.y < -20.f) animator->play("Jump");
-        else animator->play("Fall");
+    // --- STABLE ANIMATION SELECTION ---
+    
+    // 1. Check movement intent first (prevents Walk/Run jitter on platforms)
+    bool isMovingHorizontally = (std::abs(velocity.x) > 10.f);
+    bool isRunning = (std::abs(velocity.x) >= moveSpeed * 1.2f); // Requires Left Shift
+
+    if (state == ApeState::Grounded || state == ApeState::HangingBranch) {
+        if (isRunning) {
+            animator->play("Run");
+        } else if (isMovingHorizontally) {
+            animator->play("Walk");
+        } else {
+            animator->play("Idle");
+        }
     } 
-    else if (state == ApeState::Grounded) {
-        if (std::abs(velocity.x) > 150.f) animator->play("Run");
-        else if (std::abs(velocity.x) > 10.f) animator->play("Walk");
-        else animator->play("Idle");
+    else if (state == ApeState::Airborne) {
+        if (velocity.y < -150.f) {
+            animator->play("Jump");
+        } else if (velocity.y > 150.f) {
+            animator->play("Fall");
+        } else {
+            // While hovering at low vertical speed, sustain current walk/run if moving
+            if (isRunning) animator->play("Run");
+            else if (isMovingHorizontally) animator->play("Walk");
+            else animator->play("Idle");
+        }
     } 
     else if (state == ApeState::ClimbingTrunk || state == ApeState::ClimbingVine) {
         animator->play("Climb");
         if (std::abs(velocity.y) < 5.f && std::abs(velocity.x) < 5.f) {
             animator->pause();
         }
-    } 
-    else if (state == ApeState::HangingBranch) {
-        if (std::abs(velocity.x) > 10.f) animator->play("Swing");
-        else animator->play("Hang");
     }
 
     animator->update(dt);
@@ -143,7 +147,6 @@ void Ape::update(float dt) {
         renderOffset.x = -renderOffset.x; 
     }
 
-    // Sprite position strictly anchors to the unpolluted physics collision box
     sprite.setPosition(bounds.left + bounds.width / 2.f + renderOffset.x, bounds.top + bounds.height + renderOffset.y);
 }
 

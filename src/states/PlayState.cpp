@@ -66,7 +66,7 @@ void PlayState::update(float dt) {
 
     static bool f10PressedLastFrame = false;
     bool f10Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F10);
-    if (f10Pressed && !f10PressedLastFrame) debugOverlay->toggleGenerationDebug(); // Or toggleProfiler based on your mapping
+    if (f10Pressed && !f10PressedLastFrame) debugOverlay->toggleGenerationDebug(); 
     f10PressedLastFrame = f10Pressed;
 
     // F11 Toggle Integration
@@ -169,11 +169,11 @@ void PlayState::update(float dt) {
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::ClimbingVine && player->getState() != ApeState::Grounded) {
             if (worldManager->checkHangCollision(playerBounds, branchBounds)) {
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-                    if (player->getVelocity().y >= 0) { 
-                        player->setState(ApeState::HangingBranch);
-                        player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height);
-                        player->setVelocity(0.f, 0.f);
-                    }
+                    player->setState(ApeState::HangingBranch);
+                    
+                    // FIX: Subtract 2.f so the bounding box overlaps the branch slightly!
+                    player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height - 2.f);
+                    player->setVelocity(0.f, 0.f);
                 }
             } else if (player->getState() == ApeState::HangingBranch) {
                 player->setState(ApeState::Airborne);

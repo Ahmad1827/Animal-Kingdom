@@ -69,7 +69,6 @@ void PlayState::update(float dt) {
     if (f10Pressed && !f10PressedLastFrame) debugOverlay->toggleGenerationDebug(); 
     f10PressedLastFrame = f10Pressed;
 
-    // F11 Toggle Integration
     static bool f11PressedLastFrame = false;
     bool f11Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F11);
     if (f11Pressed && !f11PressedLastFrame) debugOverlay->toggleKinematicsDebug();
@@ -93,10 +92,8 @@ void PlayState::update(float dt) {
         sf::FloatRect playerBounds = player->getBounds();
         sf::FloatRect platformBounds;
         
-        // 1. CAPTURE STATE BEFORE MODIFICATION
         bool wasGrounded = (player->getState() == ApeState::Grounded);
 
-        // 2. FORCED RESET
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::HangingBranch && player->getState() != ApeState::ClimbingVine) {
             player->setState(ApeState::Airborne);
         }
@@ -107,32 +104,38 @@ void PlayState::update(float dt) {
         float bottomY = playerBounds.top + playerBounds.height;
         float distanceToGround = groundHeight - bottomY;
 
-        // 3. SLOPE STICKINESS RESOLUTION
         if (player->getVelocity().y >= 0.f && bottomY >= groundHeight) {
-            // Direct collision (Uphill or falling onto flat ground)
             player->setPosition(player->getPosition().x, groundHeight - playerBounds.height);
             player->setVelocity(player->getVelocity().x, 0.f);
             player->setState(ApeState::Grounded);
             player->setDroppingThrough(false);
         } 
         else if (wasGrounded && player->getVelocity().y >= 0.f && distanceToGround > 0.f && distanceToGround < 25.f) {
-            // Downhill Stickiness: Snap down to the terrain if it falls out from under us
             player->setPosition(player->getPosition().x, groundHeight - playerBounds.height);
             player->setVelocity(player->getVelocity().x, 0.f);
             player->setState(ApeState::Grounded);
             player->setDroppingThrough(false);
         }
 
-        // 4. ONE WAY PLATFORMS
+        // --- FIX FOR BRANCH TWITCHING ---
+        sf::FloatRect checkBounds = playerBounds;
+        sf::Vector2f checkVel = player->getVelocity();
+        
+        if (wasGrounded) {
+            // Push bounding box 2 pixels into the floor and simulate downward falling
+            // so the engine never drops the collision state!
+            checkBounds.top += 2.f; 
+            if (checkVel.y == 0.f) checkVel.y = 10.f; 
+        }
+
         if (player->getState() == ApeState::Airborne && !player->isDroppingThrough()) {
-            if (worldManager->checkOneWayCollision(playerBounds, player->getVelocity(), dt, platformBounds)) {
+            if (worldManager->checkOneWayCollision(checkBounds, checkVel, dt, platformBounds)) {
                 player->setPosition(player->getPosition().x, platformBounds.top - playerBounds.height);
                 player->setVelocity(player->getVelocity().x, 0.f);
                 player->setState(ApeState::Grounded);
             }
         }
 
-        // 5. PHYSICAL IMPACTS
         if (!wasGrounded && player->getState() == ApeState::Grounded && std::abs(player->getVelocity().y) > 300.f) {
             particleSystem->spawnImpactLeaves(player->getPosition() + sf::Vector2f(playerBounds.width/2.f, playerBounds.height), 8);
         }
@@ -165,15 +168,44 @@ void PlayState::update(float dt) {
             }
         }
 
+        // --- FIX FOR SWINGING IN THIN AIR ---
         sf::FloatRect branchBounds;
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::ClimbingVine && player->getState() != ApeState::Grounded) {
-            if (worldManager->checkHangCollision(playerBounds, branchBounds)) {
+            
+            sf::FloatRect hangCheckBounds = playerBounds;
+            if (player->getState() == ApeState::HangingBranch) {
+                // Ensure the box stays overlapped with the branch while sliding around
+                hangCheckBounds.top -= 2.f; 
+            }
+
+            if (worldManager->checkHangCollision(hangCheckBounds, branchBounds)) {
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
                     player->setState(ApeState::HangingBranch);
-                    
-                    // FIX: Subtract 2.f so the bounding box overlaps the branch slightly!
                     player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height - 2.f);
-                    player->setVelocity(0.f, 0.f);
+                    if (player->getVelocity().y < 0.f) player->setVelocity(player->getVelocity().x, 0.f);
+                }
+
+                if (player->getState() == ApeState::HangingBranch) {
+                    // Clamp logic: Keep the ape 25 pixels away from the absolute edge of the branch 
+                    // so the scaled visual sprite doesn't hang off into the air.
+                    float visualPadding = 25.f; 
+                    float leftLimit = branchBounds.left + visualPadding;
+                    float rightLimit = branchBounds.left + branchBounds.width - playerBounds.width - visualPadding;
+
+                    // Edge case safety just in case a branch is extremely short
+                    if (leftLimit > rightLimit) {
+                         float center = branchBounds.left + branchBounds.width/2.f - playerBounds.width/2.f;
+                         leftLimit = rightLimit = center;
+                    }
+
+                    float currentX = player->getPosition().x;
+                    if (currentX < leftLimit) {
+                        player->setPosition(leftLimit, player->getPosition().y);
+                        player->setVelocity(0.f, 0.f);
+                    } else if (currentX > rightLimit) {
+                        player->setPosition(rightLimit, player->getPosition().y);
+                        player->setVelocity(0.f, 0.f);
+                    }
                 }
             } else if (player->getState() == ApeState::HangingBranch) {
                 player->setState(ApeState::Airborne);

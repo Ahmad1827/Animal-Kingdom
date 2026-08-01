@@ -34,6 +34,8 @@ Ape::Ape(float x, float y, sf::Texture& texture) {
     animator->addAnimation("Fall",  2, 3, frameW, frameH, 2,  6.f,  true,  0.f, 0.f);
     animator->addAnimation("Land",  4, 3, frameW, frameH, 2,  6.f,  false, 0.f, 0.f);
     animator->addAnimation("Climb", 0, 4, frameW, frameH, 10, 10.f, true,  0.f, 0.f);
+    animator->addAnimation("Hang",  0, 5, frameW, frameH, 5,  4.f,  true,  0.f, -24.f);
+    animator->addAnimation("Swing", 5, 5, frameW, frameH, 4,  12.f, true,  0.f, -24.f);
 
     animator->play("Idle");
 }
@@ -42,14 +44,28 @@ void Ape::update(float dt) {
     float moveSpeed = 200.f;
     
     if (state == ApeState::Grounded || state == ApeState::Airborne) {
-        velocity.x = 0.f;
+        if (state != ApeState::Airborne) {
+            velocity.x = 0.f;
+        }
+        
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            velocity.x = -moveSpeed;
+            if (state == ApeState::Grounded) {
+                velocity.x = -moveSpeed;
+            } else {
+                velocity.x -= 800.f * dt;
+                if (velocity.x < -moveSpeed * 1.5f) velocity.x = -moveSpeed * 1.5f;
+            }
         }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            velocity.x = moveSpeed;
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+            if (state == ApeState::Grounded) {
+                velocity.x = moveSpeed;
+            } else {
+                velocity.x += 800.f * dt;
+                if (velocity.x > moveSpeed * 1.5f) velocity.x = moveSpeed * 1.5f;
+            }
         }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::LShift)) {
+        
+        if (state == ApeState::Grounded && sf::Keyboard::isKeyPressed(sf::Keyboard::LShift)) {
             velocity.x *= 1.5f;
         }
     }
@@ -83,17 +99,25 @@ void Ape::update(float dt) {
     }
 
     if (state == ApeState::HangingBranch) {
-        velocity.y = 0.f; 
-        velocity.x = 0.f;
+        velocity.y = 0.f;
         
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            velocity.x = -moveSpeed;
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            velocity.x = moveSpeed;
+            velocity.x -= 600.f * dt;
+        } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+            velocity.x += 600.f * dt;
+        } else {
+            velocity.x *= 0.95f; 
         }
 
+        if (velocity.x > 350.f) velocity.x = 350.f;
+        if (velocity.x < -350.f) velocity.x = -350.f;
+
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+            velocity.y = -500.f;
+            state = ApeState::Airborne;
+        }
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+            velocity.x *= 0.5f;
             state = ApeState::Airborne;
         }
     }
@@ -106,13 +130,10 @@ void Ape::update(float dt) {
 
     animator->resume();
 
-    // --- STABLE ANIMATION SELECTION ---
-    
-    // 1. Check movement intent first (prevents Walk/Run jitter on platforms)
     bool isMovingHorizontally = (std::abs(velocity.x) > 10.f);
-    bool isRunning = (std::abs(velocity.x) >= moveSpeed * 1.2f); // Requires Left Shift
+    bool isRunning = (std::abs(velocity.x) >= moveSpeed * 1.2f); 
 
-    if (state == ApeState::Grounded || state == ApeState::HangingBranch) {
+    if (state == ApeState::Grounded) {
         if (isRunning) {
             animator->play("Run");
         } else if (isMovingHorizontally) {
@@ -127,7 +148,6 @@ void Ape::update(float dt) {
         } else if (velocity.y > 150.f) {
             animator->play("Fall");
         } else {
-            // While hovering at low vertical speed, sustain current walk/run if moving
             if (isRunning) animator->play("Run");
             else if (isMovingHorizontally) animator->play("Walk");
             else animator->play("Idle");
@@ -137,6 +157,13 @@ void Ape::update(float dt) {
         animator->play("Climb");
         if (std::abs(velocity.y) < 5.f && std::abs(velocity.x) < 5.f) {
             animator->pause();
+        }
+    }
+    else if (state == ApeState::HangingBranch) {
+        if (std::abs(velocity.x) > 50.f) {
+            animator->play("Swing");
+        } else {
+            animator->play("Hang");
         }
     }
 

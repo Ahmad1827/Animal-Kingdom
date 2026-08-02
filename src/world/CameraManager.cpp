@@ -9,9 +9,9 @@ CameraManager::CameraManager(sf::Vector2f size) {
     
     // Initialize Trauma System
     trauma = 0.f;
-    maxShakeAngle = 8.f;   // Maximum rotation in degrees
-    maxShakeOffset = 45.f; // Maximum translation in pixels
-    traumaDecay = 1.2f;    // How fast it settles back to 0
+    maxShakeAngle = 10.f;  // Increased to 10 degrees of rotation
+    maxShakeOffset = 70.f; // Increased to 70 pixels of offset
+    traumaDecay = 0.8f;   // How fast it settles back to 0
     time = 0.f;
     
     currentZoom = 1.35f;

@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
+#include <iostream>
 
 PlayState::PlayState(Game* game) : game(game), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false) {}
 
@@ -88,6 +89,8 @@ void PlayState::update(float dt) {
     if (player) {
         player->update(dt);
 
+        float preCollisionVelY = player->getVelocity().y;
+
         sf::Clock physicsClock;
         sf::FloatRect playerBounds = player->getBounds();
         sf::FloatRect platformBounds;
@@ -117,13 +120,10 @@ void PlayState::update(float dt) {
             player->setDroppingThrough(false);
         }
 
-        // --- FIX FOR BRANCH TWITCHING ---
         sf::FloatRect checkBounds = playerBounds;
         sf::Vector2f checkVel = player->getVelocity();
         
         if (wasGrounded) {
-            // Push bounding box 2 pixels into the floor and simulate downward falling
-            // so the engine never drops the collision state!
             checkBounds.top += 2.f; 
             if (checkVel.y == 0.f) checkVel.y = 10.f; 
         }
@@ -136,8 +136,21 @@ void PlayState::update(float dt) {
             }
         }
 
-        if (!wasGrounded && player->getState() == ApeState::Grounded && std::abs(player->getVelocity().y) > 300.f) {
-            particleSystem->spawnImpactLeaves(player->getPosition() + sf::Vector2f(playerBounds.width/2.f, playerBounds.height), 8);
+        if (!wasGrounded && player->getState() == ApeState::Grounded) {
+            std::cout << "[DEBUG] Landed! Falling Speed was: " << preCollisionVelY << std::endl;
+            ImpactLevel impact = player->registerLanding(preCollisionVelY);
+            sf::Vector2f spawnPos = player->getPosition() + sf::Vector2f(playerBounds.width/2.f, playerBounds.height);
+            
+            if (impact == ImpactLevel::Heavy) {
+                cameraManager->addTrauma(0.8f);
+                particleSystem->spawnImpactLeaves(spawnPos, 20); 
+            } else if (impact == ImpactLevel::Medium) {
+                cameraManager->addTrauma(0.4f);
+                particleSystem->spawnImpactLeaves(spawnPos, 10);
+            } else if (impact == ImpactLevel::Light) {
+                cameraManager->addTrauma(0.15f);
+                particleSystem->spawnImpactLeaves(spawnPos, 4);
+            }
         }
         
         if (std::abs(player->getVelocity().x) > 10.f) {
@@ -168,13 +181,11 @@ void PlayState::update(float dt) {
             }
         }
 
-        // --- FIX FOR SWINGING IN THIN AIR ---
         sf::FloatRect branchBounds;
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::ClimbingVine && player->getState() != ApeState::Grounded) {
             
             sf::FloatRect hangCheckBounds = playerBounds;
             if (player->getState() == ApeState::HangingBranch) {
-                // Ensure the box stays overlapped with the branch while sliding around
                 hangCheckBounds.top -= 2.f; 
             }
 
@@ -186,13 +197,10 @@ void PlayState::update(float dt) {
                 }
 
                 if (player->getState() == ApeState::HangingBranch) {
-                    // Clamp logic: Keep the ape 25 pixels away from the absolute edge of the branch 
-                    // so the scaled visual sprite doesn't hang off into the air.
                     float visualPadding = 25.f; 
                     float leftLimit = branchBounds.left + visualPadding;
                     float rightLimit = branchBounds.left + branchBounds.width - playerBounds.width - visualPadding;
 
-                    // Edge case safety just in case a branch is extremely short
                     if (leftLimit > rightLimit) {
                          float center = branchBounds.left + branchBounds.width/2.f - playerBounds.width/2.f;
                          leftLimit = rightLimit = center;

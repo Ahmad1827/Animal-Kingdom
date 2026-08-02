@@ -22,14 +22,21 @@ private:
     sf::Vector2f anchorPos;
     sf::Vector2f lookAheadOffset;
     sf::Vector2f shakeOffset;
-    float shakeTrauma;
+    
+    // New Trauma-based Shake System
+    float trauma;
+    float maxShakeAngle;
+    float maxShakeOffset;
+    float traumaDecay;
+    float time;
+
     float currentZoom;
     float targetZoom;
 
 public:
     CameraManager(sf::Vector2f size);
     void update(float dt, const sf::Vector2f& targetPos, const sf::Vector2f& targetVelocity, ApeState state);
-    void addShake(float amount);
+    void addTrauma(float amount); 
     void setZoom(float zoom);
     
     sf::Vector2f getIdealPosition() const;

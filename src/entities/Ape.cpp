@@ -40,6 +40,10 @@ Ape::Ape(float x, float y, sf::Texture& texture) {
     animator->play("Idle");
 }
 
+ImpactLevel Ape::registerLanding(float impactVelocityY) {
+    return landingDetector.registerLanding(impactVelocityY);
+}
+
 void Ape::update(float dt) {
     float moveSpeed = 200.f;
     
@@ -168,12 +172,16 @@ void Ape::update(float dt) {
     }
 
     animator->update(dt);
+    landingDetector.updateSquash(dt);
 
     sf::Vector2f renderOffset = animator->getCurrentOffset();
     if (!animator->isFacingRight()) {
         renderOffset.x = -renderOffset.x; 
     }
 
+    // Apply base scale combined with the dynamic squash/stretch scale
+    float baseScale = 1.20f;
+    sprite.setScale(baseScale * landingDetector.squashScaleX, baseScale * landingDetector.squashScaleY);
     sprite.setPosition(bounds.left + bounds.width / 2.f + renderOffset.x, bounds.top + bounds.height + renderOffset.y);
 }
 

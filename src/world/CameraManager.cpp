@@ -6,7 +6,14 @@
 CameraManager::CameraManager(sf::Vector2f size) {
     view.setSize(size);
     view.setCenter(0.f, 0.f);
-    shakeTrauma = 0.f;
+    
+    // Initialize Trauma System
+    trauma = 0.f;
+    maxShakeAngle = 8.f;   // Maximum rotation in degrees
+    maxShakeOffset = 45.f; // Maximum translation in pixels
+    traumaDecay = 1.2f;    // How fast it settles back to 0
+    time = 0.f;
+    
     currentZoom = 1.35f;
     targetZoom = 1.35f;
     
@@ -25,7 +32,14 @@ CameraManager::CameraManager(sf::Vector2f size) {
     anchorPos = {0.f, 0.f};
 }
 
+void CameraManager::addTrauma(float amount) {
+    trauma = std::clamp(trauma + amount, 0.0f, 1.0f);
+}
+
 void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Vector2f& targetVelocity, ApeState state) {
+    // Advance the internal clock used for the sine wave shake
+    time += dt * 50.f;
+
     // 1. Anchor System / Bounding Box (Dead Zone)
     if (targetPos.x > anchorPos.x + tuning.deadZone.x / 2.f) {
         anchorPos.x = targetPos.x - tuning.deadZone.x / 2.f;
@@ -86,11 +100,18 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
     if (std::abs(idealPos.x - newCenter.x) < 0.5f) newCenter.x = idealPos.x;
     if (std::abs(idealPos.y - newCenter.y) < 0.5f) newCenter.y = idealPos.y;
 
-    if (shakeTrauma > 0.f) {
-        shakeOffset.x = ((std::rand() % 100) / 50.f - 1.f) * shakeTrauma * 20.f;
-        shakeOffset.y = ((std::rand() % 100) / 50.f - 1.f) * shakeTrauma * 20.f;
-        shakeTrauma -= dt;
-        if (shakeTrauma < 0.f) shakeTrauma = 0.f;
+    // --- NON-LINEAR TRAUMA SHAKE SYSTEM ---
+    float angle = 0.f;
+    if (trauma > 0.f) {
+        trauma = std::max(trauma - traumaDecay * dt, 0.0f);
+        
+        // Square trauma for a smooth decay curve (shake drops off quickly, then settles)
+        float shake = trauma * trauma; 
+        
+        // Use overlapping sine waves for organic motion, avoiding random jagged offsets
+        shakeOffset.x = maxShakeOffset * shake * std::sin(time);
+        shakeOffset.y = maxShakeOffset * shake * std::cos(time * 0.8f);
+        angle = maxShakeAngle * shake * std::sin(time * 1.2f);
     } else {
         shakeOffset = {0.f, 0.f};
     }
@@ -105,9 +126,9 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
     finalCenter.y = std::floor(finalCenter.y);
     
     view.setCenter(finalCenter.x, finalCenter.y);
+    view.setRotation(angle); 
 }
 
-void CameraManager::addShake(float amount) { shakeTrauma += amount; }
 void CameraManager::setZoom(float zoom) { targetZoom = zoom; }
 const sf::View& CameraManager::getView() const { return view; }
 CameraTuning& CameraManager::getTuning() { return tuning; }

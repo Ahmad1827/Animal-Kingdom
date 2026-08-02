@@ -3,6 +3,7 @@
 #include "graphics/Animator.h"
 #include <SFML/Graphics.hpp>
 #include <memory>
+#include "entities/LandingDetector.h"
 
 enum class ApeState { Airborne, Grounded, ClimbingTrunk, ClimbingVine, HangingBranch };
 
@@ -15,6 +16,7 @@ private:
 
     sf::Sprite sprite;
     std::unique_ptr<Animator> animator;
+    LandingDetector landingDetector;
 
 public:
     Ape(float x, float y, sf::Texture& texture);
@@ -29,7 +31,7 @@ public:
     sf::Vector2f getVelocity() const;
     ApeState getState() const;
     bool isDroppingThrough() const;
-
+    ImpactLevel registerLanding(float impactVelocityY);
     void setPosition(float x, float y);
     void setVelocity(float vx, float vy);
     void setState(ApeState newState);

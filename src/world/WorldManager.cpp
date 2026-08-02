@@ -1,5 +1,6 @@
 #include "world/WorldManager.h"
 #include <set>
+#include <cmath>
 
 WorldManager::WorldManager(uint32_t seed, sf::Texture& decorTex) : swayTime(0.f) {
     chunkManager = std::make_unique<ChunkManager>(seed, decorTex);
@@ -57,14 +58,30 @@ void WorldManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect&
 void WorldManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
     chunkManager->drawGeometry(window, viewBounds, profiler);
 
-    sf::VertexArray line(sf::LinesStrip);
+    // --- DRAW THICK VINES INSTEAD OF 1-PIXEL LINES ---
+    float vineThickness = 5.0f;
+    sf::RectangleShape vineRect;
+    vineRect.setFillColor(sf::Color(34, 139, 34)); // Forest green
+
     for (const auto& pair : activePhysicalVines) {
         for (const auto& vine : pair.second) {
-            line.clear();
-            for (int i = 0; i < vine.getSegmentCount(); ++i) {
-                line.append(sf::Vertex(vine.getSegmentPosition(i), sf::Color(34, 139, 34)));
+            for (int i = 0; i < vine.getSegmentCount() - 1; ++i) {
+                sf::Vector2f p1 = vine.getSegmentPosition(i);
+                sf::Vector2f p2 = vine.getSegmentPosition(i + 1);
+                
+                // Calculate distance and angle between the two segments
+                sf::Vector2f diff = p2 - p1;
+                float length = std::sqrt(diff.x * diff.x + diff.y * diff.y);
+                float angle = std::atan2(diff.y, diff.x) * 180.f / 3.14159265f;
+                
+                // Stretch and rotate the rectangle to bridge the points perfectly
+                vineRect.setSize(sf::Vector2f(length, vineThickness));
+                vineRect.setOrigin(0.f, vineThickness / 2.f);
+                vineRect.setPosition(p1);
+                vineRect.setRotation(angle);
+                
+                window.draw(vineRect);
             }
-            window.draw(line);
         }
     }
 }

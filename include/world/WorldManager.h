@@ -1,16 +1,19 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "world/ChunkManager.h"
+#include "world/VinePhysics.h"
 #include <memory>
 #include <cstdint>
+#include <map>
+#include <vector>
 
 class WorldManager {
 private:
     std::unique_ptr<ChunkManager> chunkManager;
     float swayTime;
+    std::map<uint64_t, std::vector<VinePhysics>> activePhysicalVines;
 
 public:
-    public:
     WorldManager(uint32_t seed, sf::Texture& decorTex);
     void update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, ProfilerStats& profiler);
     void draw(sf::RenderWindow& window, const sf::FloatRect& viewBounds) const;

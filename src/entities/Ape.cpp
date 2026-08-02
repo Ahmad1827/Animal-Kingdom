@@ -85,7 +85,7 @@ void Ape::update(float dt) {
         velocity.y += 1000.f * dt;
     }
 
-    if (state == ApeState::ClimbingTrunk || state == ApeState::ClimbingVine) {
+    if (state == ApeState::ClimbingTrunk) {
         velocity.x = 0.f;
         velocity.y = 0.f;
         
@@ -101,20 +101,23 @@ void Ape::update(float dt) {
             state = ApeState::Airborne;
         }
     }
+    
+    // Vines are now handled entirely externally in PlayState to anchor to physics
 
     if (state == ApeState::HangingBranch) {
         velocity.y = 0.f;
         
+        // Remove crazy swinging here - just a slow shimmy along the branch
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            velocity.x -= 600.f * dt;
+            velocity.x -= 300.f * dt;
         } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            velocity.x += 600.f * dt;
+            velocity.x += 300.f * dt;
         } else {
-            velocity.x *= 0.95f; 
+            velocity.x *= 0.8f; 
         }
 
-        if (velocity.x > 350.f) velocity.x = 350.f;
-        if (velocity.x < -350.f) velocity.x = -350.f;
+        if (velocity.x > 100.f) velocity.x = 100.f;
+        if (velocity.x < -100.f) velocity.x = -100.f;
 
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
             velocity.y = -500.f;
@@ -157,18 +160,26 @@ void Ape::update(float dt) {
             else animator->play("Idle");
         }
     } 
-    else if (state == ApeState::ClimbingTrunk || state == ApeState::ClimbingVine) {
+    else if (state == ApeState::ClimbingTrunk) {
         animator->play("Climb");
-        if (std::abs(velocity.y) < 5.f && std::abs(velocity.x) < 5.f) {
+        if (std::abs(velocity.y) < 5.f) {
             animator->pause();
         }
     }
-    else if (state == ApeState::HangingBranch) {
+    else if (state == ApeState::ClimbingVine) {
+        // Only trigger the "Swing" animation on the vine when building real momentum
         if (std::abs(velocity.x) > 50.f) {
             animator->play("Swing");
         } else {
-            animator->play("Hang");
+            animator->play("Climb");
+            if (std::abs(velocity.y) < 5.f && std::abs(velocity.x) < 5.f) {
+                animator->pause();
+            }
         }
+    }
+    else if (state == ApeState::HangingBranch) {
+        // Branches strictly use Hang!
+        animator->play("Hang");
     }
 
     animator->update(dt);
@@ -179,7 +190,6 @@ void Ape::update(float dt) {
         renderOffset.x = -renderOffset.x; 
     }
 
-    // Apply base scale combined with the dynamic squash/stretch scale
     float baseScale = 1.20f;
     sprite.setScale(baseScale * landingDetector.squashScaleX, baseScale * landingDetector.squashScaleY);
     sprite.setPosition(bounds.left + bounds.width / 2.f + renderOffset.x, bounds.top + bounds.height + renderOffset.y);

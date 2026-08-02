@@ -25,7 +25,14 @@ public:
     bool checkOneWayCollision(const sf::FloatRect& bounds, const sf::Vector2f& velocity, float dt, sf::FloatRect& outPlatformBounds) const;
     bool checkTrunkCollision(const sf::FloatRect& bounds, float& outTrunkCenter) const;
     bool checkHangCollision(const sf::FloatRect& bounds, sf::FloatRect& outBranchBounds) const;
-    bool checkVineCollision(const sf::FloatRect& bounds, float& outVineCenter) const;
+    
+    // --- NEW DYNAMIC VINE COLLISION AND QUERY METHODS ---
+    bool checkVineCollision(const sf::FloatRect& bounds, uint64_t& outChunk, int& outVine, int& outSeg) const;
+    sf::Vector2f getVineSegmentPosition(uint64_t chunk, int vine, int seg) const;
+    sf::Vector2f getVineSegmentVelocity(uint64_t chunk, int vine, int seg, float dt) const;
+    void applyVineForce(uint64_t chunk, int vine, int seg, const sf::Vector2f& force);
+    int getVineSegmentCount(uint64_t chunk, int vine) const;
+
     void updateSway(float dt, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector);
     void disturbEnvironment(const sf::FloatRect& bounds, float velocityX);    
     

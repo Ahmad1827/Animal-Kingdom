@@ -1,6 +1,7 @@
 #include "world/WorldManager.h"
 #include <set>
 #include <cmath>
+#include <algorithm>
 
 WorldManager::WorldManager(uint32_t seed, sf::Texture& decorTex) : swayTime(0.f) {
     chunkManager = std::make_unique<ChunkManager>(seed, decorTex);
@@ -58,10 +59,9 @@ void WorldManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect&
 void WorldManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
     chunkManager->drawGeometry(window, viewBounds, profiler);
 
-    // --- DRAW THICK VINES INSTEAD OF 1-PIXEL LINES ---
     float vineThickness = 5.0f;
     sf::RectangleShape vineRect;
-    vineRect.setFillColor(sf::Color(34, 139, 34)); // Forest green
+    vineRect.setFillColor(sf::Color(34, 139, 34)); 
 
     for (const auto& pair : activePhysicalVines) {
         for (const auto& vine : pair.second) {
@@ -69,12 +69,10 @@ void WorldManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& v
                 sf::Vector2f p1 = vine.getSegmentPosition(i);
                 sf::Vector2f p2 = vine.getSegmentPosition(i + 1);
                 
-                // Calculate distance and angle between the two segments
                 sf::Vector2f diff = p2 - p1;
                 float length = std::sqrt(diff.x * diff.x + diff.y * diff.y);
                 float angle = std::atan2(diff.y, diff.x) * 180.f / 3.14159265f;
                 
-                // Stretch and rotate the rectangle to bridge the points perfectly
                 vineRect.setSize(sf::Vector2f(length, vineThickness));
                 vineRect.setOrigin(0.f, vineThickness / 2.f);
                 vineRect.setPosition(p1);
@@ -161,21 +159,59 @@ bool WorldManager::checkHangCollision(const sf::FloatRect& bounds, sf::FloatRect
     return false;
 }
 
-bool WorldManager::checkVineCollision(const sf::FloatRect& bounds, float& outVineCenter) const {
+bool WorldManager::checkVineCollision(const sf::FloatRect& bounds, uint64_t& outChunk, int& outVine, int& outSeg) const {
     for (const auto& pair : activePhysicalVines) {
+        int vineIdx = 0;
         for (const auto& vine : pair.second) {
             for (int i = 0; i < vine.getSegmentCount(); ++i) {
                 sf::Vector2f pos = vine.getSegmentPosition(i);
-                sf::FloatRect vBounds(pos.x - 6.f, pos.y, 12.f, 10.f); 
+                sf::FloatRect vBounds(pos.x - 10.f, pos.y, 20.f, 20.f); 
                 
                 if (bounds.intersects(vBounds)) {
-                    outVineCenter = pos.x; 
+                    outChunk = pair.first;
+                    outVine = vineIdx;
+                    outSeg = i; 
                     return true;
                 }
             }
+            vineIdx++;
         }
     }
     return false;
+}
+
+sf::Vector2f WorldManager::getVineSegmentPosition(uint64_t chunk, int vine, int seg) const {
+    auto it = activePhysicalVines.find(chunk);
+    if (it != activePhysicalVines.end() && vine < it->second.size()) {
+        const auto& v = it->second[vine];
+        return v.getSegmentPosition(std::clamp(seg, 0, v.getSegmentCount() - 1));
+    }
+    return sf::Vector2f(0.f, 0.f);
+}
+
+sf::Vector2f WorldManager::getVineSegmentVelocity(uint64_t chunk, int vine, int seg, float dt) const {
+    auto it = activePhysicalVines.find(chunk);
+    if (it != activePhysicalVines.end() && vine < it->second.size()) {
+        const auto& v = it->second[vine];
+        return v.getSegmentVelocity(std::clamp(seg, 0, v.getSegmentCount() - 1), dt);
+    }
+    return sf::Vector2f(0.f, 0.f);
+}
+
+void WorldManager::applyVineForce(uint64_t chunk, int vine, int seg, const sf::Vector2f& force) {
+    auto it = activePhysicalVines.find(chunk);
+    if (it != activePhysicalVines.end() && vine < it->second.size()) {
+        auto& v = it->second[vine];
+        v.applyForce(std::clamp(seg, 0, v.getSegmentCount() - 1), force);
+    }
+}
+
+int WorldManager::getVineSegmentCount(uint64_t chunk, int vine) const {
+    auto it = activePhysicalVines.find(chunk);
+    if (it != activePhysicalVines.end() && vine < it->second.size()) {
+        return it->second[vine].getSegmentCount();
+    }
+    return 0;
 }
 
 void WorldManager::updateSway(float dt, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector) {

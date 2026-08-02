@@ -89,6 +89,16 @@ void PlayState::update(float dt) {
     if (player) {
         player->update(dt);
 
+        // --- DYNAMIC VINE STATE TRACKERS ---
+        static uint64_t grabbedChunk = 0;
+        static int grabbedVine = -1;
+        static int grabbedSeg = -1;
+        static float climbTimer = 0.f;
+
+        if (player->getState() != ApeState::ClimbingVine) {
+            grabbedVine = -1;
+        }
+
         float preCollisionVelY = player->getVelocity().y;
 
         sf::Clock physicsClock;
@@ -103,7 +113,6 @@ void PlayState::update(float dt) {
 
         float playerCenterX = playerBounds.left + (playerBounds.width / 2.f);
         float groundHeight = worldManager->getTerrainHeight(playerCenterX);
-
         float bottomY = playerBounds.top + playerBounds.height;
         float distanceToGround = groundHeight - bottomY;
 
@@ -137,7 +146,6 @@ void PlayState::update(float dt) {
         }
 
         if (!wasGrounded && player->getState() == ApeState::Grounded) {
-            std::cout << "[DEBUG] Landed! Falling Speed was: " << preCollisionVelY << std::endl;
             ImpactLevel impact = player->registerLanding(preCollisionVelY);
             sf::Vector2f spawnPos = player->getPosition() + sf::Vector2f(playerBounds.width/2.f, playerBounds.height);
             
@@ -158,7 +166,8 @@ void PlayState::update(float dt) {
         }
 
         float trunkCenter = 0.f;
-        float vineCenter = 0.f;
+        uint64_t tChunk = 0;
+        int tVine = -1, tSeg = -1;
         
         if (worldManager->checkTrunkCollision(playerBounds, trunkCenter)) {
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
@@ -168,14 +177,56 @@ void PlayState::update(float dt) {
                 player->setPosition(trunkCenter - (playerBounds.width / 2.f), player->getPosition().y);
                 player->setVelocity(0.f, 0.f);
             }
-        } else if (worldManager->checkVineCollision(playerBounds, vineCenter)) {
+        } 
+        // --- NEW DYNAMIC VINE HANDLING ---
+        else if (grabbedVine != -1) { 
+            // 1. ANCHOR: Tie player perfectly to the moving physics segment
+            sf::Vector2f segPos = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, grabbedSeg);
+            player->setPosition(segPos.x - playerBounds.width / 2.f, segPos.y - playerBounds.height / 2.f);
+            
+            // 2. MOMENTUM INJECTION: Build up a massive swing by pressing A/D
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(-1200.f * dt, 0.f));
+            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(1200.f * dt, 0.f));
+            }
+
+            // 3. CLIMBING: Controlled delay so you don't warp up the vine instantly
+            climbTimer += dt;
+            if (climbTimer > 0.08f) {
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+                    if (grabbedSeg > 1) grabbedSeg--;
+                    climbTimer = 0.f;
+                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+                    int maxSegs = worldManager->getVineSegmentCount(grabbedChunk, grabbedVine);
+                    if (grabbedSeg < maxSegs - 1) grabbedSeg++;
+                    climbTimer = 0.f;
+                }
+            }
+
+            // 4. ANIMATION STATE: Read the vine's speed to play the Swing animation
+            sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
+            player->setVelocity(vineVel.x, 0.f);
+
+            // 5. SLINGSHOT: Transfer the built-up momentum when jumping off!
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                player->setState(ApeState::Airborne);
+                player->setVelocity(vineVel.x * 1.5f, -600.f); 
+                grabbedVine = -1;
+            }
+        } 
+        // 6. INITIAL GRAB: Detect collision and lock on
+        else if (worldManager->checkVineCollision(playerBounds, tChunk, tVine, tSeg)) {
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
                 player->getState() != ApeState::ClimbingVine) {
                 player->setState(ApeState::ClimbingVine);
-                player->setPosition(vineCenter - (playerBounds.width / 2.f), player->getPosition().y);
-                player->setVelocity(0.f, 0.f);
+                grabbedChunk = tChunk;
+                grabbedVine = tVine;
+                grabbedSeg = tSeg;
+                climbTimer = 0.f;
             }
-        } else {
+        } 
+        else {
             if (player->getState() == ApeState::ClimbingTrunk || player->getState() == ApeState::ClimbingVine) {
                 player->setState(ApeState::Airborne);
             }

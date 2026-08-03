@@ -180,22 +180,30 @@ void PlayState::update(float dt) {
         } 
         // --- NEW DYNAMIC VINE HANDLING ---
         else if (grabbedVine != -1) { 
-            // 1. ANCHOR: Tie player perfectly to the moving physics segment
             sf::Vector2f segPos = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, grabbedSeg);
             player->setPosition(segPos.x - playerBounds.width / 2.f, segPos.y - playerBounds.height / 2.f);
             
-            // 2. MOMENTUM INJECTION: Build up a massive swing by pressing A/D
+            sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
+            
+            // FIX: Capped maximum swing speed + responsive pushing
+            float maxSwingSpeed = 250.f; 
+            float swingPush = 700.f * dt; 
+            
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-                worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(-1200.f * dt, 0.f));
+                if (vineVel.x > -maxSwingSpeed) {
+                    worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(-swingPush, 0.f));
+                }
             } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-                worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(1200.f * dt, 0.f));
+                if (vineVel.x < maxSwingSpeed) {
+                    worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(swingPush, 0.f));
+                }
             }
 
-            // 3. CLIMBING: Controlled delay so you don't warp up the vine instantly
             climbTimer += dt;
-            if (climbTimer > 0.08f) {
+            if (climbTimer > 0.1f) {
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-                    if (grabbedSeg > 1) grabbedSeg--;
+                    // FIX: Never climb onto Segment 0, because it is the unmoving anchor!
+                    if (grabbedSeg > 1) grabbedSeg--; 
                     climbTimer = 0.f;
                 } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
                     int maxSegs = worldManager->getVineSegmentCount(grabbedChunk, grabbedVine);
@@ -204,26 +212,30 @@ void PlayState::update(float dt) {
                 }
             }
 
-            // 4. ANIMATION STATE: Read the vine's speed to play the Swing animation
-            sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
             player->setVelocity(vineVel.x, 0.f);
 
-            // 5. SLINGSHOT: Transfer the built-up momentum when jumping off!
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
                 player->setState(ApeState::Airborne);
-                player->setVelocity(vineVel.x * 1.5f, -600.f); 
+                // FIX: Cap the slingshot velocity so you don't fly out of bounds
+                float jumpOffX = std::clamp(vineVel.x * 1.5f, -350.f, 350.f);
+                player->setVelocity(jumpOffX, -500.f); 
                 grabbedVine = -1;
             }
         } 
-        // 6. INITIAL GRAB: Detect collision and lock on
         else if (worldManager->checkVineCollision(playerBounds, tChunk, tVine, tSeg)) {
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
                 player->getState() != ApeState::ClimbingVine) {
+                
                 player->setState(ApeState::ClimbingVine);
                 grabbedChunk = tChunk;
                 grabbedVine = tVine;
-                grabbedSeg = tSeg;
+                // FIX: Don't allow grabbing the static anchor block
+                grabbedSeg = (tSeg == 0) ? 1 : tSeg; 
                 climbTimer = 0.f;
+                
+                // FIX: Instantly transfer jumping momentum into the vine so it catches your weight
+                float transferForce = std::clamp(player->getVelocity().x * 0.015f, -8.f, 8.f);
+                worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(transferForce, 0.f));
             }
         } 
         else {

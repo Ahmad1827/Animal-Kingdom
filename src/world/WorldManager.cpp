@@ -127,7 +127,22 @@ bool WorldManager::checkTrunkCollision(const sf::FloatRect& bounds, float& outTr
             Chunk* chunk = chunkManager->getChunk(x, y);
             if (!chunk) continue;
             for (const auto& tree : chunk->getTrees()) {
-                if (bounds.intersects(tree.getTrunkBounds())) {
+                sf::FloatRect tBounds = tree.getTrunkBounds();
+                
+                float highestBranchY = tBounds.top + tBounds.height;
+                for (const auto& branch : tree.getBranches()) {
+                    if (branch.bounds.top < highestBranchY) {
+                        highestBranchY = branch.bounds.top;
+                    }
+                }
+                
+                float actualTop = std::max(tBounds.top, highestBranchY - 40.f);
+                
+                if (bounds.top + bounds.height / 2.f < actualTop) {
+                    continue; 
+                }
+
+                if (bounds.intersects(tBounds)) {
                     outTrunkCenter = tree.getTrunkCenter();
                     return true;
                 }

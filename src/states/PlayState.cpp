@@ -66,7 +66,6 @@ void PlayState::update(float dt) {
     else cameraManager->setZoom(1.35f);
 
     if (player) {
-        // 1. UPDATE PLAYER BASE LOGIC
         player->update(dt);
 
         static uint64_t grabbedChunk = 0;
@@ -85,15 +84,13 @@ void PlayState::update(float dt) {
         
         bool wasGrounded = (player->getState() == ApeState::Grounded);
 
-        // --- DROP-TO-HANG MECHANIC ---
         if (wasGrounded && (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down))) {
             sf::FloatRect dropCheck = playerBounds;
-            dropCheck.top += 5.f; // Look slightly below the ape's feet
+            dropCheck.top += playerBounds.height - 5.f; 
             sf::FloatRect branchBounds;
             
             if (worldManager->checkHangCollision(dropCheck, branchBounds)) {
                 player->setState(ApeState::HangingBranch);
-                // Drop instantly below the branch
                 player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height - 2.f);
                 player->setVelocity(player->getVelocity().x, 0.f);
                 wasGrounded = false; 
@@ -140,7 +137,6 @@ void PlayState::update(float dt) {
             }
         }
 
-        // --- HEAVY IMPACT ---
         if (!wasGrounded && player->getState() == ApeState::Grounded) {
             ImpactLevel impact = player->registerLanding(preCollisionVelY);
             sf::Vector2f spawnPos = player->getPosition() + sf::Vector2f(playerBounds.width/2.f, playerBounds.height);
@@ -157,7 +153,6 @@ void PlayState::update(float dt) {
             }
         }
         
-        // Disable environmental disturbance if on a vine so we don't fight our own momentum!
         if (std::abs(player->getVelocity().x) > 10.f && player->getState() != ApeState::ClimbingVine) {
             worldManager->disturbEnvironment(playerBounds, player->getVelocity().x);
         }
@@ -166,7 +161,6 @@ void PlayState::update(float dt) {
         uint64_t tChunk = 0;
         int tVine = -1, tSeg = -1;
         
-        // --- TRUNK CLIMBING ---
         if (worldManager->checkTrunkCollision(playerBounds, trunkCenter)) {
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
                 player->getState() != ApeState::ClimbingTrunk && 
@@ -177,16 +171,13 @@ void PlayState::update(float dt) {
             }
         } 
         
-        // --- VINE INPUT INJECTION ---
         if (grabbedVine != -1) { 
-            // FIX: Drop the ape if the chunk unloaded to prevent 0,0 teleport
             if (worldManager->getVineSegmentCount(grabbedChunk, grabbedVine) == 0) {
                 grabbedVine = -1;
                 player->setState(ApeState::Airborne);
             } else {
                 sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
                 
-                // Tuned the swing forces to be instantly responsive but capped
                 float maxSwingSpeed = 350.f; 
                 float swingPush = 1200.f * dt; 
                 
@@ -220,7 +211,6 @@ void PlayState::update(float dt) {
                 }
             }
         } 
-        // --- GRABBING A NEW VINE ---
         else if (worldManager->checkVineCollision(playerBounds, tChunk, tVine, tSeg)) {
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
                 player->getState() != ApeState::ClimbingVine) {
@@ -236,7 +226,6 @@ void PlayState::update(float dt) {
             }
         }
 
-        // --- BRANCH HANGING LOGIC ---
         sf::FloatRect branchBounds;
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::ClimbingVine && player->getState() != ApeState::Grounded) {
             
@@ -256,17 +245,13 @@ void PlayState::update(float dt) {
             }
         }
 
-        // --- REWRITTEN X-AXIS BRANCH LIMITS ---
         if (player->getState() == ApeState::HangingBranch) {
-            // Use the physical center of the ape for boundaries instead of the left edge
             float apeW = playerBounds.width;
             float apeCenter = player->getPosition().x + (apeW / 2.f);
             
-            // Allow them to hang closely to the edge without slipping off
             float leftLimit = branchBounds.left + 5.f; 
             float rightLimit = branchBounds.left + branchBounds.width - 5.f;
             
-            // Edge case safety for tiny generated branches
             if (leftLimit > rightLimit) {
                  leftLimit = rightLimit = branchBounds.left + (branchBounds.width / 2.f);
             }
@@ -282,8 +267,7 @@ void PlayState::update(float dt) {
         
         profiler.physicsTime = physicsClock.getElapsedTime().asSeconds();
 
-        // 2. WORLD & SYSTEM UPDATES (Must happen BEFORE syncing the player to the vine!)
-        sf::Clock cameraClock;
+        sf::Clock cameraClock; 
         cameraManager->update(dt, player->getPosition(), player->getVelocity(), player->getState());
         profiler.cameraTime = cameraClock.getElapsedTime().asSeconds();
 
@@ -295,19 +279,15 @@ void PlayState::update(float dt) {
             worldManager->update(dt, preloadBounds, unloadBounds, profiler);
         }
 
-        // 3. PERFECT POSITION SYNC (Happens AFTER World physics update)
         if (grabbedVine != -1 && player->getState() == ApeState::ClimbingVine) {
             sf::Vector2f segPos = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, grabbedSeg);
             
-            // Sync player position directly onto the updated physical vine node
             player->setPosition(segPos.x - (playerBounds.width / 2.f), segPos.y - 10.f);
             
-            // Inherit the exact velocity for animation and physics
             sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
             player->setVelocity(vineVel.x, 0.f);
         }
 
-        // --- BACKGROUND SYSTEMS ---
         sf::Clock pClock;
         weatherManager->update(dt);
         particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
@@ -323,7 +303,6 @@ void PlayState::update(float dt) {
             dt
         );
 
-        // --- PROFILER UPDATES ---
         profiler.playerPos = player->getPosition();
         profiler.cameraPos = cameraManager->getView().getCenter();
         profiler.cameraTarget = cameraManager->getIdealPosition();

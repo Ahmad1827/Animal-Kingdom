@@ -101,13 +101,10 @@ void Ape::update(float dt) {
             state = ApeState::Airborne;
         }
     }
-    
-    // Vines are now handled entirely externally in PlayState to anchor to physics
 
     if (state == ApeState::HangingBranch) {
         velocity.y = 0.f;
         
-        // Remove crazy swinging here - just a slow shimmy along the branch
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
             velocity.x -= 300.f * dt;
         } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
@@ -132,8 +129,16 @@ void Ape::update(float dt) {
     bounds.left += velocity.x * dt;
     bounds.top += velocity.y * dt;
 
-    if (velocity.x > 5.f) animator->setFacingRight(true);
-    else if (velocity.x < -5.f) animator->setFacingRight(false);
+    if (state == ApeState::ClimbingVine) {
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+            animator->setFacingRight(false);
+        } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+            animator->setFacingRight(true);
+        }
+    } else {
+        if (velocity.x > 5.f) animator->setFacingRight(true);
+        else if (velocity.x < -5.f) animator->setFacingRight(false);
+    }
 
     animator->resume();
 
@@ -167,7 +172,6 @@ void Ape::update(float dt) {
         }
     }
     else if (state == ApeState::ClimbingVine) {
-        // Only trigger the "Swing" animation on the vine when building real momentum
         if (std::abs(velocity.x) > 50.f) {
             animator->play("Swing");
         } else {
@@ -178,7 +182,6 @@ void Ape::update(float dt) {
         }
     }
     else if (state == ApeState::HangingBranch) {
-        // Branches strictly use Hang!
         animator->play("Hang");
     }
 

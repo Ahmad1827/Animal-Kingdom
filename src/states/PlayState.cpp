@@ -23,15 +23,9 @@ void PlayState::init() {
     worldClock = std::make_unique<WorldClock>();
     debugOverlay = std::make_unique<DebugOverlay>();
     
+    simulationManager = std::make_unique<sim::SimulationManager>();
+    
     worldClock->setMultiplier(50.f);
-
-    sceneBuffer.create(1280, 720);
-    if (sf::Shader::isAvailable()) {
-        if (crtShader.loadFromFile("assets/shaders/crt.frag", sf::Shader::Fragment)) {
-            crtShader.setUniform("texture", sf::Shader::CurrentTexture);
-            crtShader.setUniform("resolution", sf::Vector2f(1280.f, 720.f));
-        }
-    }
 }
 
 void PlayState::processEvents(const sf::Event& event) {
@@ -44,6 +38,10 @@ void PlayState::update(float dt) {
     
     sf::Clock updateClock;
     worldClock->update(dt);
+
+    if (simulationManager) {
+        simulationManager->update(dt);
+    }
 
     bool f3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F3);
     if (f3Pressed && !f3PressedLastFrame) debugOverlay->toggle();
@@ -386,19 +384,21 @@ void PlayState::update(float dt) {
 void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
-    sceneBuffer.setView(cameraManager->getView());
-    sceneBuffer.clear();
+    window.setView(cameraManager->getView());
+    window.clear();
 
-    background->draw(sceneBuffer);
+    background->draw(window);
+    
+    if (lightingManager) lightingManager->drawFog(window);
 
     if (worldManager) {
-        worldManager->drawBackground(sceneBuffer, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
-        worldManager->drawGeometry(sceneBuffer, cameraManager->getViewBounds(), profiler);
+        worldManager->drawBackground(window, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
+        worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
         
-        if (particleSystem) particleSystem->draw(sceneBuffer);
+        if (particleSystem) particleSystem->draw(window);
 
         if (debugOverlay) {
-            worldManager->drawDebug(sceneBuffer, 
+            worldManager->drawDebug(window, 
                 cameraManager->getViewBounds(), 
                 cameraManager->getPreloadBounds(player->getVelocity()), 
                 cameraManager->getUnloadBounds(),
@@ -406,18 +406,10 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
     }
     
-    if (player) player->draw(sceneBuffer);
-
-    sceneBuffer.display();
-
+    if (player) player->draw(window);
+    
     window.setView(window.getDefaultView());
-    sf::Sprite sceneSprite(sceneBuffer.getTexture());
-
-    if (sf::Shader::isAvailable()) {
-        window.draw(sceneSprite, &crtShader);
-    } else {
-        window.draw(sceneSprite);
-    }
+    if (lightingManager) lightingManager->drawAmbient(window);
 
     if (debugOverlay) debugOverlay->draw(window);
     

@@ -119,7 +119,7 @@ bool WorldManager::checkOneWayCollision(const sf::FloatRect& bounds, const sf::V
     return false;
 }
 
-bool WorldManager::checkTrunkCollision(const sf::FloatRect& bounds, float& outTrunkCenter) const {
+bool WorldManager::checkTrunkCollision(const sf::FloatRect& bounds, float& outTrunkCenter, float& outTrunkTop) const {
     int cX = chunkManager->getChunkXAt(bounds.left + bounds.width / 2.f);
     int cY = chunkManager->getChunkYAt(bounds.top + bounds.height / 2.f);
     for (int x = cX - 1; x <= cX + 1; ++x) {
@@ -129,21 +129,19 @@ bool WorldManager::checkTrunkCollision(const sf::FloatRect& bounds, float& outTr
             for (const auto& tree : chunk->getTrees()) {
                 sf::FloatRect tBounds = tree.getTrunkBounds();
                 
-                float highestVisBranchY = tBounds.top + tBounds.height;
-                bool hasBranch = false;
-                for (const auto& branch : tree.getBranches()) {
-                    if (!hasBranch || branch.bounds.top < highestVisBranchY) {
-                        highestVisBranchY = branch.bounds.top;
-                        hasBranch = true;
-                    }
-                }
-                
-                float trunkTop = hasBranch ? highestVisBranchY - 10.f : tBounds.top + (tBounds.height * 0.2f);
-                
-                sf::FloatRect actualTrunk(tBounds.left, trunkTop, tBounds.width, (tBounds.top + tBounds.height) - trunkTop);
-                
-                if (bounds.intersects(actualTrunk)) {
+                if (bounds.intersects(tBounds)) {
                     outTrunkCenter = tree.getTrunkCenter();
+                    
+                    float highestVisBranchY = tBounds.top + tBounds.height;
+                    bool hasBranch = false;
+                    for (const auto& branch : tree.getBranches()) {
+                        if (!hasBranch || branch.bounds.top < highestVisBranchY) {
+                            highestVisBranchY = branch.bounds.top;
+                            hasBranch = true;
+                        }
+                    }
+                    
+                    outTrunkTop = hasBranch ? highestVisBranchY - 30.f : tBounds.top + (tBounds.height * 0.2f);
                     return true;
                 }
             }

@@ -156,24 +156,24 @@ void Tree::disturbVines(const sf::FloatRect& bounds, float velocityX) {
 }
 
 void Tree::update(float dt) {}
-void Tree::draw(sf::RenderWindow& window) const {} 
+void Tree::draw(sf::RenderTarget& target) const {} 
 
-void Tree::drawCanopy(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
-    window.draw(dynamicMesh);
+void Tree::drawCanopy(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
+    target.draw(dynamicMesh);
     profiler.objectsRendered++;
     profiler.drawCalls++;
 }
 
-void Tree::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
-    window.draw(trunkSprite);
+void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
+    target.draw(trunkSprite);
     profiler.drawCalls++;
     
     for (const auto& bs : branchSprites) {
-        window.draw(bs);
+        target.draw(bs);
         profiler.drawCalls++;
     }
     if (dynamicMesh.getVertexCount() > 0) {
-        window.draw(dynamicMesh);
+        target.draw(dynamicMesh);
         profiler.drawCalls++;
     }
     

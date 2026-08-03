@@ -22,7 +22,7 @@ public:
     Ape(float x, float y, sf::Texture& texture);
     
     void update(float dt);
-    void draw(sf::RenderWindow& window) const;
+    void draw(sf::RenderTarget& target) const;
 
     const sf::Sprite& getSprite() const { return sprite; }
 

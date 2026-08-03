@@ -42,22 +42,22 @@ void WorldManager::update(float dt, const sf::FloatRect& preloadBounds, const sf
     }
 }
 
-void WorldManager::draw(sf::RenderWindow& window, const sf::FloatRect& viewBounds) const {
+void WorldManager::draw(sf::RenderTarget& target, const sf::FloatRect& viewBounds) const {
     ProfilerStats dummyProfiler;
     static sf::Texture dummyTilesetTex;
     if (dummyTilesetTex.getSize().x == 0) {
         dummyTilesetTex.create(32, 32);
     }
-    chunkManager->drawBackground(window, viewBounds, true, dummyProfiler, dummyTilesetTex);
-    chunkManager->drawGeometry(window, viewBounds, dummyProfiler);
+    chunkManager->drawBackground(target, viewBounds, true, dummyProfiler, dummyTilesetTex);
+    chunkManager->drawGeometry(target, viewBounds, dummyProfiler);
 }
 
-void WorldManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
-    chunkManager->drawBackground(window, viewBounds, showFoliage, profiler, tileset);
+void WorldManager::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
+    chunkManager->drawBackground(target, viewBounds, showFoliage, profiler, tileset);
 }
 
-void WorldManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
-    chunkManager->drawGeometry(window, viewBounds, profiler);
+void WorldManager::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
+    chunkManager->drawGeometry(target, viewBounds, profiler);
 
     float vineThickness = 5.0f;
     sf::RectangleShape vineRect;
@@ -78,14 +78,14 @@ void WorldManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& v
                 vineRect.setPosition(p1);
                 vineRect.setRotation(angle);
                 
-                window.draw(vineRect);
+                target.draw(vineRect);
             }
         }
     }
 }
 
-void WorldManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, DebugOverlay* debugOverlay) const {
-    chunkManager->drawDebug(window, viewBounds, preloadBounds, unloadBounds, debugOverlay);
+void WorldManager::drawDebug(sf::RenderTarget& target, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, DebugOverlay* debugOverlay) const {
+    chunkManager->drawDebug(target, viewBounds, preloadBounds, unloadBounds, debugOverlay);
 }
 
 float WorldManager::getTerrainHeight(float x) const {

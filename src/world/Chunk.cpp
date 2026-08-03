@@ -76,11 +76,11 @@ RegionType Chunk::getRegionType() const { return regionType; }
 ChunkPos Chunk::getPos() const { return pos; }
 sf::FloatRect Chunk::getBounds() const { return bounds; }
 
-void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
+void Chunk::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
     if (!bounds.intersects(viewBounds)) return;
 
     if (undergroundMesh.getVertexCount() > 0) {
-        window.draw(undergroundMesh);
+        target.draw(undergroundMesh);
         profiler.drawCalls++;
         profiler.objectsRendered++;
     }
@@ -88,7 +88,7 @@ void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBo
     if (terrainMesh.getVertexCount() > 0) {
         sf::RenderStates states;
         states.texture = &tileset;
-        window.draw(terrainMesh, states);
+        target.draw(terrainMesh, states);
         profiler.drawCalls++;
         profiler.objectsRendered++;
     }
@@ -96,18 +96,18 @@ void Chunk::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBo
     if (waterMesh.getVertexCount() > 0) {
         sf::RenderStates waterStates;
         waterStates.texture = nullptr;
-        window.draw(waterMesh, waterStates);
+        target.draw(waterMesh, waterStates);
         profiler.drawCalls++;
         profiler.objectsRendered++;
     }
 }
 
-void Chunk::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
+void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
     if (!bounds.intersects(viewBounds)) return; 
 
     for (const auto& dec : decorations) {
         if (dec.getBounds().intersects(viewBounds)) {
-            dec.draw(window);
+            dec.draw(target);
             profiler.drawCalls++;
             profiler.visibleDecorations++;
         }
@@ -115,7 +115,7 @@ void Chunk::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBoun
 
     for (const auto& tree : trees) {
         if (tree.getBounds().intersects(viewBounds)) {
-            tree.drawGeometry(window, viewBounds, profiler);
+            tree.drawGeometry(target, viewBounds, profiler);
             profiler.visibleTrees++;
         } else profiler.objectsCulled++;
     }

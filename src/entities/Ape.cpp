@@ -198,8 +198,8 @@ void Ape::update(float dt) {
     sprite.setPosition(bounds.left + bounds.width / 2.f + renderOffset.x, bounds.top + bounds.height + renderOffset.y);
 }
 
-void Ape::draw(sf::RenderWindow& window) const {
-    window.draw(sprite);
+void Ape::draw(sf::RenderTarget& target) const {
+    target.draw(sprite);
 }
 
 sf::FloatRect Ape::getBounds() const { return bounds; }

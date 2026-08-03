@@ -27,9 +27,10 @@ void PlayState::init() {
 
     sceneBuffer.create(1280, 720);
     if (sf::Shader::isAvailable()) {
-        crtShader.loadFromFile("assets/shaders/crt.frag", sf::Shader::Fragment);
-        crtShader.setUniform("texture", sf::Shader::CurrentTexture);
-        crtShader.setUniform("resolution", sf::Vector2f(1280.f, 720.f));
+        if (crtShader.loadFromFile("assets/shaders/crt.frag", sf::Shader::Fragment)) {
+            crtShader.setUniform("texture", sf::Shader::CurrentTexture);
+            crtShader.setUniform("resolution", sf::Vector2f(1280.f, 720.f));
+        }
     }
 }
 
@@ -385,20 +386,21 @@ void PlayState::update(float dt) {
 void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
-    window.setView(cameraManager->getView());
+    sceneBuffer.setView(cameraManager->getView());
+    sceneBuffer.clear();
 
-    background->draw(window);
+    background->draw(sceneBuffer);
     
-    if (lightingManager) lightingManager->drawFog(window);
+    if (lightingManager) lightingManager->drawFog(sceneBuffer);
 
     if (worldManager) {
-        worldManager->drawBackground(window, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
-        worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
+        worldManager->drawBackground(sceneBuffer, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
+        worldManager->drawGeometry(sceneBuffer, cameraManager->getViewBounds(), profiler);
         
-        if (particleSystem) particleSystem->draw(window);
+        if (particleSystem) particleSystem->draw(sceneBuffer);
 
         if (debugOverlay) {
-            worldManager->drawDebug(window, 
+            worldManager->drawDebug(sceneBuffer, 
                 cameraManager->getViewBounds(), 
                 cameraManager->getPreloadBounds(player->getVelocity()), 
                 cameraManager->getUnloadBounds(),
@@ -406,10 +408,21 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
     }
     
-    if (player) player->draw(window);
+    if (player) player->draw(sceneBuffer);
     
+    sceneBuffer.setView(sceneBuffer.getDefaultView());
+    if (lightingManager) lightingManager->drawAmbient(sceneBuffer);
+
+    sceneBuffer.display();
+
     window.setView(window.getDefaultView());
-    if (lightingManager) lightingManager->drawAmbient(window);
+    sf::Sprite sceneSprite(sceneBuffer.getTexture());
+
+    if (sf::Shader::isAvailable()) {
+        window.draw(sceneSprite, &crtShader);
+    } else {
+        window.draw(sceneSprite);
+    }
 
     if (debugOverlay) debugOverlay->draw(window);
     

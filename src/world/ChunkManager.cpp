@@ -112,7 +112,7 @@ Chunk* ChunkManager::getChunk(int cx, int cy) const {
 
 const std::unordered_map<uint64_t, std::unique_ptr<Chunk>>& ChunkManager::getActiveChunks() const { return chunks; }
 
-void ChunkManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
+void ChunkManager::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
     sf::FloatRect renderBounds = viewBounds;
     renderBounds.left -= 3000.f; renderBounds.width += 6000.f;
     renderBounds.top -= 3000.f; renderBounds.height += 6000.f;
@@ -126,7 +126,7 @@ void ChunkManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect&
         for (int y = minY; y <= maxY; ++y) {
             Chunk* chunk = getChunk(x, y);
             if (chunk) {
-                chunk->drawBackground(window, renderBounds, showFoliage, profiler, tileset);
+                chunk->drawBackground(target, renderBounds, showFoliage, profiler, tileset);
                 if (chunk->getBounds().intersects(viewBounds)) {
                     profiler.visibleChunks++;
                 }
@@ -135,7 +135,7 @@ void ChunkManager::drawBackground(sf::RenderWindow& window, const sf::FloatRect&
     }
 }
 
-void ChunkManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
+void ChunkManager::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
     sf::FloatRect renderBounds = viewBounds;
     renderBounds.left -= 3000.f; renderBounds.width += 6000.f;
     renderBounds.top -= 3000.f; renderBounds.height += 6000.f;
@@ -148,12 +148,12 @@ void ChunkManager::drawGeometry(sf::RenderWindow& window, const sf::FloatRect& v
     for (int x = minX; x <= maxX; ++x) {
         for (int y = minY; y <= maxY; ++y) {
             Chunk* chunk = getChunk(x, y);
-            if (chunk) chunk->drawGeometry(window, renderBounds, profiler);
+            if (chunk) chunk->drawGeometry(target, renderBounds, profiler);
         }
     }
 }
 
-void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, DebugOverlay* debugOverlay) const {
+void ChunkManager::drawDebug(sf::RenderTarget& target, const sf::FloatRect& viewBounds, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, DebugOverlay* debugOverlay) const {
     if (!debugOverlay) return;
     
     sf::RectangleShape cam(sf::Vector2f(viewBounds.width, viewBounds.height));
@@ -161,21 +161,21 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
     cam.setFillColor(sf::Color::Transparent);
     cam.setOutlineColor(sf::Color::White);
     cam.setOutlineThickness(4.f);
-    window.draw(cam);
+    target.draw(cam);
 
     sf::RectangleShape pre(sf::Vector2f(preloadBounds.width, preloadBounds.height));
     pre.setPosition(preloadBounds.left, preloadBounds.top);
     pre.setFillColor(sf::Color::Transparent);
     pre.setOutlineColor(sf::Color::Green);
     pre.setOutlineThickness(8.f);
-    window.draw(pre);
+    target.draw(pre);
     
     sf::RectangleShape unl(sf::Vector2f(unloadBounds.width, unloadBounds.height));
     unl.setPosition(unloadBounds.left, unloadBounds.top);
     unl.setFillColor(sf::Color::Transparent);
     unl.setOutlineColor(sf::Color::Red);
     unl.setOutlineThickness(12.f);
-    window.draw(unl);
+    target.draw(unl);
 
     for (const auto& pair : chunks) {
         sf::FloatRect cb = pair.second->getBounds();
@@ -188,7 +188,7 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
             border.setFillColor(sf::Color::Transparent);
             border.setOutlineColor(sf::Color(255, 0, 0, 150));
             border.setOutlineThickness(2.f);
-            window.draw(border);
+            target.draw(border);
         }
         
         if (debugOverlay->getShowRegions()) {
@@ -196,7 +196,7 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
             sf::RectangleShape regionOverlay({chunkWidth, chunkHeight});
             regionOverlay.setPosition(startX, startY);
             regionOverlay.setFillColor(props.debugColor);
-            window.draw(regionOverlay);
+            target.draw(regionOverlay);
         }
 
         if (debugOverlay->getShowHeatmaps()) {
@@ -208,7 +208,7 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
                 tb.setFillColor(sf::Color(255, 165, 0, 40));
                 tb.setOutlineColor(sf::Color::Red);
                 tb.setOutlineThickness(1.f);
-                window.draw(tb);
+                target.draw(tb);
             }
         }
         
@@ -221,12 +221,12 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
                 anchor.setFillColor(sf::Color::Yellow);
                 anchor.setOrigin(4.f, 4.f);
                 anchor.setPosition(trBounds.left + trBounds.width/2.f, trBounds.top + trBounds.height);
-                window.draw(anchor);
+                target.draw(anchor);
                 
                 sf::RectangleShape exclusion({props.minTreeSpacing, 10.f});
                 exclusion.setPosition(trBounds.left + trBounds.width/2.f - props.minTreeSpacing/2.f, trBounds.top + trBounds.height);
                 exclusion.setFillColor(sf::Color(255, 0, 255, 100));
-                window.draw(exclusion);
+                target.draw(exclusion);
             }
 
             for (const auto& decor : pair.second->getDecorations()) {
@@ -236,13 +236,13 @@ void ChunkManager::drawDebug(sf::RenderWindow& window, const sf::FloatRect& view
                 cb.setFillColor(sf::Color::Transparent);
                 cb.setOutlineColor(sf::Color::Cyan);
                 cb.setOutlineThickness(1.f);
-                window.draw(cb);
+                target.draw(cb);
 
                 sf::CircleShape dAnchor(2.f);
                 dAnchor.setFillColor(sf::Color::Red);
                 dAnchor.setOrigin(2.f, 2.f);
                 dAnchor.setPosition(cBounds.left + cBounds.width / 2.f, cBounds.top + cBounds.height);
-                window.draw(dAnchor);
+                target.draw(dAnchor);
             }
         }
     }

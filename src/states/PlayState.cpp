@@ -86,7 +86,8 @@ void PlayState::update(float dt) {
 
         if (wasGrounded && (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down))) {
             sf::FloatRect dropCheck = playerBounds;
-            dropCheck.top += playerBounds.height - 5.f; 
+            dropCheck.top += playerBounds.height;
+            dropCheck.height = 20.f; 
             sf::FloatRect branchBounds;
             
             if (worldManager->checkHangCollision(dropCheck, branchBounds)) {
@@ -178,8 +179,8 @@ void PlayState::update(float dt) {
             } else {
                 sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
                 
-                float maxSwingSpeed = 350.f; 
-                float swingPush = 1200.f * dt; 
+                float maxSwingSpeed = 200.f; 
+                float swingPush = 400.f * dt; 
                 
                 if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
                     if (vineVel.x > -maxSwingSpeed) {
@@ -365,4 +366,4 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (debugOverlay) debugOverlay->draw(window);
     
     profiler.renderTime = renderClock.getElapsedTime().asSeconds();
-}
+}   

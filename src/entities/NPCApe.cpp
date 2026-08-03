@@ -4,7 +4,7 @@
 #include <cstdlib>
 
 NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture) 
-    : simId(id), physicalApe(x, y, texture), currentState(AIState::Idle), stateTimer(0.f), intendedMoveX(0.f), 
+    : simId(id), physicalApe(x, y, texture, false), currentState(AIState::Idle), stateTimer(0.f), intendedMoveX(0.f), 
       isDroppingToHang(false), grabbedChunk(0), grabbedVine(-1), grabbedSeg(-1) {}
 
 bool NPCApe::hasTrait(sim::ApeData* data, sim::Trait trait) {

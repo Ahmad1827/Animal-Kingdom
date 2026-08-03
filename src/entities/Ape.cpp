@@ -2,7 +2,7 @@
 #include <cmath>
 #include <iostream>
 
-Ape::Ape(float x, float y, sf::Texture& texture) {
+Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer) : isPlayer(isPlayer) {
     bounds = sf::FloatRect(x, y, 32.f, 32.f); 
     velocity = sf::Vector2f(0.f, 0.f);
     state = ApeState::Airborne;
@@ -47,37 +47,39 @@ ImpactLevel Ape::registerLanding(float impactVelocityY) {
 void Ape::update(float dt) {
     float moveSpeed = 200.f;
     
-    if (state == ApeState::Grounded || state == ApeState::Airborne) {
-        if (state != ApeState::Airborne) {
-            velocity.x = 0.f;
-        }
-        
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            if (state == ApeState::Grounded) {
-                velocity.x = -moveSpeed;
-            } else {
-                velocity.x -= 800.f * dt;
-                if (velocity.x < -moveSpeed * 1.5f) velocity.x = -moveSpeed * 1.5f;
+    if (isPlayer) {
+        if (state == ApeState::Grounded || state == ApeState::Airborne) {
+            if (state != ApeState::Airborne) {
+                velocity.x = 0.f;
+            }
+            
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                if (state == ApeState::Grounded) {
+                    velocity.x = -moveSpeed;
+                } else {
+                    velocity.x -= 800.f * dt;
+                    if (velocity.x < -moveSpeed * 1.5f) velocity.x = -moveSpeed * 1.5f;
+                }
+            }
+            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                if (state == ApeState::Grounded) {
+                    velocity.x = moveSpeed;
+                } else {
+                    velocity.x += 800.f * dt;
+                    if (velocity.x > moveSpeed * 1.5f) velocity.x = moveSpeed * 1.5f;
+                }
+            }
+            
+            if (state == ApeState::Grounded && sf::Keyboard::isKeyPressed(sf::Keyboard::LShift)) {
+                velocity.x *= 1.5f;
             }
         }
-        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            if (state == ApeState::Grounded) {
-                velocity.x = moveSpeed;
-            } else {
-                velocity.x += 800.f * dt;
-                if (velocity.x > moveSpeed * 1.5f) velocity.x = moveSpeed * 1.5f;
-            }
-        }
-        
-        if (state == ApeState::Grounded && sf::Keyboard::isKeyPressed(sf::Keyboard::LShift)) {
-            velocity.x *= 1.5f;
-        }
-    }
 
-    if (state == ApeState::Grounded) {
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-            velocity.y = -600.f;
-            state = ApeState::Airborne;
+        if (state == ApeState::Grounded) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+                velocity.y = -600.f;
+                state = ApeState::Airborne;
+            }
         }
     }
 
@@ -89,40 +91,44 @@ void Ape::update(float dt) {
         velocity.x = 0.f;
         velocity.y = 0.f;
         
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-            velocity.y = -150.f;
-        } 
-        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-            velocity.y = 150.f;
-        }
+        if (isPlayer) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+                velocity.y = -150.f;
+            } 
+            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+                velocity.y = 150.f;
+            }
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
-            velocity.y = -400.f;
-            state = ApeState::Airborne;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                velocity.y = -400.f;
+                state = ApeState::Airborne;
+            }
         }
     }
 
     if (state == ApeState::HangingBranch) {
         velocity.y = 0.f;
         
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            velocity.x -= 300.f * dt;
-        } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            velocity.x += 300.f * dt;
-        } else {
-            velocity.x *= 0.8f; 
-        }
+        if (isPlayer) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                velocity.x -= 300.f * dt;
+            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                velocity.x += 300.f * dt;
+            } else {
+                velocity.x *= 0.8f; 
+            }
 
-        if (velocity.x > 100.f) velocity.x = 100.f;
-        if (velocity.x < -100.f) velocity.x = -100.f;
+            if (velocity.x > 100.f) velocity.x = 100.f;
+            if (velocity.x < -100.f) velocity.x = -100.f;
 
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
-            velocity.y = -500.f;
-            state = ApeState::Airborne;
-        }
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-            velocity.x *= 0.5f;
-            state = ApeState::Airborne;
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                velocity.y = -500.f;
+                state = ApeState::Airborne;
+            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+                velocity.x *= 0.5f;
+                state = ApeState::Airborne;
+            }
         }
     }
 
@@ -130,10 +136,15 @@ void Ape::update(float dt) {
     bounds.top += velocity.y * dt;
 
     if (state == ApeState::ClimbingVine) {
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-            animator->setFacingRight(false);
-        } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-            animator->setFacingRight(true);
+        if (isPlayer) {
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                animator->setFacingRight(false);
+            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                animator->setFacingRight(true);
+            }
+        } else {
+            if (velocity.x > 5.f) animator->setFacingRight(true);
+            else if (velocity.x < -5.f) animator->setFacingRight(false);
         }
     } else {
         if (velocity.x > 5.f) animator->setFacingRight(true);
@@ -212,4 +223,5 @@ void Ape::setPosition(float x, float y) { bounds.left = x; bounds.top = y; }
 void Ape::setVelocity(float vx, float vy) { velocity.x = vx; velocity.y = vy; }
 void Ape::setState(ApeState newState) { state = newState; }
 void Ape::setDroppingThrough(bool drop) { droppingThrough = drop; }
+void Ape::setIsPlayer(bool player) { isPlayer = player; }
 Animator* Ape::getAnimator() const { return animator.get(); }

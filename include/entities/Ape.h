@@ -13,13 +13,14 @@ private:
     sf::Vector2f velocity;
     ApeState state;
     bool droppingThrough;
+    bool isPlayer;
 
     sf::Sprite sprite;
     std::unique_ptr<Animator> animator;
     LandingDetector landingDetector;
 
 public:
-    Ape(float x, float y, sf::Texture& texture);
+    Ape(float x, float y, sf::Texture& texture, bool isPlayer = true);
     
     void update(float dt);
     void draw(sf::RenderTarget& target) const;
@@ -36,6 +37,7 @@ public:
     void setVelocity(float vx, float vy);
     void setState(ApeState newState);
     void setDroppingThrough(bool drop);
+    void setIsPlayer(bool player);
     
     Animator* getAnimator() const;
 };

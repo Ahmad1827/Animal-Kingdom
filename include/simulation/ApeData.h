@@ -5,39 +5,10 @@
 
 namespace sim {
 
-enum class Gender {
-    Male,
-    Female
-};
-
-enum class Trait {
-    Brave,
-    Coward,
-    Greedy,
-    Honorable,
-    Cruel,
-    Charismatic,
-    Lazy,
-    Strategic,
-    Impulsive
-};
-
-enum class Occupation {
-    Unemployed,
-    Ruler,
-    Noble,
-    Soldier,
-    Hunter,
-    Scout
-};
-
-enum class Goal {
-    None,
-    Survive,
-    Reproduce,
-    AcquireWealth,
-    UsurpThrone
-};
+enum class Gender { Male, Female };
+enum class Trait { Brave, Coward, Greedy, Honorable, Cruel, Charismatic, Lazy, Strategic, Impulsive, Curious, Energetic };
+enum class Occupation { Unemployed, Ruler, Noble, Soldier, Hunter, Scout };
+enum class Goal { None, Survive, Reproduce, AcquireWealth, UsurpThrone };
 
 struct ApeData {
     EntityID id;
@@ -48,8 +19,14 @@ struct ApeData {
     float health;
     float hunger;
     std::vector<Trait> traits;
+    
+    // Spatial tracking for chunk streaming
+    float worldX;
+    float worldY;
     int currentChunkX;
     int currentChunkY;
+    int homeChunkX;
+
     KingdomID currentKingdom;
     Occupation currentOccupation;
     Goal currentGoal;

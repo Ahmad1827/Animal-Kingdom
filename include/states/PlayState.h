@@ -16,6 +16,7 @@
 #include "core/Profiler.h"
 #include "core/DebugOverlay.h"
 #include "simulation/SimulationManager.h"
+#include "world/NPCManager.h"
 
 class Game;
 
@@ -32,6 +33,7 @@ private:
     std::unique_ptr<AudioManager> audioManager;
     std::unique_ptr<WorldClock> worldClock;
     std::unique_ptr<DebugOverlay> debugOverlay;
+    std::unique_ptr<NPCManager> npcManager;
     
     std::unique_ptr<sim::SimulationManager> simulationManager;
 

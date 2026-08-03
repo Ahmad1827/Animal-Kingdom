@@ -1,6 +1,7 @@
 #include "states/PlayState.h"
 #include "core/Game.h"
 #include "world/Biome.h"
+#include "simulation/PopulationGenerator.h"
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
@@ -24,6 +25,12 @@ void PlayState::init() {
     debugOverlay = std::make_unique<DebugOverlay>();
     
     simulationManager = std::make_unique<sim::SimulationManager>();
+    
+    // Phase 2: Generate background population
+    sim::PopulationGenerator::generateInitialPopulation(simulationManager->getRegistry(), activeSeed);
+    
+    // Initialize Spawner/Streamer
+    npcManager = std::make_unique<NPCManager>(game->getAssetManager().getTexture("playerTex"));
     
     worldClock->setMultiplier(50.f);
 }
@@ -321,6 +328,10 @@ void PlayState::update(float dt) {
             worldManager->update(dt, preloadBounds, unloadBounds, profiler);
         }
 
+        if (npcManager) {
+            npcManager->update(dt, preloadBounds, unloadBounds, *simulationManager, worldManager.get(), worldClock->getTimeOfDay());
+        }
+
         if (grabbedVine != -1 && player->getState() == ApeState::ClimbingVine) {
             sf::Vector2f segPos = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, grabbedSeg);
             
@@ -375,6 +386,18 @@ void PlayState::update(float dt) {
             std::string regionName = Biome::getProperties(cm->getCurrentRegion(player->getPosition().x)).name;
             debugOverlay->updateInfo(dt, cm->getCurrentChunkIndex(), player->getPosition().x, player->getPosition().y, 
                                      activeSeed, regionName, profiler);
+
+            debugOverlay->updateSimStats(
+                simulationManager->getRegistry().getAllApes().size(),
+                npcManager->getLoadedNPCCount(),
+                profiler.chunksLoaded,
+                simulationManager->getClock().getTotalTicks(),
+                simulationManager->getClock().getHours(),
+                simulationManager->getClock().getMinutes(),
+                simulationManager->getClock().getDays(),
+                simulationManager->getClock().getSeasons(),
+                simulationManager->getClock().getYears()
+            );
         }
     }
     
@@ -406,6 +429,7 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
     }
     
+    if (npcManager) npcManager->draw(window);
     if (player) player->draw(window);
     
     window.setView(window.getDefaultView());

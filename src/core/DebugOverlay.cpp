@@ -3,17 +3,25 @@
 #include <iomanip>
 #include <cmath>
 
-DebugOverlay::DebugOverlay() {
+DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions(false), showHeatmaps(false), showFoliage(false), showGenerationDebug(false), showProfiler(false), showEngineInternals(false), showKinematicsDebug(false) {
     if (!font.loadFromFile("assets/fonts/arial.ttf")) {}
-    text.setFont(font);
-    text.setCharacterSize(14);
-    text.setFillColor(sf::Color::White);
-    text.setOutlineColor(sf::Color::Black);
-    text.setOutlineThickness(1.f);
-    text.setPosition(10.f, 10.f);
+    
+    debugText.setFont(font);
+    debugText.setCharacterSize(14);
+    debugText.setFillColor(sf::Color::White);
+    debugText.setOutlineColor(sf::Color::Black);
+    debugText.setOutlineThickness(1.f);
+    debugText.setPosition(10.f, 10.f);
+
+    simText.setFont(font);
+    simText.setCharacterSize(14);
+    simText.setFillColor(sf::Color::Yellow);
+    simText.setOutlineColor(sf::Color::Black);
+    simText.setOutlineThickness(1.f);
+    simText.setPosition(10.f, 400.f);
 }
 
-void DebugOverlay::toggle() { visible = !visible; }
+void DebugOverlay::toggle() { isVisible = !isVisible; }
 void DebugOverlay::toggleBorders() { showBorders = !showBorders; }
 void DebugOverlay::toggleRegions() { showRegions = !showRegions; }
 void DebugOverlay::toggleHeatmaps() { showHeatmaps = !showHeatmaps; }
@@ -23,7 +31,7 @@ void DebugOverlay::toggleEngineInternals() { showEngineInternals = !showEngineIn
 void DebugOverlay::toggleGenerationDebug() { showGenerationDebug = !showGenerationDebug; }
 void DebugOverlay::toggleKinematicsDebug() { showKinematicsDebug = !showKinematicsDebug; }
 
-bool DebugOverlay::getVisible() const { return visible; }
+bool DebugOverlay::getVisible() const { return isVisible; }
 bool DebugOverlay::getShowBorders() const { return showBorders; }
 bool DebugOverlay::getShowRegions() const { return showRegions; }
 bool DebugOverlay::getShowHeatmaps() const { return showHeatmaps; }
@@ -38,7 +46,7 @@ void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32
         ss << std::fixed << std::setprecision(2);
         ss << "--- KINEMATICS & PHYSICS DEBUG (F11) ---\n";
         ss << "Phys Pos:   (" << profiler.playerPos.x << ", " << profiler.playerPos.y << ")\n";
-        ss << "Rend Pos:   (" << profiler.playerPos.x << ", " << std::floor(profiler.playerPos.y) << ")\n"; // Rendering snaps to floor
+        ss << "Rend Pos:   (" << profiler.playerPos.x << ", " << std::floor(profiler.playerPos.y) << ")\n";
         ss << "Gnd Height: " << profiler.groundHeight << "\n";
         ss << "Distance:   " << (profiler.groundHeight - profiler.playerPos.y) << "\n";
         ss << "Vel Y:      " << profiler.verticalVelocity << "\n";
@@ -88,14 +96,31 @@ void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32
         ss << "F10: Profiler | F11: Physics Debug\n";
     }
 
-    text.setString(ss.str());
+    debugText.setString(ss.str());
 }
 
-void DebugOverlay::draw(sf::RenderWindow& window) const {
-    if (visible) {
-        sf::View currentView = window.getView();
-        window.setView(window.getDefaultView());
-        window.draw(text);
-        window.setView(currentView);
+void DebugOverlay::updateSimStats(int simApes, int loadedNPCs, int loadedChunks, uint64_t simTick, int hour, int min, int day, int season, int year) {
+    if (!isVisible) return;
+
+    std::string info = "--- DYNASTY SIMULATION ---\n";
+    info += "Simulated Apes: " + std::to_string(simApes) + "\n";
+    info += "Loaded NPCs: " + std::to_string(loadedNPCs) + "\n";
+    info += "Loaded Chunks: " + std::to_string(loadedChunks) + "\n";
+    info += "Sim Tick: " + std::to_string(simTick) + "\n";
+    
+    char timeStr[64];
+    std::snprintf(timeStr, sizeof(timeStr), "Time: %02d:%02d | Day: %d | Season: %d | Year: %d", hour, min, day, season, year);
+    info += std::string(timeStr) + "\n";
+
+    simText.setString(info);
+}
+
+void DebugOverlay::draw(sf::RenderTarget& target) const {
+    if (isVisible) {
+        sf::View currentView = target.getView();
+        target.setView(target.getDefaultView());
+        target.draw(debugText);
+        target.draw(simText);
+        target.setView(currentView);
     }
 }

@@ -34,8 +34,8 @@ Ape::Ape(float x, float y, sf::Texture& texture) {
     animator->addAnimation("Fall",  2, 3, frameW, frameH, 2,  6.f,  true,  0.f, 0.f);
     animator->addAnimation("Land",  4, 3, frameW, frameH, 2,  6.f,  false, 0.f, 0.f);
     animator->addAnimation("Climb", 0, 4, frameW, frameH, 10, 10.f, true,  0.f, 0.f);
-    animator->addAnimation("Hang",  0, 5, frameW, frameH, 5,  4.f,  true,  0.f, -24.f);
-    animator->addAnimation("Swing", 5, 5, frameW, frameH, 4,  12.f, true,  0.f, -24.f);
+    animator->addAnimation("Hang",  0, 5, frameW, frameH, 5,  4.f,  true,  0.f, 0.f);
+    animator->addAnimation("Swing", 5, 5, frameW, frameH, 4,  12.f, true,  0.f, 0.f);
 
     animator->play("Idle");
 }

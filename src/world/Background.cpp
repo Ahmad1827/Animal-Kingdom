@@ -27,7 +27,6 @@ void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, flo
     auto applyLayer = [&](sf::Sprite& spr, float speed) {
         spr.setScale(scale, scale);
         
-        // FIX: Directly use the cameraX. No secondary interpolation!
         float rawOffset = cameraX * speed; 
         float wrapped = std::fmod(rawOffset, texW);
         if (wrapped < 0.f) wrapped += texW;
@@ -35,7 +34,6 @@ void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, flo
         spr.setTextureRect(sf::IntRect(static_cast<int>(wrapped), 0,
                                        static_cast<int>(drawWSrc), static_cast<int>(texH)));
                                        
-        // FIX: Floor the coordinates to prevent subpixel rendering artifacts
         spr.setPosition(std::floor(cameraX - (drawWSrc * scale) / 2.f), std::floor(cameraY - scaledTexH / 2.f)); 
     };
 
@@ -44,8 +42,8 @@ void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, flo
     applyLayer(bg3, VisualConfig::PARALLAX_NEAR_SPEED);
 }
 
-void Background::draw(sf::RenderWindow& window) const {
-    window.draw(bg1);
-    window.draw(bg2);
-    window.draw(bg3);
+void Background::draw(sf::RenderTarget& target) const {
+    target.draw(bg1);
+    target.draw(bg2);
+    target.draw(bg3);
 }

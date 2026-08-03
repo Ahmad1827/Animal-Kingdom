@@ -10,5 +10,5 @@ private:
 public:
     Background(class AssetManager& assets);
     void update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt);
-    void draw(sf::RenderWindow& window) const;
+    void draw(sf::RenderTarget& target) const;
 };

@@ -24,6 +24,13 @@ void PlayState::init() {
     debugOverlay = std::make_unique<DebugOverlay>();
     
     worldClock->setMultiplier(50.f);
+
+    sceneBuffer.create(1280, 720);
+    if (sf::Shader::isAvailable()) {
+        crtShader.loadFromFile("assets/shaders/crt.frag", sf::Shader::Fragment);
+        crtShader.setUniform("texture", sf::Shader::CurrentTexture);
+        crtShader.setUniform("resolution", sf::Vector2f(1280.f, 720.f));
+    }
 }
 
 void PlayState::processEvents(const sf::Event& event) {
@@ -334,7 +341,7 @@ void PlayState::update(float dt) {
         particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
         profiler.particleTime = pClock.getElapsedTime().asSeconds();
         
-        audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
+        if (audioManager) audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
         lightingManager->update(dt, cameraManager->getView(), worldClock->getTimeOfDay(), weatherManager->getFogDensity());
 
         background->update(
@@ -379,6 +386,7 @@ void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
     window.setView(cameraManager->getView());
+
     background->draw(window);
     
     if (lightingManager) lightingManager->drawFog(window);
@@ -401,8 +409,8 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (player) player->draw(window);
     
     window.setView(window.getDefaultView());
-    
     if (lightingManager) lightingManager->drawAmbient(window);
+
     if (debugOverlay) debugOverlay->draw(window);
     
     profiler.renderTime = renderClock.getElapsedTime().asSeconds();

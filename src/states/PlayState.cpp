@@ -390,8 +390,6 @@ void PlayState::draw(sf::RenderWindow& window) {
     sceneBuffer.clear();
 
     background->draw(sceneBuffer);
-    
-    if (lightingManager) lightingManager->drawFog(sceneBuffer);
 
     if (worldManager) {
         worldManager->drawBackground(sceneBuffer, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
@@ -409,9 +407,6 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
     
     if (player) player->draw(sceneBuffer);
-    
-    sceneBuffer.setView(sceneBuffer.getDefaultView());
-    if (lightingManager) lightingManager->drawAmbient(sceneBuffer);
 
     sceneBuffer.display();
 

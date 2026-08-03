@@ -15,10 +15,10 @@ sf::Color lerpColor(const sf::Color& a, const sf::Color& b, float t) {
 
 void LightingManager::update(float dt, const sf::View& cameraView, float timeOfDay, float fogDensity) {
     ambientOverlay.setSize(cameraView.getSize());
-    ambientOverlay.setPosition(cameraView.getCenter() - (cameraView.getSize() / 2.f));
+    ambientOverlay.setPosition(0.f, 0.f);
     
     fogOverlay.setSize(cameraView.getSize());
-    fogOverlay.setPosition(cameraView.getCenter() - (cameraView.getSize() / 2.f));
+    fogOverlay.setPosition(0.f, 0.f);
 
     struct TimePhase { float time; sf::Color color; };
     TimePhase phases[] = {

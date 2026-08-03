@@ -5,6 +5,7 @@
 #include <ctime>
 #include <cmath>
 #include <iostream>
+#include <algorithm>
 
 PlayState::PlayState(Game* game) : game(game), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false) {}
 
@@ -60,36 +61,14 @@ void PlayState::update(float dt) {
     if (f8Pressed && !f8PressedLastFrame) debugOverlay->toggleProfiler();
     f8PressedLastFrame = f8Pressed;
 
-    static bool f9PressedLastFrame = false;
-    bool f9Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F9);
-    if (f9Pressed && !f9PressedLastFrame) debugOverlay->toggleEngineInternals();
-    f9PressedLastFrame = f9Pressed;
-
-    static bool f10PressedLastFrame = false;
-    bool f10Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F10);
-    if (f10Pressed && !f10PressedLastFrame) debugOverlay->toggleGenerationDebug(); 
-    f10PressedLastFrame = f10Pressed;
-
-    static bool f11PressedLastFrame = false;
-    bool f11Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F11);
-    if (f11Pressed && !f11PressedLastFrame) debugOverlay->toggleKinematicsDebug();
-    f11PressedLastFrame = f11Pressed;
-
-    background->update(
-    cameraManager->getViewBounds().left + cameraManager->getViewBounds().width / 2.f,
-    cameraManager->getViewBounds().top + cameraManager->getViewBounds().height / 2.f,
-    cameraManager->getView().getSize(),
-    dt
-    );
-    
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
     else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
     else cameraManager->setZoom(1.35f);
 
     if (player) {
+        // 1. UPDATE PLAYER BASE LOGIC
         player->update(dt);
 
-        // --- DYNAMIC VINE STATE TRACKERS ---
         static uint64_t grabbedChunk = 0;
         static int grabbedVine = -1;
         static int grabbedSeg = -1;
@@ -100,12 +79,28 @@ void PlayState::update(float dt) {
         }
 
         float preCollisionVelY = player->getVelocity().y;
-
         sf::Clock physicsClock;
         sf::FloatRect playerBounds = player->getBounds();
         sf::FloatRect platformBounds;
         
         bool wasGrounded = (player->getState() == ApeState::Grounded);
+
+        // --- DROP-TO-HANG MECHANIC ---
+        if (wasGrounded && (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down))) {
+            sf::FloatRect dropCheck = playerBounds;
+            dropCheck.top += 5.f; // Look slightly below the ape's feet
+            sf::FloatRect branchBounds;
+            
+            if (worldManager->checkHangCollision(dropCheck, branchBounds)) {
+                player->setState(ApeState::HangingBranch);
+                // Drop instantly below the branch
+                player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height - 2.f);
+                player->setVelocity(player->getVelocity().x, 0.f);
+                wasGrounded = false; 
+            } else {
+                player->setDroppingThrough(true);
+            }
+        }
 
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::HangingBranch && player->getState() != ApeState::ClimbingVine) {
             player->setState(ApeState::Airborne);
@@ -145,6 +140,7 @@ void PlayState::update(float dt) {
             }
         }
 
+        // --- HEAVY IMPACT ---
         if (!wasGrounded && player->getState() == ApeState::Grounded) {
             ImpactLevel impact = player->registerLanding(preCollisionVelY);
             sf::Vector2f spawnPos = player->getPosition() + sf::Vector2f(playerBounds.width/2.f, playerBounds.height);
@@ -161,7 +157,8 @@ void PlayState::update(float dt) {
             }
         }
         
-        if (std::abs(player->getVelocity().x) > 10.f) {
+        // Disable environmental disturbance if on a vine so we don't fight our own momentum!
+        if (std::abs(player->getVelocity().x) > 10.f && player->getState() != ApeState::ClimbingVine) {
             worldManager->disturbEnvironment(playerBounds, player->getVelocity().x);
         }
 
@@ -169,6 +166,7 @@ void PlayState::update(float dt) {
         uint64_t tChunk = 0;
         int tVine = -1, tSeg = -1;
         
+        // --- TRUNK CLIMBING ---
         if (worldManager->checkTrunkCollision(playerBounds, trunkCenter)) {
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
                 player->getState() != ApeState::ClimbingTrunk && 
@@ -178,50 +176,51 @@ void PlayState::update(float dt) {
                 player->setVelocity(0.f, 0.f);
             }
         } 
-        // --- NEW DYNAMIC VINE HANDLING ---
-        else if (grabbedVine != -1) { 
-            sf::Vector2f segPos = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, grabbedSeg);
-            player->setPosition(segPos.x - playerBounds.width / 2.f, segPos.y - playerBounds.height / 2.f);
-            
-            sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
-            
-            // FIX: Capped maximum swing speed + responsive pushing
-            float maxSwingSpeed = 250.f; 
-            float swingPush = 700.f * dt; 
-            
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-                if (vineVel.x > -maxSwingSpeed) {
-                    worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(-swingPush, 0.f));
-                }
-            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-                if (vineVel.x < maxSwingSpeed) {
-                    worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(swingPush, 0.f));
-                }
-            }
-
-            climbTimer += dt;
-            if (climbTimer > 0.1f) {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-                    // FIX: Never climb onto Segment 0, because it is the unmoving anchor!
-                    if (grabbedSeg > 1) grabbedSeg--; 
-                    climbTimer = 0.f;
-                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-                    int maxSegs = worldManager->getVineSegmentCount(grabbedChunk, grabbedVine);
-                    if (grabbedSeg < maxSegs - 1) grabbedSeg++;
-                    climbTimer = 0.f;
-                }
-            }
-
-            player->setVelocity(vineVel.x, 0.f);
-
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
-                player->setState(ApeState::Airborne);
-                // FIX: Cap the slingshot velocity so you don't fly out of bounds
-                float jumpOffX = std::clamp(vineVel.x * 1.5f, -350.f, 350.f);
-                player->setVelocity(jumpOffX, -500.f); 
+        
+        // --- VINE INPUT INJECTION ---
+        if (grabbedVine != -1) { 
+            // FIX: Drop the ape if the chunk unloaded to prevent 0,0 teleport
+            if (worldManager->getVineSegmentCount(grabbedChunk, grabbedVine) == 0) {
                 grabbedVine = -1;
+                player->setState(ApeState::Airborne);
+            } else {
+                sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
+                
+                // Tuned the swing forces to be instantly responsive but capped
+                float maxSwingSpeed = 350.f; 
+                float swingPush = 1200.f * dt; 
+                
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                    if (vineVel.x > -maxSwingSpeed) {
+                        worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(-swingPush, 0.f));
+                    }
+                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                    if (vineVel.x < maxSwingSpeed) {
+                        worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(swingPush, 0.f));
+                    }
+                }
+
+                climbTimer += dt;
+                if (climbTimer > 0.1f) {
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+                        if (grabbedSeg > 1) grabbedSeg--; 
+                        climbTimer = 0.f;
+                    } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+                        int maxSegs = worldManager->getVineSegmentCount(grabbedChunk, grabbedVine);
+                        if (grabbedSeg < maxSegs - 1) grabbedSeg++;
+                        climbTimer = 0.f;
+                    }
+                }
+
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                    player->setState(ApeState::Airborne);
+                    float jumpOffX = std::clamp(vineVel.x * 1.5f, -400.f, 400.f);
+                    player->setVelocity(jumpOffX, -500.f); 
+                    grabbedVine = -1;
+                }
             }
         } 
+        // --- GRABBING A NEW VINE ---
         else if (worldManager->checkVineCollision(playerBounds, tChunk, tVine, tSeg)) {
             if ((sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
                 player->getState() != ApeState::ClimbingVine) {
@@ -229,21 +228,15 @@ void PlayState::update(float dt) {
                 player->setState(ApeState::ClimbingVine);
                 grabbedChunk = tChunk;
                 grabbedVine = tVine;
-                // FIX: Don't allow grabbing the static anchor block
                 grabbedSeg = (tSeg == 0) ? 1 : tSeg; 
                 climbTimer = 0.f;
                 
-                // FIX: Instantly transfer jumping momentum into the vine so it catches your weight
-                float transferForce = std::clamp(player->getVelocity().x * 0.015f, -8.f, 8.f);
+                float transferForce = std::clamp(player->getVelocity().x * 0.02f, -12.f, 12.f);
                 worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(transferForce, 0.f));
-            }
-        } 
-        else {
-            if (player->getState() == ApeState::ClimbingTrunk || player->getState() == ApeState::ClimbingVine) {
-                player->setState(ApeState::Airborne);
             }
         }
 
+        // --- BRANCH HANGING LOGIC ---
         sf::FloatRect branchBounds;
         if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::ClimbingVine && player->getState() != ApeState::Grounded) {
             
@@ -258,33 +251,38 @@ void PlayState::update(float dt) {
                     player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height - 2.f);
                     if (player->getVelocity().y < 0.f) player->setVelocity(player->getVelocity().x, 0.f);
                 }
-
-                if (player->getState() == ApeState::HangingBranch) {
-                    float visualPadding = 25.f; 
-                    float leftLimit = branchBounds.left + visualPadding;
-                    float rightLimit = branchBounds.left + branchBounds.width - playerBounds.width - visualPadding;
-
-                    if (leftLimit > rightLimit) {
-                         float center = branchBounds.left + branchBounds.width/2.f - playerBounds.width/2.f;
-                         leftLimit = rightLimit = center;
-                    }
-
-                    float currentX = player->getPosition().x;
-                    if (currentX < leftLimit) {
-                        player->setPosition(leftLimit, player->getPosition().y);
-                        player->setVelocity(0.f, 0.f);
-                    } else if (currentX > rightLimit) {
-                        player->setPosition(rightLimit, player->getPosition().y);
-                        player->setVelocity(0.f, 0.f);
-                    }
-                }
             } else if (player->getState() == ApeState::HangingBranch) {
                 player->setState(ApeState::Airborne);
+            }
+        }
+
+        // --- REWRITTEN X-AXIS BRANCH LIMITS ---
+        if (player->getState() == ApeState::HangingBranch) {
+            // Use the physical center of the ape for boundaries instead of the left edge
+            float apeW = playerBounds.width;
+            float apeCenter = player->getPosition().x + (apeW / 2.f);
+            
+            // Allow them to hang closely to the edge without slipping off
+            float leftLimit = branchBounds.left + 5.f; 
+            float rightLimit = branchBounds.left + branchBounds.width - 5.f;
+            
+            // Edge case safety for tiny generated branches
+            if (leftLimit > rightLimit) {
+                 leftLimit = rightLimit = branchBounds.left + (branchBounds.width / 2.f);
+            }
+
+            if (apeCenter < leftLimit) {
+                player->setPosition(leftLimit - (apeW / 2.f), player->getPosition().y);
+                player->setVelocity(0.f, 0.f);
+            } else if (apeCenter > rightLimit) {
+                player->setPosition(rightLimit - (apeW / 2.f), player->getPosition().y);
+                player->setVelocity(0.f, 0.f);
             }
         }
         
         profiler.physicsTime = physicsClock.getElapsedTime().asSeconds();
 
+        // 2. WORLD & SYSTEM UPDATES (Must happen BEFORE syncing the player to the vine!)
         sf::Clock cameraClock;
         cameraManager->update(dt, player->getPosition(), player->getVelocity(), player->getState());
         profiler.cameraTime = cameraClock.getElapsedTime().asSeconds();
@@ -293,28 +291,45 @@ void PlayState::update(float dt) {
         sf::FloatRect unloadBounds = cameraManager->getUnloadBounds();
 
         if (worldManager) {
+            worldManager->updateSway(dt, cameraManager->getViewBounds(), weatherManager->getWindVector());
             worldManager->update(dt, preloadBounds, unloadBounds, profiler);
         }
 
+        // 3. PERFECT POSITION SYNC (Happens AFTER World physics update)
+        if (grabbedVine != -1 && player->getState() == ApeState::ClimbingVine) {
+            sf::Vector2f segPos = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, grabbedSeg);
+            
+            // Sync player position directly onto the updated physical vine node
+            player->setPosition(segPos.x - (playerBounds.width / 2.f), segPos.y - 10.f);
+            
+            // Inherit the exact velocity for animation and physics
+            sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
+            player->setVelocity(vineVel.x, 0.f);
+        }
+
+        // --- BACKGROUND SYSTEMS ---
         sf::Clock pClock;
         weatherManager->update(dt);
-        worldManager->updateSway(dt, cameraManager->getViewBounds(), weatherManager->getWindVector());
         particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
         profiler.particleTime = pClock.getElapsedTime().asSeconds();
         
         audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
         lightingManager->update(dt, cameraManager->getView(), worldClock->getTimeOfDay(), weatherManager->getFogDensity());
 
+        background->update(
+            cameraManager->getViewBounds().left + cameraManager->getViewBounds().width / 2.f,
+            cameraManager->getViewBounds().top + cameraManager->getViewBounds().height / 2.f,
+            cameraManager->getView().getSize(),
+            dt
+        );
+
+        // --- PROFILER UPDATES ---
         profiler.playerPos = player->getPosition();
         profiler.cameraPos = cameraManager->getView().getCenter();
         profiler.cameraTarget = cameraManager->getIdealPosition();
         profiler.groundHeight = groundHeight;
         profiler.verticalVelocity = player->getVelocity().y;
         profiler.isGrounded = (player->getState() == ApeState::Grounded);
-        profiler.animName = player->getAnimator()->getCurrentAnimationName();
-        profiler.animFrame = player->getAnimator()->getCurrentFrame();
-        profiler.animTime = player->getAnimator()->getCurrentTime();
-        profiler.animFPS = player->getAnimator()->getFPS();
         profiler.currentDt = dt;
         profiler.playerStateInt = static_cast<int>(player->getState());
         

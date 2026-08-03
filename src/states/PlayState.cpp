@@ -147,15 +147,20 @@ void PlayState::update(float dt) {
 
         if (isDroppingToHang) {
             float branchBottom = activeBranch.top + activeBranch.height;
-            if (player->getBounds().top >= branchBottom) { 
+            float headY = player->getBounds().top;
+            float apeCenterXDrop = player->getPosition().x + (player->getBounds().width / 2.f);
+
+            bool isUnderBranch = (apeCenterXDrop >= activeBranch.left && apeCenterXDrop <= activeBranch.left + activeBranch.width);
+
+            if (headY >= branchBottom && headY <= branchBottom + 25.f && isUnderBranch) { 
                 player->setState(ApeState::HangingBranch);
                 player->setPosition(player->getPosition().x, branchBottom);
                 player->setVelocity(player->getVelocity().x, 0.f);
                 player->setDroppingThrough(false);
                 isDroppingToHang = false;
-            }
-            if (player->getState() == ApeState::ClimbingTrunk || player->getState() == ApeState::ClimbingVine || player->getState() == ApeState::Grounded) {
+            } else if (headY > branchBottom + 25.f || !isUnderBranch || player->getState() == ApeState::Grounded) {
                 isDroppingToHang = false;
+                player->setDroppingThrough(false);
             }
         }
 
@@ -264,25 +269,6 @@ void PlayState::update(float dt) {
                 
                 float transferForce = std::clamp(player->getVelocity().x * 0.02f, -12.f, 12.f);
                 worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(transferForce, 0.f));
-            }
-        }
-
-        sf::FloatRect branchBounds;
-        if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::ClimbingVine && player->getState() != ApeState::Grounded) {
-            
-            sf::FloatRect hangCheckBounds = playerBounds;
-            if (player->getState() == ApeState::HangingBranch) {
-                hangCheckBounds.top -= 2.f; 
-            }
-
-            if (!isDroppingToHang && worldManager->checkHangCollision(hangCheckBounds, branchBounds)) {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-                    player->setState(ApeState::HangingBranch);
-                    player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height);
-                    if (player->getVelocity().y < 0.f) player->setVelocity(player->getVelocity().x, 0.f);
-                }
-            } else if (player->getState() == ApeState::HangingBranch) {
-                player->setState(ApeState::Airborne);
             }
         }
 

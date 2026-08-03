@@ -72,6 +72,8 @@ void PlayState::update(float dt) {
         static int grabbedVine = -1;
         static int grabbedSeg = -1;
         static float climbTimer = 0.f;
+        static sf::FloatRect activeBranch;
+        static bool isDroppingToHang = false;
 
         if (player->getState() != ApeState::ClimbingVine) {
             grabbedVine = -1;
@@ -91,9 +93,11 @@ void PlayState::update(float dt) {
             sf::FloatRect branchBounds;
             
             if (worldManager->checkHangCollision(dropCheck, branchBounds)) {
-                player->setState(ApeState::HangingBranch);
-                player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height - 2.f);
-                player->setVelocity(player->getVelocity().x, 0.f);
+                isDroppingToHang = true;
+                activeBranch = branchBounds;
+                player->setState(ApeState::Airborne);
+                player->setDroppingThrough(true);
+                player->setVelocity(player->getVelocity().x, 100.f);
                 wasGrounded = false; 
             } else {
                 player->setDroppingThrough(true);
@@ -114,12 +118,14 @@ void PlayState::update(float dt) {
             player->setVelocity(player->getVelocity().x, 0.f);
             player->setState(ApeState::Grounded);
             player->setDroppingThrough(false);
+            isDroppingToHang = false;
         } 
         else if (wasGrounded && player->getVelocity().y >= 0.f && distanceToGround > 0.f && distanceToGround < 25.f) {
             player->setPosition(player->getPosition().x, groundHeight - playerBounds.height);
             player->setVelocity(player->getVelocity().x, 0.f);
             player->setState(ApeState::Grounded);
             player->setDroppingThrough(false);
+            isDroppingToHang = false;
         }
 
         sf::FloatRect checkBounds = playerBounds;
@@ -135,6 +141,21 @@ void PlayState::update(float dt) {
                 player->setPosition(player->getPosition().x, platformBounds.top - playerBounds.height);
                 player->setVelocity(player->getVelocity().x, 0.f);
                 player->setState(ApeState::Grounded);
+                isDroppingToHang = false;
+            }
+        }
+
+        if (isDroppingToHang) {
+            float branchBottom = activeBranch.top + activeBranch.height;
+            if (player->getBounds().top >= branchBottom - 5.f) { 
+                player->setState(ApeState::HangingBranch);
+                player->setPosition(player->getPosition().x, branchBottom);
+                player->setVelocity(player->getVelocity().x, 0.f);
+                player->setDroppingThrough(false);
+                isDroppingToHang = false;
+            }
+            if (player->getState() == ApeState::ClimbingTrunk || player->getState() == ApeState::ClimbingVine) {
+                isDroppingToHang = false;
             }
         }
 
@@ -169,6 +190,7 @@ void PlayState::update(float dt) {
                 player->setState(ApeState::ClimbingTrunk);
                 player->setPosition(trunkCenter - (playerBounds.width / 2.f), player->getPosition().y);
                 player->setVelocity(0.f, 0.f);
+                isDroppingToHang = false;
             }
         } 
         
@@ -221,28 +243,10 @@ void PlayState::update(float dt) {
                 grabbedVine = tVine;
                 grabbedSeg = (tSeg == 0) ? 1 : tSeg; 
                 climbTimer = 0.f;
+                isDroppingToHang = false;
                 
                 float transferForce = std::clamp(player->getVelocity().x * 0.02f, -12.f, 12.f);
                 worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(transferForce, 0.f));
-            }
-        }
-
-        sf::FloatRect branchBounds;
-        if (player->getState() != ApeState::ClimbingTrunk && player->getState() != ApeState::ClimbingVine && player->getState() != ApeState::Grounded) {
-            
-            sf::FloatRect hangCheckBounds = playerBounds;
-            if (player->getState() == ApeState::HangingBranch) {
-                hangCheckBounds.top -= 2.f; 
-            }
-
-            if (worldManager->checkHangCollision(hangCheckBounds, branchBounds)) {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-                    player->setState(ApeState::HangingBranch);
-                    player->setPosition(player->getPosition().x, branchBounds.top + branchBounds.height - 2.f);
-                    if (player->getVelocity().y < 0.f) player->setVelocity(player->getVelocity().x, 0.f);
-                }
-            } else if (player->getState() == ApeState::HangingBranch) {
-                player->setState(ApeState::Airborne);
             }
         }
 
@@ -250,11 +254,11 @@ void PlayState::update(float dt) {
             float apeW = playerBounds.width;
             float apeCenter = player->getPosition().x + (apeW / 2.f);
             
-            float leftLimit = branchBounds.left + 5.f; 
-            float rightLimit = branchBounds.left + branchBounds.width - 5.f;
+            float leftLimit = activeBranch.left + 5.f; 
+            float rightLimit = activeBranch.left + activeBranch.width - 5.f;
             
             if (leftLimit > rightLimit) {
-                 leftLimit = rightLimit = branchBounds.left + (branchBounds.width / 2.f);
+                 leftLimit = rightLimit = activeBranch.left + (activeBranch.width / 2.f);
             }
 
             if (apeCenter < leftLimit) {
@@ -366,4 +370,4 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (debugOverlay) debugOverlay->draw(window);
     
     profiler.renderTime = renderClock.getElapsedTime().asSeconds();
-}   
+}

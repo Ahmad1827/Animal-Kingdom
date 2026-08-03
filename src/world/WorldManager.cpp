@@ -129,16 +129,16 @@ bool WorldManager::checkTrunkCollision(const sf::FloatRect& bounds, float& outTr
             for (const auto& tree : chunk->getTrees()) {
                 sf::FloatRect tBounds = tree.getTrunkBounds();
                 
-                float lowestBranchY = tBounds.top;
+                float highestVisBranchY = tBounds.top + tBounds.height;
                 bool hasBranch = false;
                 for (const auto& branch : tree.getBranches()) {
-                    if (!hasBranch || branch.bounds.top > lowestBranchY) {
-                        lowestBranchY = branch.bounds.top;
+                    if (!hasBranch || branch.bounds.top < highestVisBranchY) {
+                        highestVisBranchY = branch.bounds.top;
                         hasBranch = true;
                     }
                 }
                 
-                float trunkTop = hasBranch ? lowestBranchY - 30.f : tBounds.top + (tBounds.height * 0.4f);
+                float trunkTop = hasBranch ? highestVisBranchY - 10.f : tBounds.top + (tBounds.height * 0.2f);
                 
                 sf::FloatRect actualTrunk(tBounds.left, trunkTop, tBounds.width, (tBounds.top + tBounds.height) - trunkTop);
                 

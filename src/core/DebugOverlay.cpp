@@ -2,9 +2,14 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
+#include <iostream>
 
 DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions(false), showHeatmaps(false), showFoliage(false), showGenerationDebug(false), showProfiler(false), showEngineInternals(false), showKinematicsDebug(false), showVillageDebug(false) {
-    if (!font.loadFromFile("assets/fonts/arial.ttf")) {}
+    if (!font.loadFromFile("assets/fonts/arial.ttf")) {
+        if (!font.loadFromFile("../assets/fonts/arial.ttf")) {
+            std::cout << "ERROR: Could not load arial.ttf font for DebugOverlay!\n";
+        }
+    }
     
     debugText.setFont(font);
     debugText.setCharacterSize(14);
@@ -96,7 +101,7 @@ void DebugOverlay::updateVillageStats(const std::string& vName, int pop, int foo
         villText.setString("");
         return;
     }
-    std::string info = "--- VILLAGE OVERLAY (F11) ---\n";
+    std::string info = "--- VILLAGE OVERLAY (V) ---\n";
     info += "Name: " + vName + "\n";
     info += "Population: " + std::to_string(pop) + "\n";
     info += "Food: " + std::to_string(food) + " | Wood: " + std::to_string(wood) + " | Stone: " + std::to_string(stone) + "\n";

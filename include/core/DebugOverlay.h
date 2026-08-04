@@ -9,6 +9,7 @@ private:
     sf::Text debugText;
     sf::Text simText;
     sf::Text dynText; 
+    sf::Text villText;
     bool isVisible;
     bool showBorders;
     bool showRegions;
@@ -18,6 +19,7 @@ private:
     bool showProfiler;
     bool showEngineInternals;
     bool showKinematicsDebug;
+    bool showVillageDebug;
 
 public:
     DebugOverlay();
@@ -25,6 +27,7 @@ public:
     void updateInfo(float dt, int chunkIdx, float playerX, float playerY, uint32_t seed, const std::string& regionName, const ProfilerStats& profiler);
     void updateSimStats(int simApes, int loadedNPCs, int loadedChunks, uint64_t simTick, int hour, int min, int day, int season, int year);
     void updateDynastyStats(const std::string& name, float age, float health, const std::string& dynName, uint64_t id, uint64_t heirId, int livingCount);
+    void updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int sleeping);
     
     void draw(sf::RenderTarget& target) const;
 
@@ -37,6 +40,7 @@ public:
     void toggleProfiler();
     void toggleEngineInternals();
     void toggleKinematicsDebug();
+    void toggleVillageDebug();
 
     bool getVisible() const;
     bool getShowBorders() const;
@@ -47,4 +51,5 @@ public:
     bool getShowProfiler() const;
     bool getShowEngineInternals() const;
     bool getShowKinematicsDebug() const;
+    bool getShowVillageDebug() const;
 };

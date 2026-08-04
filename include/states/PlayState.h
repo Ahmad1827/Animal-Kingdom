@@ -50,6 +50,7 @@ private:
     bool f8PressedLastFrame;
     bool f9PressedLastFrame;
     bool f10PressedLastFrame;
+    bool f11PressedLastFrame;
 
 public:
     PlayState(Game* game);

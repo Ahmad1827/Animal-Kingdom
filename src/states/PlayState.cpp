@@ -9,7 +9,7 @@
 #include <iostream>
 #include <algorithm>
 
-PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false) {}
+PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
 void PlayState::init() {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
@@ -28,7 +28,7 @@ void PlayState::init() {
     
     sim::EntityID startApeId = sim::PopulationGenerator::generatePlayerDynasty(simulationManager->getRegistry(), activeSeed);
     simulationManager->setControlledApe(startApeId);
-    sim::PopulationGenerator::generateInitialPopulation(simulationManager->getRegistry(), activeSeed);
+    sim::PopulationGenerator::generateVillages(simulationManager->getRegistry(), activeSeed);
     
     npcManager = std::make_unique<NPCManager>(game->getAssetManager().getTexture("playerTex"));
     
@@ -62,7 +62,7 @@ void PlayState::update(float dt) {
         simulationManager->update(dt);
     }
 
-    bool f3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F3);
+    bool f3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::O);
     if (f3Pressed && !f3PressedLastFrame) debugOverlay->toggle();
     f3PressedLastFrame = f3Pressed;
 
@@ -85,6 +85,10 @@ void PlayState::update(float dt) {
     bool f8Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F8);
     if (f8Pressed && !f8PressedLastFrame) debugOverlay->toggleProfiler();
     f8PressedLastFrame = f8Pressed;
+
+    bool f11Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::V);
+    if (f11Pressed && !f11PressedLastFrame) debugOverlay->toggleVillageDebug();
+    f11PressedLastFrame = f11Pressed;
 
     bool f9Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F9);
     if (f9Pressed && !f9PressedLastFrame && !isTransitioning) {
@@ -364,9 +368,31 @@ void PlayState::update(float dt) {
                 playerWrapper->setState(ApeState::ClimbingVine);
                 grabbedChunk = tChunk;
                 grabbedVine = tVine;
-                grabbedSeg = tSeg;
                 isDroppingToHang = false;
-                
+
+                int bestSeg = 1;
+                float bestDist = 99999.f;
+                int segCount = worldManager->getVineSegmentCount(tChunk, tVine);
+                for (int i = 1; i < segCount; ++i) {
+                    float sY = worldManager->getVineSegmentPosition(tChunk, tVine, i).y;
+                    float expectedY = sY + 120.f;
+                    float dist = std::abs(expectedY - playerBounds.top);
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        bestSeg = i;
+                    }
+                }
+
+                while (bestSeg > 1) {
+                    float sY = worldManager->getVineSegmentPosition(tChunk, tVine, bestSeg).y;
+                    if (sY + 120.f + playerBounds.height >= groundHeight - 5.f) {
+                        bestSeg--;
+                    } else {
+                        break;
+                    }
+                }
+
+                grabbedSeg = bestSeg;
                 float transferForce = std::clamp(playerWrapper->getVelocity().x * 0.02f, -12.f, 12.f);
                 worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(transferForce, 0.f));
             }
@@ -441,7 +467,7 @@ void PlayState::update(float dt) {
 
             sf::Vector2f segPos = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, grabbedSeg);
             
-            float targetY = segPos.y;
+            float targetY = segPos.y + 120.f;
             if (targetY + playerWrapper->getBounds().height > groundHeight) {
                 targetY = groundHeight - playerWrapper->getBounds().height;
             }
@@ -528,6 +554,20 @@ void PlayState::update(float dt) {
                 }
             }
             debugOverlay->updateDynastyStats(cData->name, cData->age, cData->health, dynName, cData->id, currHeir, living);
+
+            sim::VillageData* v = simulationManager->getRegistry().getVillage(cData->villageId);
+            if (v && debugOverlay->getShowVillageDebug()) {
+                int idle = 0, work = 0, sleep = 0;
+                for (auto id : v->members) {
+                    sim::ApeData* a = simulationManager->getRegistry().getApe(id);
+                    if (a) {
+                        if (a->currentJob == sim::Job::Sleep) sleep++;
+                        else if (a->currentJob == sim::Job::Idle || a->currentJob == sim::Job::Wander || a->currentJob == sim::Job::Socialize) idle++;
+                        else work++;
+                    }
+                }
+                debugOverlay->updateVillageStats(v->name, v->members.size(), v->food, v->wood, v->stone, idle, work, sleep);
+            }
         }
     }
     
@@ -562,6 +602,16 @@ void PlayState::draw(sf::RenderWindow& window) {
     
     if (npcManager) npcManager->draw(window);
     if (playerWrapper) playerWrapper->draw(window);
+
+    if (debugOverlay && debugOverlay->getShowVillageDebug()) {
+        for(auto& p : simulationManager->getRegistry().getAllVillages()) {
+            sf::CircleShape terr(p.second.territoryRadius);
+            terr.setFillColor(sf::Color(0, 255, 0, 30));
+            terr.setOrigin(p.second.territoryRadius, p.second.territoryRadius);
+            terr.setPosition(p.second.centerX, p.second.centerY);
+            window.draw(terr);
+        }
+    }
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::H)) {
         sim::EntityID heirId = sim::SuccessionManager::findNextHeir(simulationManager->getRegistry(), simulationManager->getControlledApe());

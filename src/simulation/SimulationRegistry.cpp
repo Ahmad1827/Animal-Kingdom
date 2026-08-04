@@ -1,53 +1,18 @@
 #include "simulation/SimulationRegistry.h"
 
 namespace sim {
+void SimulationRegistry::registerApe(const ApeData& ape) { apes[ape.id] = ape; }
+void SimulationRegistry::registerDynasty(const DynastyData& dyn) { dynasties[dyn.id] = dyn; }
+void SimulationRegistry::registerVillage(const VillageData& village) { villages[village.id] = village; }
+void SimulationRegistry::registerResource(const ResourceNode& res) { resources[res.id] = res; }
 
-void SimulationRegistry::registerApe(const ApeData& ape) {
-    apes[ape.id] = ape;
-}
+ApeData* SimulationRegistry::getApe(EntityID id) { return apes.count(id) ? &apes[id] : nullptr; }
+DynastyData* SimulationRegistry::getDynasty(DynastyID id) { return dynasties.count(id) ? &dynasties[id] : nullptr; }
+VillageData* SimulationRegistry::getVillage(VillageID id) { return villages.count(id) ? &villages[id] : nullptr; }
+ResourceNode* SimulationRegistry::getResource(EntityID id) { return resources.count(id) ? &resources[id] : nullptr; }
 
-void SimulationRegistry::registerDynasty(const DynastyData& dynasty) {
-    dynasties[dynasty.id] = dynasty;
-}
-
-void SimulationRegistry::registerKingdom(const KingdomData& kingdom) {
-    kingdoms[kingdom.id] = kingdom;
-}
-
-ApeData* SimulationRegistry::getApe(EntityID id) {
-    auto it = apes.find(id);
-    if (it != apes.end()) {
-        return &it->second;
-    }
-    return nullptr;
-}
-
-DynastyData* SimulationRegistry::getDynasty(DynastyID id) {
-    auto it = dynasties.find(id);
-    if (it != dynasties.end()) {
-        return &it->second;
-    }
-    return nullptr;
-}
-
-KingdomData* SimulationRegistry::getKingdom(KingdomID id) {
-    auto it = kingdoms.find(id);
-    if (it != kingdoms.end()) {
-        return &it->second;
-    }
-    return nullptr;
-}
-
-std::unordered_map<EntityID, ApeData>& SimulationRegistry::getAllApes() {
-    return apes;
-}
-
-std::unordered_map<DynastyID, DynastyData>& SimulationRegistry::getAllDynasties() {
-    return dynasties;
-}
-
-std::unordered_map<KingdomID, KingdomData>& SimulationRegistry::getAllKingdoms() {
-    return kingdoms;
-}
-
+std::unordered_map<EntityID, ApeData>& SimulationRegistry::getAllApes() { return apes; }
+std::unordered_map<DynastyID, DynastyData>& SimulationRegistry::getAllDynasties() { return dynasties; }
+std::unordered_map<VillageID, VillageData>& SimulationRegistry::getAllVillages() { return villages; }
+std::unordered_map<EntityID, ResourceNode>& SimulationRegistry::getAllResources() { return resources; }
 }

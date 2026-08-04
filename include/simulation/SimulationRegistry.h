@@ -1,30 +1,32 @@
 #pragma once
 #include "simulation/ApeData.h"
 #include "simulation/DynastyData.h"
-#include "simulation/KingdomData.h"
+#include "simulation/VillageData.h"
+#include "simulation/ResourceNode.h"
 #include <unordered_map>
-#include <optional>
 
 namespace sim {
-
 class SimulationRegistry {
 private:
     std::unordered_map<EntityID, ApeData> apes;
     std::unordered_map<DynastyID, DynastyData> dynasties;
-    std::unordered_map<KingdomID, KingdomData> kingdoms;
+    std::unordered_map<VillageID, VillageData> villages;
+    std::unordered_map<EntityID, ResourceNode> resources;
 
 public:
     void registerApe(const ApeData& ape);
-    void registerDynasty(const DynastyData& dynasty);
-    void registerKingdom(const KingdomData& kingdom);
+    void registerDynasty(const DynastyData& dyn);
+    void registerVillage(const VillageData& village);
+    void registerResource(const ResourceNode& res);
 
     ApeData* getApe(EntityID id);
     DynastyData* getDynasty(DynastyID id);
-    KingdomData* getKingdom(KingdomID id);
+    VillageData* getVillage(VillageID id);
+    ResourceNode* getResource(EntityID id);
 
     std::unordered_map<EntityID, ApeData>& getAllApes();
     std::unordered_map<DynastyID, DynastyData>& getAllDynasties();
-    std::unordered_map<KingdomID, KingdomData>& getAllKingdoms();
+    std::unordered_map<VillageID, VillageData>& getAllVillages();
+    std::unordered_map<EntityID, ResourceNode>& getAllResources();
 };
-
 }

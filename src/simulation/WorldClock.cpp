@@ -49,4 +49,8 @@ int WorldClock::getDays() const { return days; }
 int WorldClock::getSeasons() const { return seasons; }
 int WorldClock::getYears() const { return years; }
 
+float WorldClock::getTimeOfDay() const {
+    return (hours * 3600.0f + minutes * 60.0f + seconds) / 86400.0f;
+}
+
 }

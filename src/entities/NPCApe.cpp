@@ -4,7 +4,7 @@
 #include <cstdlib>
 
 NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture) 
-    : simId(id), physicalApe(x, y, texture, false), currentState(AIState::Idle), stateTimer(0.f), intendedMoveX(0.f), 
+    : simId(id), physicalApe(x, y, texture, false), stateTimer(0.f), intendedMoveX(0.f), 
       isDroppingToHang(false), grabbedChunk(0), grabbedVine(-1), grabbedSeg(-1) {}
 
 bool NPCApe::hasTrait(sim::ApeData* data, sim::Trait trait) {
@@ -14,36 +14,73 @@ bool NPCApe::hasTrait(sim::ApeData* data, sim::Trait trait) {
     return false;
 }
 
-void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay) {
-    bool isNight = (timeOfDay > 0.8f || timeOfDay < 0.2f);
-
-    if (isNight) {
-        currentState = AIState::ReturningHome;
-        float homeX = data->homeChunkX * 2000.f + 1000.f;
-        intendedMoveX = (physicalApe.getPosition().x < homeX) ? 1.f : -1.f;
-        stateTimer = 2.0f;
-        
-        if (std::abs(physicalApe.getPosition().x - homeX) < 200.f) {
-            currentState = AIState::Idle;
+void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry) {
+    if (data->currentJob == sim::Job::Sleep || data->currentJob == sim::Job::ReturnHome) {
+        if (std::abs(physicalApe.getPosition().x - data->homeX) > 50.f) {
+            intendedMoveX = (physicalApe.getPosition().x < data->homeX) ? 1.f : -1.f;
+        } else {
             intendedMoveX = 0.f;
-            stateTimer = 5.0f;
         }
         return;
     }
 
-    int randChoice = std::rand() % 100;
-    if (hasTrait(data, sim::Trait::Lazy)) randChoice -= 20; 
-    if (hasTrait(data, sim::Trait::Energetic)) randChoice += 20;
-
-    if (randChoice < 30) {
-        currentState = AIState::Idle;
-        intendedMoveX = 0.f;
-        stateTimer = hasTrait(data, sim::Trait::Lazy) ? (std::rand() % 4 + 4.f) : (std::rand() % 3 + 1.f);
-    } else {
-        currentState = AIState::Wandering;
-        intendedMoveX = (std::rand() % 2 == 0) ? 1.f : -1.f;
-        stateTimer = hasTrait(data, sim::Trait::Brave) ? (std::rand() % 5 + 3.f) : (std::rand() % 3 + 1.f);
+    if (data->currentJob == sim::Job::CarryFood) {
+        sim::VillageData* v = registry.getVillage(data->villageId);
+        if (v) {
+            if (std::abs(physicalApe.getPosition().x - v->centerX) > 50.f) {
+                intendedMoveX = (physicalApe.getPosition().x < v->centerX) ? 1.f : -1.f;
+            } else {
+                intendedMoveX = 0.f;
+            }
+        }
+        return;
     }
+
+    if (data->currentJob == sim::Job::Forage && data->currentTargetNode != 0) {
+        sim::ResourceNode* node = registry.getResource(data->currentTargetNode);
+        if (node && node->amount > 0) {
+            if (std::abs(physicalApe.getPosition().x - node->worldX) > 20.f) {
+                intendedMoveX = (physicalApe.getPosition().x < node->worldX) ? 1.f : -1.f;
+            } else {
+                intendedMoveX = 0.f;
+                node->amount--;
+                data->heldFood += 1;
+                data->currentTargetNode = 0;
+            }
+        } else {
+            data->currentTargetNode = 0;
+            intendedMoveX = 0.f;
+        }
+        return;
+    }
+
+    if (data->currentJob == sim::Job::Guard) {
+        sim::VillageData* v = registry.getVillage(data->villageId);
+        if (v) {
+            if (std::abs(physicalApe.getPosition().x - v->centerX) > 300.f) {
+                intendedMoveX = (physicalApe.getPosition().x < v->centerX) ? 1.f : -1.f;
+            } else {
+                if (std::rand() % 100 < 5) intendedMoveX = (std::rand() % 2 == 0) ? 1.f : -1.f;
+                else intendedMoveX = 0.f;
+            }
+        }
+        return;
+    }
+
+    if (data->currentJob == sim::Job::Socialize || data->currentJob == sim::Job::Wander) {
+        sim::VillageData* v = registry.getVillage(data->villageId);
+        if (v) {
+            if (std::abs(physicalApe.getPosition().x - v->centerX) > v->territoryRadius * 0.5f) {
+                intendedMoveX = (physicalApe.getPosition().x < v->centerX) ? 1.f : -1.f;
+            } else {
+                if (std::rand() % 100 < 10) intendedMoveX = (std::rand() % 2 == 0) ? 1.f : -1.f;
+                else intendedMoveX = 0.f;
+            }
+        }
+        return;
+    }
+
+    intendedMoveX = 0.f;
 }
 
 void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
@@ -81,29 +118,18 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
             isDroppingToHang = false;
         }
     }
-
-    float trunkCenter = 0.f, trunkTop = 0.f;
-    if (worldManager->checkTrunkCollision(playerBounds, trunkCenter, trunkTop)) {
-        if (currentState == AIState::Climbing && physicalApe.getState() != ApeState::ClimbingTrunk) {
-            if (physicalApe.getPosition().y >= trunkTop - 10.f) {
-                physicalApe.setState(ApeState::ClimbingTrunk);
-                physicalApe.setPosition(trunkCenter - (playerBounds.width / 2.f), physicalApe.getPosition().y);
-                physicalApe.setVelocity(0.f, 0.f);
-            }
-        }
-    } else if (physicalApe.getState() == ApeState::ClimbingTrunk) {
-        physicalApe.setState(ApeState::Airborne);
-    }
 }
 
-void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay) {
+void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay, sim::SimulationRegistry& registry) {
     stateTimer -= dt;
     if (stateTimer <= 0.f) {
-        determineNextAction(data, timeOfDay);
+        determineNextAction(data, timeOfDay, registry);
+        stateTimer = 0.5f;
     }
 
     if (physicalApe.getState() == ApeState::Grounded || physicalApe.getState() == ApeState::Airborne) {
-        float speed = (currentState == AIState::Wandering || currentState == AIState::ReturningHome) ? 180.f : 0.f;
+        float speed = 150.f;
+        if (data->currentJob == sim::Job::Guard || data->currentJob == sim::Job::Forage) speed = 200.f;
         if (intendedMoveX != 0.f) {
             physicalApe.setVelocity(intendedMoveX * speed, physicalApe.getVelocity().y);
         } else {
@@ -114,7 +140,6 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
     applyPhysics(dt, worldManager);
     physicalApe.update(dt);
 
-    // Sync Simulation Data
     data->worldX = physicalApe.getPosition().x;
     data->worldY = physicalApe.getPosition().y;
     data->currentChunkX = static_cast<int>(std::floor(data->worldX / 2000.f));

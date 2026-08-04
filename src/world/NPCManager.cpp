@@ -31,18 +31,11 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
             bounds.top + bounds.height < unloadBounds.top || bounds.top > unloadBounds.top + unloadBounds.height) {
             it = activeNPCs.erase(it);
         } else {
-            it->second->update(dt, data, worldManager, timeOfDay);
+            it->second->update(dt, data, worldManager, timeOfDay, simManager.getRegistry());
             ++it;
         }
     }
 }
 
-void NPCManager::removeNPC(sim::EntityID id) {
-    activeNPCs.erase(id);
-}
-
-void NPCManager::draw(sf::RenderTarget& target) {
-    for (const auto& pair : activeNPCs) {
-        pair.second->draw(target);
-    }
-}
+void NPCManager::removeNPC(sim::EntityID id) { activeNPCs.erase(id); }
+void NPCManager::draw(sf::RenderTarget& target) { for (const auto& pair : activeNPCs) pair.second->draw(target); }

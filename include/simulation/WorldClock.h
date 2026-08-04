@@ -29,6 +29,7 @@ public:
     int getDays() const;
     int getSeasons() const;
     int getYears() const;
+    float getTimeOfDay() const;
 };
 
 }

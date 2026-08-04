@@ -1,5 +1,6 @@
 #pragma once
 #include "simulation/EntityID.h"
+#include "simulation/StructureData.h"
 #include <string>
 #include <vector>
 
@@ -10,12 +11,22 @@ namespace sim {
         EntityID founderId;
         EntityID leaderId;
         std::vector<EntityID> members;
+        
         int homeChunkX;
         float centerX;
         float centerY;
+        float territoryRadius;
+
         int food;
         int wood;
         int stone;
-        float territoryRadius;
+        
+        int toolsAxe;
+        int toolsPick;
+        int toolsSpear;
+        int toolsTorch;
+
+        std::vector<StructureID> finishedStructures;
+        std::vector<StructureID> constructionQueue;
     };
 }

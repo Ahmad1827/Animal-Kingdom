@@ -3,6 +3,7 @@
 #include "simulation/DynastyData.h"
 #include "simulation/VillageData.h"
 #include "simulation/ResourceNode.h"
+#include "simulation/StructureData.h"
 #include <unordered_map>
 
 namespace sim {
@@ -12,21 +13,25 @@ private:
     std::unordered_map<DynastyID, DynastyData> dynasties;
     std::unordered_map<VillageID, VillageData> villages;
     std::unordered_map<EntityID, ResourceNode> resources;
+    std::unordered_map<StructureID, StructureData> structures;
 
 public:
     void registerApe(const ApeData& ape);
     void registerDynasty(const DynastyData& dyn);
     void registerVillage(const VillageData& village);
     void registerResource(const ResourceNode& res);
+    void registerStructure(const StructureData& structure);
 
     ApeData* getApe(EntityID id);
     DynastyData* getDynasty(DynastyID id);
     VillageData* getVillage(VillageID id);
     ResourceNode* getResource(EntityID id);
+    StructureData* getStructure(StructureID id);
 
     std::unordered_map<EntityID, ApeData>& getAllApes();
     std::unordered_map<DynastyID, DynastyData>& getAllDynasties();
     std::unordered_map<VillageID, VillageData>& getAllVillages();
     std::unordered_map<EntityID, ResourceNode>& getAllResources();
+    std::unordered_map<StructureID, StructureData>& getAllStructures();
 };
 }

@@ -2,7 +2,7 @@
 #include <cmath>
 #include <iostream>
 
-Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer) : isPlayer(isPlayer) {
+Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer) : isPlayer(isPlayer), carriedType(0) {
     bounds = sf::FloatRect(x, y, 32.f, 32.f); 
     velocity = sf::Vector2f(0.f, 0.f);
     state = ApeState::Airborne;
@@ -38,6 +38,16 @@ Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer) : isPlayer(isPla
     animator->addAnimation("Swing", 5, 5, frameW, frameH, 4,  12.f, true,  0.f, 0.f);
 
     animator->play("Idle");
+
+    carriedBox.setSize(sf::Vector2f(30.f, 20.f));
+    carriedBox.setOrigin(15.f, 20.f);
+}
+
+void Ape::setCarriedItem(int type) {
+    carriedType = type;
+    if (type == 1) carriedBox.setFillColor(sf::Color::Red);              // Food
+    else if (type == 2) carriedBox.setFillColor(sf::Color(139, 69, 19)); // Wood
+    else if (type == 3) carriedBox.setFillColor(sf::Color(169, 169, 169)); // Stone
 }
 
 ImpactLevel Ape::registerLanding(float impactVelocityY) {
@@ -211,6 +221,12 @@ void Ape::update(float dt) {
 
 void Ape::draw(sf::RenderTarget& target) const {
     target.draw(sprite);
+    
+    if (carriedType != 0) {
+        sf::RectangleShape box = carriedBox;
+        box.setPosition(sprite.getPosition().x, sprite.getPosition().y - 60.f);
+        target.draw(box);
+    }
 }
 
 sf::FloatRect Ape::getBounds() const { return bounds; }
@@ -225,3 +241,4 @@ void Ape::setState(ApeState newState) { state = newState; }
 void Ape::setDroppingThrough(bool drop) { droppingThrough = drop; }
 void Ape::setIsPlayer(bool player) { isPlayer = player; }
 Animator* Ape::getAnimator() const { return animator.get(); }
+const sf::Sprite& Ape::getSprite() const { return sprite; }

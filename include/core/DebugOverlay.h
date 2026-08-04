@@ -27,7 +27,9 @@ public:
     void updateInfo(float dt, int chunkIdx, float playerX, float playerY, uint32_t seed, const std::string& regionName, const ProfilerStats& profiler);
     void updateSimStats(int simApes, int loadedNPCs, int loadedChunks, uint64_t simTick, int hour, int min, int day, int season, int year);
     void updateDynastyStats(const std::string& name, float age, float health, const std::string& dynName, uint64_t id, uint64_t heirId, int livingCount);
-    void updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int sleeping);
+    
+    // Updated signature for Phase 5
+    void updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int builders, int sleep, int queueSize);
     
     void draw(sf::RenderTarget& target) const;
 

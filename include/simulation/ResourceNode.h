@@ -2,7 +2,7 @@
 #include "simulation/EntityID.h"
 
 namespace sim {
-    enum class ResourceType { Food, Wood, Stone };
+    enum class ResourceType { None, Food, Wood, Stone };
 
     struct ResourceNode {
         EntityID id;

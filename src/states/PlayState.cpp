@@ -25,6 +25,7 @@ void PlayState::init() {
     debugOverlay = std::make_unique<DebugOverlay>();
     
     simulationManager = std::make_unique<sim::SimulationManager>();
+    structureManager = std::make_unique<StructureManager>(); // Phase 5 Addition
     
     sim::EntityID startApeId = sim::PopulationGenerator::generatePlayerDynasty(simulationManager->getRegistry(), activeSeed);
     simulationManager->setControlledApe(startApeId);
@@ -37,7 +38,7 @@ void PlayState::init() {
         playerWrapper = std::make_unique<Ape>(pData->worldX, pData->worldY, game->getAssetManager().getTexture("playerTex"), true);
     }
     
-    worldClock->setMultiplier(50.f);
+    worldClock->setMultiplier(300.f);
 }
 
 void PlayState::processEvents(const sf::Event& event) {
@@ -192,6 +193,12 @@ void PlayState::update(float dt) {
             pData->worldX = playerWrapper->getPosition().x;
             pData->worldY = playerWrapper->getPosition().y;
             pData->currentChunkX = static_cast<int>(std::floor(pData->worldX / 2000.f));
+            
+            // Phase 5 Additions
+            if (pData->carriedType == sim::ResourceType::Food) playerWrapper->setCarriedItem(1);
+            else if (pData->carriedType == sim::ResourceType::Wood) playerWrapper->setCarriedItem(2);
+            else if (pData->carriedType == sim::ResourceType::Stone) playerWrapper->setCarriedItem(3);
+            else playerWrapper->setCarriedItem(0);
         }
 
         if (playerWrapper->getState() != ApeState::ClimbingVine) {
@@ -555,18 +562,20 @@ void PlayState::update(float dt) {
             }
             debugOverlay->updateDynastyStats(cData->name, cData->age, cData->health, dynName, cData->id, currHeir, living);
 
+            // Phase 5 Additions: Updated Village Stats Overlay
             sim::VillageData* v = simulationManager->getRegistry().getVillage(cData->villageId);
             if (v && debugOverlay->getShowVillageDebug()) {
-                int idle = 0, work = 0, sleep = 0;
+                int idle = 0, work = 0, builders = 0, sleep = 0;
                 for (auto id : v->members) {
                     sim::ApeData* a = simulationManager->getRegistry().getApe(id);
                     if (a) {
                         if (a->currentJob == sim::Job::Sleep) sleep++;
+                        else if (a->currentJob == sim::Job::Builder) builders++;
                         else if (a->currentJob == sim::Job::Idle || a->currentJob == sim::Job::Wander || a->currentJob == sim::Job::Socialize) idle++;
                         else work++;
                     }
                 }
-                debugOverlay->updateVillageStats(v->name, v->members.size(), v->food, v->wood, v->stone, idle, work, sleep);
+                debugOverlay->updateVillageStats(v->name, v->members.size(), v->food, v->wood, v->stone, idle, work, builders, sleep, v->constructionQueue.size());
             }
         }
     }
@@ -587,6 +596,12 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (worldManager) {
         sf::FloatRect preB = playerWrapper ? cameraManager->getPreloadBounds(playerWrapper->getVelocity()) : cameraManager->getPreloadBounds(sf::Vector2f(0.f, 0.f));
         worldManager->drawBackground(window, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
+        
+        // Phase 5 Additions: Draw Structures behind geometry
+        if (structureManager) {
+            structureManager->draw(window, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
+        }
+
         worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
         
         if (particleSystem) particleSystem->draw(window);

@@ -1,5 +1,6 @@
 #pragma once
 #include "simulation/EntityID.h"
+#include "simulation/ResourceNode.h"
 #include <string>
 #include <vector>
 
@@ -9,7 +10,8 @@ enum class Gender { Male, Female };
 enum class Trait { Brave, Coward, Greedy, Honorable, Cruel, Charismatic, Lazy, Strategic, Impulsive, Curious, Energetic };
 enum class Occupation { Unemployed, Ruler, Noble, Soldier, Hunter, Scout };
 enum class Goal { None, Survive, Reproduce, AcquireWealth, UsurpThrone };
-enum class Job { Idle, Sleep, Eat, Forage, CarryFood, ReturnHome, Guard, Wander, Socialize };
+enum class Job { Idle, Sleep, Eat, Forage, CarryResource, ReturnHome, Guard, Wander, Socialize, Woodcutter, StoneGatherer, Builder, Craftsman };
+enum class ToolType { None, StoneAxe, StonePick, WoodenSpear, Torch };
 
 struct ApeData {
     EntityID id;
@@ -33,9 +35,14 @@ struct ApeData {
     KingdomID currentKingdom;
     Occupation currentOccupation;
     Goal currentGoal;
+    
     Job currentJob;
     EntityID currentTargetNode;
-    int heldFood;
+    StructureID currentTargetStructure;
+    
+    ResourceType carriedType;
+    int carriedAmount;
+    ToolType equippedTool;
 
     EntityID fatherId = 0;
     EntityID motherId = 0;

@@ -2,6 +2,7 @@
 #include "simulation/JobSystem.h"
 
 namespace sim {
+
 SimulationManager::SimulationManager() : isPaused(false), controlledApeID(0) {}
 
 void SimulationManager::update(float dt) {
@@ -13,7 +14,7 @@ void SimulationManager::update(float dt) {
 }
 
 void SimulationManager::tick() {
-    JobSystem::updateJobs(registry, clock.getTimeOfDay());
+    JobSystem::updateJobs(registry, clock.getTimeOfDay(), clock.getTotalTicks());
     simulateAging();
     simulatePregnancies();
     simulateDiplomacy();
@@ -33,4 +34,5 @@ void SimulationManager::setControlledApe(EntityID id) { controlledApeID = id; }
 EntityID SimulationManager::getControlledApe() const { return controlledApeID; }
 SimulationRegistry& SimulationManager::getRegistry() { return registry; }
 WorldClock& SimulationManager::getClock() { return clock; }
+
 }

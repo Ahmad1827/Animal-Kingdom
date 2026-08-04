@@ -3,30 +3,53 @@
 #include "simulation/StructureData.h"
 #include <string>
 #include <vector>
+#include <unordered_map>
+#include <unordered_set>
 
 namespace sim {
-    struct VillageData {
-        VillageID id;
-        std::string name;
-        EntityID founderId;
-        EntityID leaderId;
-        std::vector<EntityID> members;
-        
-        int homeChunkX;
-        float centerX;
-        float centerY;
-        float territoryRadius;
 
-        int food;
-        int wood;
-        int stone;
-        
-        int toolsAxe;
-        int toolsPick;
-        int toolsSpear;
-        int toolsTorch;
+enum class VillageIdentity { Balanced, WoodFocused, StoneFocused, FoodRich, Aggressive, Peaceful, Expansionist };
+enum class Reputation { Unknown, Friendly, Neutral, Suspicious, Hostile };
 
-        std::vector<StructureID> finishedStructures;
-        std::vector<StructureID> constructionQueue;
-    };
+struct TradeMission {
+    VillageID targetVillage;
+    ResourceType resourceGiven;
+    int amountGiven;
+    ResourceType resourceSought;
+};
+
+struct VillageData {
+    VillageID id;
+    std::string name;
+    VillageIdentity identity;
+    EntityID founderId;
+    EntityID leaderId;
+    std::vector<EntityID> members;
+    
+    int homeChunkX;
+    float centerX;
+    float centerY;
+
+    int food = 0;
+    int wood = 0;
+    int stone = 0;
+    
+    int toolsAxe = 0;
+    int toolsPick = 0;
+    int toolsSpear = 0;
+    int toolsTorch = 0;
+    int toolsBasket = 0;
+    int toolsRope = 0;
+
+    float territoryRadius = 1500.0f;
+    
+    std::vector<StructureID> finishedStructures;
+    std::vector<StructureID> constructionQueue;
+
+    std::unordered_set<VillageID> knownVillages;
+    std::unordered_map<VillageID, Reputation> relations;
+    std::unordered_set<EntityID> knownResources;
+    std::vector<TradeMission> activeTrades;
+};
+
 }

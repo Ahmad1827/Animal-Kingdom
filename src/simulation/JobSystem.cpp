@@ -5,12 +5,13 @@
 
 namespace sim {
 
-EntityID JobSystem::findNearestNode(SimulationRegistry& registry, float x, float y, ResourceType type) {
+EntityID JobSystem::findNearestNode(SimulationRegistry& registry, float x, float y, ResourceType type, VillageData* village) {
     EntityID best = 0;
     float bestDist = 999999.f;
     for (auto& pair : registry.getAllResources()) {
         if (pair.second.type == type && pair.second.amount > 0) {
             float dist = std::abs(pair.second.worldX - x);
+            if (village && dist > village->territoryRadius * 1.5f) continue;
             if (dist < bestDist) {
                 bestDist = dist;
                 best = pair.first;
@@ -46,10 +47,28 @@ void JobSystem::spawnStructure(SimulationRegistry& registry, VillageData& villag
 }
 
 void JobSystem::villagePlanningAI(SimulationRegistry& registry, VillageData& village, uint64_t ticks) {
-    if (ticks % 100 != 0) return;
+    if (ticks % 150 != 0) return;
+
+    if (village.food > 40 && village.wood > 10 && village.toolsBasket < 5) {
+        village.food -= 10;
+        village.wood -= 5;
+        village.toolsBasket++;
+    }
+    if (village.stone > 10 && village.wood > 10 && village.toolsAxe < 5) {
+        village.stone -= 5;
+        village.wood -= 5;
+        village.toolsAxe++;
+    }
+    if (village.stone > 15 && village.wood > 5 && village.toolsPick < 5) {
+        village.stone -= 10;
+        village.wood -= 5;
+        village.toolsPick++;
+    }
 
     int numStorage = 1;
     int numNests = 0;
+    
+    // Count finished structures
     for (StructureID sid : village.finishedStructures) {
         StructureData* s = registry.getStructure(sid);
         if (s) {
@@ -58,23 +77,59 @@ void JobSystem::villagePlanningAI(SimulationRegistry& registry, VillageData& vil
         }
     }
 
-    if (village.members.size() > numNests * 2) {
+    // --- THE FIX: Count structures currently being built! ---
+    for (StructureID sid : village.constructionQueue) {
+        StructureData* s = registry.getStructure(sid);
+        if (s) {
+            if (s->type == StructureType::StorageHut) numStorage++;
+            if (s->type == StructureType::Nest) numNests++;
+        }
+    }
+
+    if (village.members.size() > static_cast<size_t>(numNests * 2)) {
         spawnStructure(registry, village, StructureType::Nest);
     }
     else if (village.food + village.wood + village.stone > 80 * numStorage) {
         spawnStructure(registry, village, StructureType::StorageHut);
     }
+
+    if (village.members.size() > 5) {
+        village.territoryRadius += 10.0f;
+    }
 }
 
-void JobSystem::handleLeader(SimulationRegistry& registry, ApeData& leader) {
+void JobSystem::handleLeader(SimulationRegistry& registry, ApeData& leader, VillageData& village) {
     leader.currentJob = Job::Guard;
     leader.currentTargetNode = 0;
     leader.currentTargetStructure = 0;
+    leader.skills.leadership += 0.005f;
+}
+
+void JobSystem::updateReputations(SimulationRegistry& registry, uint64_t ticks) {
+    if (ticks % 300 != 0) return;
+
+    auto& villages = registry.getAllVillages();
+    for (auto it1 = villages.begin(); it1 != villages.end(); ++it1) {
+        for (auto it2 = std::next(it1); it2 != villages.end(); ++it2) {
+            float dist = std::abs(it1->second.centerX - it2->second.centerX);
+            if (dist < (it1->second.territoryRadius + it2->second.territoryRadius)) {
+                it1->second.knownVillages.insert(it2->first);
+                it2->second.knownVillages.insert(it1->first);
+
+                if (it1->second.relations.find(it2->first) == it1->second.relations.end()) {
+                    it1->second.relations[it2->first] = Reputation::Suspicious;
+                    it2->second.relations[it1->first] = Reputation::Suspicious;
+                }
+            }
+        }
+    }
 }
 
 void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64_t totalTicks) {
     bool isNight = (timeOfDay > 0.8f || timeOfDay < 0.2f);
     bool isEvening = (timeOfDay >= 0.7f && timeOfDay <= 0.8f);
+
+    updateReputations(registry, totalTicks);
 
     for (auto& pair : registry.getAllResources()) {
         if (pair.second.amount < pair.second.maxAmount) {
@@ -99,8 +154,21 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
 
         VillageData* village = registry.getVillage(ape.villageId);
         
+        if (village && ape.equippedTool == ToolType::None) {
+            if (village->toolsBasket > 0 && ape.currentOccupation == Occupation::Unemployed) {
+                ape.equippedTool = ToolType::Basket;
+                village->toolsBasket--;
+            } else if (village->toolsAxe > 0 && ape.skills.woodcutting > 1.2f) {
+                ape.equippedTool = ToolType::StoneAxe;
+                village->toolsAxe--;
+            } else if (village->toolsPick > 0 && ape.skills.gathering > 1.2f) {
+                ape.equippedTool = ToolType::StonePick;
+                village->toolsPick--;
+            }
+        }
+        
         if (village && ape.id == village->leaderId) {
-            handleLeader(registry, ape);
+            handleLeader(registry, ape, *village);
             continue;
         }
 
@@ -133,6 +201,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                     ape.carriedAmount = 0;
                     ape.carriedType = ResourceType::None;
                     ape.currentJob = Job::Builder;
+                    ape.skills.building += 0.02f;
                 }
                 continue;
             }
@@ -156,31 +225,31 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                 ape.hunger = 100.f;
             } else {
                 ape.currentJob = Job::Forage;
-                if (ape.currentTargetNode == 0) ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Food);
+                if (ape.currentTargetNode == 0) ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Food, village);
             }
             continue;
         }
 
         if (ape.currentJob == Job::Idle || ape.currentJob == Job::Wander || ape.currentJob == Job::Socialize || ape.currentJob == Job::Eat) {
             if (village) {
-                if (village->food < static_cast<int>(village->members.size() * 2)) {
+                if (village->food < static_cast<int>(village->members.size() * 3)) {
                     ape.currentJob = Job::Forage;
-                    ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Food);
+                    ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Food, village);
                 }
                 else if (!village->constructionQueue.empty()) {
                     ape.currentJob = Job::Builder;
                     ape.currentTargetStructure = village->constructionQueue.front();
                 }
-                else if (village->wood < 30) {
+                else if (village->wood < 40) {
                     ape.currentJob = Job::Woodcutter;
-                    ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Wood);
+                    ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Wood, village);
                 }
-                else if (village->stone < 20) {
+                else if (village->stone < 30) {
                     ape.currentJob = Job::StoneGatherer;
-                    ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Stone);
+                    ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Stone, village);
                 }
                 else {
-                    ape.currentJob = Job::Wander;
+                    ape.currentJob = (std::rand() % 100 < 10) ? Job::Scout : Job::Wander;
                 }
             }
         }
@@ -192,8 +261,17 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                     if (std::abs(ape.worldX - node->worldX) < 50.f) {
                         node->amount--;
                         ape.carriedType = node->type;
-                        ape.carriedAmount = (ape.equippedTool == ToolType::StoneAxe && node->type == ResourceType::Wood) ? 2 : 1;
+                        
+                        int capacity = (ape.equippedTool == ToolType::Basket) ? 3 : 1;
+                        if (ape.equippedTool == ToolType::StoneAxe && node->type == ResourceType::Wood) capacity = 2;
+                        if (ape.equippedTool == ToolType::StonePick && node->type == ResourceType::Stone) capacity = 2;
+                        
+                        ape.carriedAmount = capacity;
                         ape.currentTargetNode = 0;
+                        
+                        if (node->type == ResourceType::Wood) ape.skills.woodcutting += 0.01f;
+                        if (node->type == ResourceType::Stone) ape.skills.gathering += 0.01f;
+                        if (node->type == ResourceType::Food) ape.skills.gathering += 0.01f;
                     }
                 } else {
                     ape.currentJob = Job::Idle;
@@ -223,7 +301,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                         }
                     } else {
                         if (std::abs(ape.worldX - s->worldX) < 100.f) {
-                            s->progress += 1.0f;
+                            s->progress += 1.0f * ape.skills.building;
                             if (s->progress >= s->maxProgress) {
                                 s->isFinished = true;
                                 village->finishedStructures.push_back(s->id);
@@ -239,6 +317,15 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                 } else {
                     ape.currentJob = Job::Idle;
                     ape.currentTargetStructure = 0;
+                }
+            }
+        }
+        else if (ape.currentJob == Job::Scout) {
+            ape.skills.scouting += 0.005f;
+            if (village) {
+                float targetEdge = (std::rand() % 2 == 0) ? (village->centerX + village->territoryRadius * 1.5f) : (village->centerX - village->territoryRadius * 1.5f);
+                if (std::abs(ape.worldX - targetEdge) < 100.f) {
+                    ape.currentJob = Job::Idle;
                 }
             }
         }

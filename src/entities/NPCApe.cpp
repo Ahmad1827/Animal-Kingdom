@@ -17,13 +17,11 @@ bool NPCApe::hasTrait(sim::ApeData* data, sim::Trait trait) {
 void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry) {
     sim::VillageData* v = registry.getVillage(data->villageId);
 
-    // Sync visual carried item
     if (data->carriedType == sim::ResourceType::Food) physicalApe.setCarriedItem(1);
     else if (data->carriedType == sim::ResourceType::Wood) physicalApe.setCarriedItem(2);
     else if (data->carriedType == sim::ResourceType::Stone) physicalApe.setCarriedItem(3);
     else physicalApe.setCarriedItem(0);
 
-    // 1. Returning resources to village center
     if (data->currentJob == sim::Job::CarryResource) {
         if (data->currentTargetStructure != 0) {
             sim::StructureData* s = registry.getStructure(data->currentTargetStructure);
@@ -39,7 +37,6 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
         return;
     }
 
-    // 2. Resource Gathering / Building
     if (data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::Woodcutter || data->currentJob == sim::Job::StoneGatherer) {
         if (data->currentTargetNode != 0) {
             sim::ResourceNode* node = registry.getResource(data->currentTargetNode);
@@ -53,13 +50,11 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
             sim::StructureData* s = registry.getStructure(data->currentTargetStructure);
             if (s) {
                 if (s->curWood < s->reqWood || s->curStone < s->reqStone) {
-                    // Fetching materials from center
                     if (v && std::abs(physicalApe.getPosition().x - v->centerX) > 50.f) {
                         intendedMoveX = (physicalApe.getPosition().x < v->centerX) ? 1.f : -1.f;
                         return;
                     }
                 } else {
-                    // Building
                     if (std::abs(physicalApe.getPosition().x - s->worldX) > 50.f) {
                         intendedMoveX = (physicalApe.getPosition().x < s->worldX) ? 1.f : -1.f;
                         return;
@@ -67,9 +62,14 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
                 }
             }
         }
+    } else if (data->currentJob == sim::Job::Scout && v) {
+        float scoutTarget = (data->id % 2 == 0) ? (v->centerX + v->territoryRadius * 1.5f) : (v->centerX - v->territoryRadius * 1.5f);
+        if (std::abs(physicalApe.getPosition().x - scoutTarget) > 100.f) {
+            intendedMoveX = (physicalApe.getPosition().x < scoutTarget) ? 1.f : -1.f;
+            return;
+        }
     }
 
-    // 3. Sleeping / General wandering
     if (data->currentJob == sim::Job::Sleep || data->currentJob == sim::Job::ReturnHome) {
         if (std::abs(physicalApe.getPosition().x - data->homeX) > 50.f) intendedMoveX = (physicalApe.getPosition().x < data->homeX) ? 1.f : -1.f;
         else intendedMoveX = 0.f;
@@ -124,12 +124,14 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
     stateTimer -= dt;
     if (stateTimer <= 0.f) {
         determineNextAction(data, timeOfDay, registry);
-        stateTimer = 0.2f; // Faster AI updates for construction logic
+        stateTimer = 0.2f; 
     }
 
     if (physicalApe.getState() == ApeState::Grounded || physicalApe.getState() == ApeState::Airborne) {
         float speed = 150.f;
-        if (data->currentJob == sim::Job::Guard || data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::Woodcutter || data->currentJob == sim::Job::StoneGatherer) speed = 250.f;
+        if (data->currentJob == sim::Job::Guard || data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::Woodcutter || data->currentJob == sim::Job::StoneGatherer || data->currentJob == sim::Job::Scout) {
+            speed = 250.f * data->skills.scouting;
+        }
         if (intendedMoveX != 0.f) physicalApe.setVelocity(intendedMoveX * speed, physicalApe.getVelocity().y);
         else physicalApe.setVelocity(0.f, physicalApe.getVelocity().y);
     }

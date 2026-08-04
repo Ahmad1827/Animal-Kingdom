@@ -17,7 +17,6 @@ DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions
     villText.setFont(font); villText.setCharacterSize(14); villText.setFillColor(sf::Color::Green); villText.setOutlineColor(sf::Color::Black); villText.setOutlineThickness(1.f); villText.setPosition(10.f, 500.f);
 }
 
-// ... toggles and getters remain same ...
 void DebugOverlay::toggle() { isVisible = !isVisible; }
 void DebugOverlay::toggleBorders() { showBorders = !showBorders; }
 void DebugOverlay::toggleRegions() { showRegions = !showRegions; }
@@ -64,13 +63,13 @@ void DebugOverlay::updateDynastyStats(const std::string& name, float age, float 
     dynText.setString(info);
 }
 
-void DebugOverlay::updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int builders, int sleep, int queueSize) {
+void DebugOverlay::updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int builders, int sleep, int queueSize, int knownTribes, float radius, int tools) {
     if (!showVillageDebug || !isVisible) { villText.setString(""); return; }
     std::string info = "--- VILLAGE OVERLAY (V) ---\n";
-    info += "Name: " + vName + " | Pop: " + std::to_string(pop) + "\n";
-    info += "Storage -> Food: " + std::to_string(food) + " | Wood: " + std::to_string(wood) + " | Stone: " + std::to_string(stone) + "\n";
+    info += "Name: " + vName + " | Pop: " + std::to_string(pop) + " | Radius: " + std::to_string(static_cast<int>(radius)) + "\n";
+    info += "Storage -> Food: " + std::to_string(food) + " | Wood: " + std::to_string(wood) + " | Stone: " + std::to_string(stone) + " | Tools: " + std::to_string(tools) + "\n";
     info += "Activity -> Work: " + std::to_string(working) + " | Build: " + std::to_string(builders) + " | Idle: " + std::to_string(idle) + " | Sleep: " + std::to_string(sleep) + "\n";
-    info += "Projects: " + std::to_string(queueSize) + "\n";
+    info += "Projects: " + std::to_string(queueSize) + " | Known Tribes: " + std::to_string(knownTribes) + "\n";
     villText.setString(info);
 }
 

@@ -575,7 +575,8 @@ void PlayState::update(float dt) {
                         else work++;
                     }
                 }
-                debugOverlay->updateVillageStats(v->name, v->members.size(), v->food, v->wood, v->stone, idle, work, builders, sleep, v->constructionQueue.size());
+                int totalTools = v->toolsAxe + v->toolsPick + v->toolsSpear + v->toolsTorch + v->toolsBasket + v->toolsRope;
+                debugOverlay->updateVillageStats(v->name, static_cast<int>(v->members.size()), v->food, v->wood, v->stone, idle, work, builders, sleep, static_cast<int>(v->constructionQueue.size()), static_cast<int>(v->knownVillages.size()), v->territoryRadius, totalTools);
             }
         }
     }

@@ -8,10 +8,19 @@ namespace sim {
 
 enum class Gender { Male, Female };
 enum class Trait { Brave, Coward, Greedy, Honorable, Cruel, Charismatic, Lazy, Strategic, Impulsive, Curious, Energetic };
-enum class Occupation { Unemployed, Ruler, Noble, Soldier, Hunter, Scout };
+enum class Occupation { Unemployed, Ruler, Noble, Soldier, Hunter, Scout, Crafter };
 enum class Goal { None, Survive, Reproduce, AcquireWealth, UsurpThrone };
-enum class Job { Idle, Sleep, Eat, Forage, CarryResource, ReturnHome, Guard, Wander, Socialize, Woodcutter, StoneGatherer, Builder, Craftsman };
-enum class ToolType { None, StoneAxe, StonePick, WoodenSpear, Torch };
+enum class Job { Idle, Sleep, Eat, Forage, CarryResource, ReturnHome, Guard, Wander, Socialize, Woodcutter, StoneGatherer, Builder, Craftsman, Scout, Carrier };
+enum class ToolType { None, StoneAxe, StonePick, WoodenSpear, Torch, Basket, Rope };
+
+struct SkillSet {
+    float woodcutting = 1.0f;
+    float gathering = 1.0f;
+    float building = 1.0f;
+    float crafting = 1.0f;
+    float scouting = 1.0f;
+    float leadership = 1.0f;
+};
 
 struct ApeData {
     EntityID id;
@@ -23,6 +32,7 @@ struct ApeData {
     float health;
     float hunger;
     std::vector<Trait> traits;
+    SkillSet skills;
     
     float worldX;
     float worldY;
@@ -39,6 +49,7 @@ struct ApeData {
     Job currentJob;
     EntityID currentTargetNode;
     StructureID currentTargetStructure;
+    VillageID currentTargetVillage;
     
     ResourceType carriedType;
     int carriedAmount;

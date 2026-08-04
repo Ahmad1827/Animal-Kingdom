@@ -38,7 +38,7 @@ void PlayState::init() {
         playerWrapper = std::make_unique<Ape>(pData->worldX, pData->worldY, game->getAssetManager().getTexture("playerTex"), true);
     }
     
-    worldClock->setMultiplier(20.f);
+    worldClock->setMultiplier(30.f);
 }
 
 void PlayState::processEvents(const sf::Event& event) {
@@ -60,7 +60,7 @@ void PlayState::update(float dt) {
     worldClock->update(dt);
 
     if (simulationManager) {
-        simulationManager->update(dt);
+        simulationManager->update(dt * 30.f);
     }
 
     bool f3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::O);

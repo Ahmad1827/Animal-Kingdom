@@ -3,6 +3,7 @@
 #include "world/Biome.h"
 #include "simulation/PopulationGenerator.h"
 #include "simulation/SuccessionManager.h"
+#include "simulation/KingdomManager.h"
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
@@ -25,7 +26,7 @@ void PlayState::init() {
     debugOverlay = std::make_unique<DebugOverlay>();
     
     simulationManager = std::make_unique<sim::SimulationManager>();
-    structureManager = std::make_unique<StructureManager>(); // Phase 5 Addition
+    structureManager = std::make_unique<StructureManager>();
     
     sim::EntityID startApeId = sim::PopulationGenerator::generatePlayerDynasty(simulationManager->getRegistry(), activeSeed);
     simulationManager->setControlledApe(startApeId);
@@ -42,6 +43,21 @@ void PlayState::init() {
 }
 
 void PlayState::processEvents(const sf::Event& event) {
+    if (event.type == sf::Event::KeyPressed) {
+        if (event.key.code == sf::Keyboard::K) {
+            debugOverlay->toggleKingdomDebug();
+        }
+        if (event.key.code == sf::Keyboard::F6) {
+            sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+            if (cData && cData->villageId != 0 && cData->currentKingdom == 0) {
+                sim::KingdomManager::spawnDebugKingdom(simulationManager->getRegistry(), cData->villageId, cData->dynastyId, cData->id);
+            }
+        }
+        if (event.key.code == sf::Keyboard::F7) {
+            sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+            if (cData) sim::SuccessionManager::handleDeath(simulationManager->getRegistry(), cData->id);
+        }
+    }
 }
 
 void PlayState::update(float dt) {
@@ -194,7 +210,6 @@ void PlayState::update(float dt) {
             pData->worldY = playerWrapper->getPosition().y;
             pData->currentChunkX = static_cast<int>(std::floor(pData->worldX / 2000.f));
             
-            // Phase 5 Additions
             if (pData->carriedType == sim::ResourceType::Food) playerWrapper->setCarriedItem(1);
             else if (pData->carriedType == sim::ResourceType::Wood) playerWrapper->setCarriedItem(2);
             else if (pData->carriedType == sim::ResourceType::Stone) playerWrapper->setCarriedItem(3);
@@ -563,7 +578,6 @@ void PlayState::update(float dt) {
             }
             debugOverlay->updateDynastyStats(cData->name, cData->age, cData->health, dynName, cData->id, currHeir, living);
 
-            // Phase 5 Additions: Updated Village Stats Overlay
             sim::VillageData* v = simulationManager->getRegistry().getVillage(cData->villageId);
             if (v && debugOverlay->getShowVillageDebug()) {
                 int idle = 0, work = 0, builders = 0, sleep = 0;
@@ -601,6 +615,34 @@ void PlayState::update(float dt) {
                 }
                 debugOverlay->updateHistory(recentHistory);
             }
+            
+            if (debugOverlay->getShowKingdomDebug()) {
+                if (cData->currentKingdom != 0) {
+                    sim::KingdomData* kd = simulationManager->getRegistry().getKingdom(cData->currentKingdom);
+                    if (kd) {
+                        std::string kName = "Unknown";
+                        std::string dName = "Unknown";
+                        sim::ApeData* king = simulationManager->getRegistry().getApe(kd->currentKingId);
+                        if (king) kName = king->name;
+                        sim::DynastyData* kDyn = simulationManager->getRegistry().getDynasty(kd->leaderDynastyId);
+                        if (kDyn) dName = kDyn->name;
+                        
+                        int totTreasury = kd->treasuryFood + kd->treasuryWood + kd->treasuryStone + kd->treasuryTools;
+                        
+                        debugOverlay->updateKingdomStats(
+                            kd->name,
+                            kName,
+                            dName,
+                            static_cast<int>(kd->controlledVillages.size()),
+                            kd->population,
+                            totTreasury,
+                            kd->influence,
+                            kd->militaryStrength,
+                            static_cast<int>(kd->knownKingdoms.size())
+                        );
+                    }
+                }
+            }
         }
     }
     
@@ -621,7 +663,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         sf::FloatRect preB = playerWrapper ? cameraManager->getPreloadBounds(playerWrapper->getVelocity()) : cameraManager->getPreloadBounds(sf::Vector2f(0.f, 0.f));
         worldManager->drawBackground(window, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
         
-        // Phase 5 Additions: Draw Structures behind geometry
         if (structureManager) {
             structureManager->draw(window, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
         }

@@ -3,6 +3,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
+#include "simulation/KingdomManager.h"
 
 namespace sim {
 
@@ -356,6 +357,14 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                 float targetEdge = (std::rand() % 2 == 0) ? (village->centerX + village->territoryRadius * 1.5f) : (village->centerX - village->territoryRadius * 1.5f);
                 if (std::abs(ape.worldX - targetEdge) < 100.f) {
                     ape.currentJob = Job::Idle;
+                }
+                
+                for (const auto& vPair : registry.getAllVillages()) {
+                    if (vPair.first != village->id && std::abs(ape.worldX - vPair.second.centerX) < vPair.second.territoryRadius) {
+                        if (village->kingdomId != 0 && vPair.second.kingdomId != 0 && village->kingdomId != vPair.second.kingdomId) {
+                            KingdomManager::handleFirstContact(registry, village->kingdomId, vPair.second.kingdomId);
+                        }
+                    }
                 }
             }
         }

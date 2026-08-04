@@ -20,6 +20,7 @@ struct TradeMission {
 
 struct VillageData {
     VillageID id;
+    KingdomID kingdomId = 0;
     std::string name;
     VillageIdentity identity;
     EntityID founderId;

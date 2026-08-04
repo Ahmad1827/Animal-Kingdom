@@ -11,6 +11,7 @@ private:
     sf::Text dynText; 
     sf::Text villText;
     sf::Text historyText;
+    sf::Text kingdomText;
     bool isVisible;
     bool showBorders;
     bool showRegions;
@@ -21,6 +22,7 @@ private:
     bool showEngineInternals;
     bool showKinematicsDebug;
     bool showVillageDebug;
+    bool showKingdomDebug;
 
 public:
     DebugOverlay();
@@ -30,6 +32,7 @@ public:
     void updateDynastyStats(const std::string& name, float age, float health, const std::string& dynName, uint64_t id, uint64_t heirId, int livingCount);
     void updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int builders, int sleep, int queueSize, int knownTribes, float radius, int tools, bool migrating);
     void updateHistory(const std::string& recentHistory);
+    void updateKingdomStats(const std::string& kName, const std::string& kingName, const std::string& dynName, int villages, int pop, int treasury, float influence, int military, int knownK);
 
     void draw(sf::RenderTarget& target) const;
 
@@ -43,6 +46,7 @@ public:
     void toggleEngineInternals();
     void toggleKinematicsDebug();
     void toggleVillageDebug();
+    void toggleKingdomDebug();
 
     bool getVisible() const;
     bool getShowBorders() const;
@@ -54,4 +58,5 @@ public:
     bool getShowEngineInternals() const;
     bool getShowKinematicsDebug() const;
     bool getShowVillageDebug() const;
+    bool getShowKingdomDebug() const;
 };

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <iostream>
 
-DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions(false), showHeatmaps(false), showFoliage(false), showGenerationDebug(false), showProfiler(false), showEngineInternals(false), showKinematicsDebug(false), showVillageDebug(false) {
+DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions(false), showHeatmaps(false), showFoliage(false), showGenerationDebug(false), showProfiler(false), showEngineInternals(false), showKinematicsDebug(false), showVillageDebug(false), showKingdomDebug(false) {
     if (!font.loadFromFile("assets/fonts/arial.ttf")) {
         if (!font.loadFromFile("../assets/fonts/arial.ttf")) {
             std::cout << "ERROR: Could not load arial.ttf font for DebugOverlay!\n";
@@ -15,6 +15,7 @@ DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions
     dynText.setFont(font); dynText.setCharacterSize(14); dynText.setFillColor(sf::Color::Cyan); dynText.setOutlineColor(sf::Color::Black); dynText.setOutlineThickness(1.f); dynText.setPosition(10.f, 200.f);
     villText.setFont(font); villText.setCharacterSize(14); villText.setFillColor(sf::Color::Green); villText.setOutlineColor(sf::Color::Black); villText.setOutlineThickness(1.f); villText.setPosition(10.f, 500.f);
     historyText.setFont(font); historyText.setCharacterSize(14); historyText.setFillColor(sf::Color::Magenta); historyText.setOutlineColor(sf::Color::Black); historyText.setOutlineThickness(1.f); historyText.setPosition(800.f, 10.f);
+    kingdomText.setFont(font); kingdomText.setCharacterSize(14); kingdomText.setFillColor(sf::Color::Red); kingdomText.setOutlineColor(sf::Color::Black); kingdomText.setOutlineThickness(1.f); kingdomText.setPosition(800.f, 200.f);
 }
 
 void DebugOverlay::toggle() { isVisible = !isVisible; }
@@ -27,6 +28,7 @@ void DebugOverlay::toggleEngineInternals() { showEngineInternals = !showEngineIn
 void DebugOverlay::toggleGenerationDebug() { showGenerationDebug = !showGenerationDebug; }
 void DebugOverlay::toggleKinematicsDebug() { showKinematicsDebug = !showKinematicsDebug; }
 void DebugOverlay::toggleVillageDebug() { showVillageDebug = !showVillageDebug; }
+void DebugOverlay::toggleKingdomDebug() { showKingdomDebug = !showKingdomDebug; }
 bool DebugOverlay::getVisible() const { return isVisible; }
 bool DebugOverlay::getShowBorders() const { return showBorders; }
 bool DebugOverlay::getShowRegions() const { return showRegions; }
@@ -35,6 +37,7 @@ bool DebugOverlay::getShowFoliage() const { return showFoliage; }
 bool DebugOverlay::getShowGenerationDebug() const { return showGenerationDebug; }
 bool DebugOverlay::getShowKinematicsDebug() const { return showKinematicsDebug; }
 bool DebugOverlay::getShowVillageDebug() const { return showVillageDebug; }
+bool DebugOverlay::getShowKingdomDebug() const { return showKingdomDebug; }
 
 void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32_t seed, const std::string& region, const ProfilerStats& profiler) {
     std::ostringstream ss;
@@ -79,6 +82,17 @@ void DebugOverlay::updateHistory(const std::string& recentHistory) {
     historyText.setString("--- WORLD HISTORY ---\n" + recentHistory);
 }
 
+void DebugOverlay::updateKingdomStats(const std::string& kName, const std::string& kingName, const std::string& dynName, int villages, int pop, int treasury, float influence, int military, int knownK) {
+    if (!showKingdomDebug || !isVisible) { kingdomText.setString(""); return; }
+    std::string info = "--- KINGDOM OVERLAY (K) ---\n";
+    info += "Kingdom: " + kName + "\n";
+    info += "Ruler: " + kingName + " of " + dynName + "\n";
+    info += "Villages: " + std::to_string(villages) + " | Pop: " + std::to_string(pop) + "\n";
+    info += "Treasury: " + std::to_string(treasury) + " | Military: " + std::to_string(military) + "\n";
+    info += "Influence: " + std::to_string(static_cast<int>(influence)) + " | Known Kingdoms: " + std::to_string(knownK) + "\n";
+    kingdomText.setString(info);
+}
+
 void DebugOverlay::draw(sf::RenderTarget& target) const {
     if (isVisible) {
         sf::View currentView = target.getView();
@@ -88,6 +102,7 @@ void DebugOverlay::draw(sf::RenderTarget& target) const {
         target.draw(dynText);
         target.draw(historyText);
         if (showVillageDebug) target.draw(villText);
+        if (showKingdomDebug) target.draw(kingdomText);
         target.setView(currentView);
     }
 }

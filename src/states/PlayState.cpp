@@ -38,7 +38,7 @@ void PlayState::init() {
         playerWrapper = std::make_unique<Ape>(pData->worldX, pData->worldY, game->getAssetManager().getTexture("playerTex"), true);
     }
     
-    worldClock->setMultiplier(300.f);
+    worldClock->setMultiplier(20.f);
 }
 
 void PlayState::processEvents(const sf::Event& event) {
@@ -489,11 +489,11 @@ void PlayState::update(float dt) {
 
     sf::Clock pClock;
     weatherManager->update(dt);
-    particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
+    particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), simulationManager->getClock().getTimeOfDay());
     profiler.particleTime = pClock.getElapsedTime().asSeconds();
     
     if (audioManager) audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
-    lightingManager->update(dt, cameraManager->getView(), worldClock->getTimeOfDay(), weatherManager->getFogDensity());
+    lightingManager->update(dt, cameraManager->getView(), simulationManager->getClock().getTimeOfDay(), weatherManager->getFogDensity());
 
     background->update(
         cameraManager->getViewBounds().left + cameraManager->getViewBounds().width / 2.f,

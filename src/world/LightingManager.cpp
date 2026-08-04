@@ -14,28 +14,28 @@ sf::Color lerpColor(const sf::Color& a, const sf::Color& b, float t) {
 }
 
 void LightingManager::update(float dt, const sf::View& cameraView, float timeOfDay, float fogDensity) {
-    ambientOverlay.setSize(cameraView.getSize());
+    // Lock overlay sizes to the full default window bounds (1280x720)
+    ambientOverlay.setSize(sf::Vector2f(1280.f, 720.f));
     ambientOverlay.setPosition(0.f, 0.f);
     
-    fogOverlay.setSize(cameraView.getSize());
+    fogOverlay.setSize(sf::Vector2f(1280.f, 720.f));
     fogOverlay.setPosition(0.f, 0.f);
 
     struct TimePhase { float time; sf::Color color; };
     TimePhase phases[] = {
-        {0.00f, sf::Color(5, 10, 30, 200)},     
-        {0.20f, sf::Color(10, 15, 40, 180)},    
-        {0.25f, sf::Color(255, 100, 50, 80)},   
-        {0.35f, sf::Color(255, 200, 150, 10)},  
-        {0.50f, sf::Color(0, 0, 0, 0)},         
-        {0.65f, sf::Color(255, 150, 100, 20)},  
-        {0.75f, sf::Color(255, 80, 50, 100)},   
-        {0.80f, sf::Color(100, 40, 80, 150)},   
-        {0.85f, sf::Color(10, 15, 40, 180)},    
-        {1.00f, sf::Color(5, 10, 30, 200)}      
+        {0.00f, sf::Color(5, 10, 30, 220)},     // 00:00 Pitch Black
+        {0.20f, sf::Color(5, 10, 30, 220)},     // 04:48 Still Dark
+        {0.25f, sf::Color(255, 120, 50, 100)}, // 06:00 Dawn
+        {0.35f, sf::Color(0, 0, 0, 0)},        // 08:24 Daylight
+        {0.65f, sf::Color(0, 0, 0, 0)},        // 15:36 Daylight
+        {0.75f, sf::Color(255, 80, 50, 110)},  // 18:00 Sunset
+        {0.80f, sf::Color(20, 10, 40, 180)},   // 19:12 Dusk
+        {0.85f, sf::Color(5, 10, 30, 220)},    // 20:24 Night
+        {1.00f, sf::Color(5, 10, 30, 220)}     // 24:00 Pitch Black
     };
 
     sf::Color currentTint = phases[0].color;
-    for (int i = 0; i < 9; ++i) {
+    for (int i = 0; i < 8; ++i) {
         if (timeOfDay >= phases[i].time && timeOfDay <= phases[i+1].time) {
             float t = (timeOfDay - phases[i].time) / (phases[i+1].time - phases[i].time);
             currentTint = lerpColor(phases[i].color, phases[i+1].color, t);

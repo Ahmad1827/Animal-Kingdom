@@ -10,8 +10,9 @@ enum class Gender { Male, Female };
 enum class Trait { Brave, Coward, Greedy, Honorable, Cruel, Charismatic, Lazy, Strategic, Impulsive, Curious, Energetic };
 enum class Occupation { Unemployed, Ruler, Noble, Soldier, Hunter, Scout, Crafter };
 enum class Goal { None, Survive, Reproduce, AcquireWealth, UsurpThrone };
-enum class Job { Idle, Sleep, Eat, Forage, CarryResource, ReturnHome, Guard, Wander, Socialize, Woodcutter, StoneGatherer, Builder, Craftsman, Scout, Carrier };
+enum class Job { Idle, Sleep, Eat, Forage, CarryResource, ReturnHome, Guard, Wander, Socialize, Woodcutter, StoneGatherer, Builder, Craftsman, Scout, Carrier, Flee };
 enum class ToolType { None, StoneAxe, StonePick, WoodenSpear, Torch, Basket, Rope };
+enum class DiseaseType { None, Fever, Parasites, Infection };
 
 struct SkillSet {
     float woodcutting = 1.0f;
@@ -54,6 +55,8 @@ struct ApeData {
     ResourceType carriedType;
     int carriedAmount;
     ToolType equippedTool;
+    DiseaseType currentDisease = DiseaseType::None;
+    float diseaseSeverity = 0.0f;
 
     EntityID fatherId = 0;
     EntityID motherId = 0;

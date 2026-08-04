@@ -29,6 +29,7 @@ struct VillageData {
     int homeChunkX;
     float centerX;
     float centerY;
+    float territoryRadius = 1500.0f;
 
     int food = 0;
     int wood = 0;
@@ -41,8 +42,9 @@ struct VillageData {
     int toolsBasket = 0;
     int toolsRope = 0;
 
-    float territoryRadius = 1500.0f;
-    
+    bool isMigrating = false;
+    float migrationTargetX = 0.0f;
+
     std::vector<StructureID> finishedStructures;
     std::vector<StructureID> constructionQueue;
 
@@ -50,6 +52,7 @@ struct VillageData {
     std::unordered_map<VillageID, Reputation> relations;
     std::unordered_set<EntityID> knownResources;
     std::vector<TradeMission> activeTrades;
+    std::vector<std::string> villageMemory;
 };
 
 }

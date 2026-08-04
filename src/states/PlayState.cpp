@@ -536,15 +536,16 @@ void PlayState::update(float dt) {
         debugOverlay->updateInfo(dt, cm->getCurrentChunkIndex(), pX, pY, activeSeed, regionName, profiler);
 
         debugOverlay->updateSimStats(
-            simulationManager->getRegistry().getAllApes().size(),
+            static_cast<int>(simulationManager->getRegistry().getAllApes().size()),
             npcManager->getLoadedNPCCount(),
             profiler.chunksLoaded,
             simulationManager->getClock().getTotalTicks(),
             simulationManager->getClock().getHours(),
             simulationManager->getClock().getMinutes(),
             simulationManager->getClock().getDays(),
-            simulationManager->getClock().getSeasons(),
-            simulationManager->getClock().getYears()
+            static_cast<int>(simulationManager->getRegistry().getSeason()),
+            simulationManager->getRegistry().getYear(),
+            static_cast<int>(simulationManager->getRegistry().getAllEvents().size())
         );
 
         sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
@@ -576,7 +577,29 @@ void PlayState::update(float dt) {
                     }
                 }
                 int totalTools = v->toolsAxe + v->toolsPick + v->toolsSpear + v->toolsTorch + v->toolsBasket + v->toolsRope;
-                debugOverlay->updateVillageStats(v->name, static_cast<int>(v->members.size()), v->food, v->wood, v->stone, idle, work, builders, sleep, static_cast<int>(v->constructionQueue.size()), static_cast<int>(v->knownVillages.size()), v->territoryRadius, totalTools);
+                debugOverlay->updateVillageStats(
+                    v->name,
+                    static_cast<int>(v->members.size()),
+                    v->food,
+                    v->wood,
+                    v->stone,
+                    idle,
+                    work,
+                    builders,
+                    sleep,
+                    static_cast<int>(v->constructionQueue.size()),
+                    static_cast<int>(v->knownVillages.size()),
+                    v->territoryRadius,
+                    totalTools,
+                    v->isMigrating
+                );
+                std::string recentHistory = "";
+                const auto& history = simulationManager->getRegistry().getHistory();
+                int startIdx = std::max(0, static_cast<int>(history.size()) - 5);
+                for (size_t i = startIdx; i < history.size(); ++i) {
+                    recentHistory += "Y" + std::to_string(history[i].year) + " D" + std::to_string(history[i].day) + ": " + history[i].description + "\n";
+                }
+                debugOverlay->updateHistory(recentHistory);
             }
         }
     }

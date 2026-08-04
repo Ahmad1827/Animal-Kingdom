@@ -10,6 +10,7 @@ private:
     sf::Text simText;
     sf::Text dynText; 
     sf::Text villText;
+    sf::Text historyText;
     bool isVisible;
     bool showBorders;
     bool showRegions;
@@ -25,10 +26,11 @@ public:
     DebugOverlay();
     
     void updateInfo(float dt, int chunkIdx, float playerX, float playerY, uint32_t seed, const std::string& regionName, const ProfilerStats& profiler);
-    void updateSimStats(int simApes, int loadedNPCs, int loadedChunks, uint64_t simTick, int hour, int min, int day, int season, int year);
+    void updateSimStats(int simApes, int loadedNPCs, int loadedChunks, uint64_t simTick, int hour, int min, int day, int season, int year, int activeEvents);
     void updateDynastyStats(const std::string& name, float age, float health, const std::string& dynName, uint64_t id, uint64_t heirId, int livingCount);
-    void updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int builders, int sleep, int queueSize, int knownTribes, float radius, int tools);
-    
+    void updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int builders, int sleep, int queueSize, int knownTribes, float radius, int tools, bool migrating);
+    void updateHistory(const std::string& recentHistory);
+
     void draw(sf::RenderTarget& target) const;
 
     void toggle();

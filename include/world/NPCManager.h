@@ -14,10 +14,9 @@ private:
 public:
     NPCManager(sf::Texture& texture);
 
-    void update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, 
-                sim::SimulationManager& simManager, WorldManager* worldManager, float timeOfDay);
-    
+    void update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, sim::SimulationManager& simManager, WorldManager* worldManager, float timeOfDay);
     void draw(sf::RenderTarget& target);
+    void removeNPC(sim::EntityID id);
     
     int getLoadedNPCCount() const { return activeNPCs.size(); }
 };

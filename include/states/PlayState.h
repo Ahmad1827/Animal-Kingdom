@@ -1,9 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <memory>
-
 #include "states/GameState.h"
-
 #include "world/WorldManager.h"
 #include "world/CameraManager.h"
 #include "world/LightingManager.h"
@@ -24,7 +22,7 @@ class PlayState : public GameState {
 private:
     Game* game;
     std::unique_ptr<Background> background;
-    std::unique_ptr<Ape> player;
+    std::unique_ptr<Ape> playerWrapper;
     std::unique_ptr<WorldManager> worldManager;
     std::unique_ptr<CameraManager> cameraManager;
     std::unique_ptr<LightingManager> lightingManager;
@@ -33,12 +31,16 @@ private:
     std::unique_ptr<AudioManager> audioManager;
     std::unique_ptr<WorldClock> worldClock;
     std::unique_ptr<DebugOverlay> debugOverlay;
-    std::unique_ptr<NPCManager> npcManager;
     
     std::unique_ptr<sim::SimulationManager> simulationManager;
+    std::unique_ptr<NPCManager> npcManager;
 
     ProfilerStats profiler;
     uint32_t activeSeed;
+
+    bool isTransitioning;
+    float transitionTimer;
+    sf::Vector2f transitionTarget;
 
     bool f3PressedLastFrame;
     bool f4PressedLastFrame;
@@ -46,6 +48,8 @@ private:
     bool f6PressedLastFrame;
     bool f7PressedLastFrame;
     bool f8PressedLastFrame;
+    bool f9PressedLastFrame;
+    bool f10PressedLastFrame;
 
 public:
     PlayState(Game* game);

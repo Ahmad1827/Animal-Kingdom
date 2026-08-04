@@ -1,6 +1,7 @@
 #pragma once
 #include "simulation/WorldClock.h"
 #include "simulation/SimulationRegistry.h"
+#include "simulation/EntityID.h"
 
 namespace sim {
 
@@ -9,6 +10,7 @@ private:
     WorldClock clock;
     SimulationRegistry registry;
     bool isPaused;
+    EntityID controlledApeID;
 
     void simulateAging();
     void simulateHunger();
@@ -26,6 +28,9 @@ public:
     void pause();
     void resume();
     bool getPaused() const;
+
+    void setControlledApe(EntityID id);
+    EntityID getControlledApe() const;
 
     SimulationRegistry& getRegistry();
     WorldClock& getClock();

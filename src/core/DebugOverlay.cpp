@@ -19,6 +19,13 @@ DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions
     simText.setOutlineColor(sf::Color::Black);
     simText.setOutlineThickness(1.f);
     simText.setPosition(10.f, 400.f);
+
+    dynText.setFont(font);
+    dynText.setCharacterSize(14);
+    dynText.setFillColor(sf::Color::Cyan);
+    dynText.setOutlineColor(sf::Color::Black);
+    dynText.setOutlineThickness(1.f);
+    dynText.setPosition(10.f, 200.f);
 }
 
 void DebugOverlay::toggle() { isVisible = !isVisible; }
@@ -115,12 +122,27 @@ void DebugOverlay::updateSimStats(int simApes, int loadedNPCs, int loadedChunks,
     simText.setString(info);
 }
 
+void DebugOverlay::updateDynastyStats(const std::string& name, float age, float health, const std::string& dynName, uint64_t id, uint64_t heirId, int livingCount) {
+    if (!isVisible) return;
+
+    std::string info = "--- CONTROLLED ENTITY ---\n";
+    info += "Name: " + name + "\n";
+    info += "Age: " + std::to_string(static_cast<int>(age)) + " | Health: " + std::to_string(static_cast<int>(health)) + "\n";
+    info += "Dynasty: " + dynName + "\n";
+    info += "Entity ID: " + std::to_string(id) + "\n";
+    info += "Current Heir ID: " + std::to_string(heirId) + "\n";
+    info += "Living Members: " + std::to_string(livingCount) + "\n";
+
+    dynText.setString(info);
+}
+
 void DebugOverlay::draw(sf::RenderTarget& target) const {
     if (isVisible) {
         sf::View currentView = target.getView();
         target.setView(target.getDefaultView());
         target.draw(debugText);
         target.draw(simText);
+        target.draw(dynText);
         target.setView(currentView);
     }
 }

@@ -129,6 +129,36 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
     view.setRotation(angle); 
 }
 
+void CameraManager::updateTransition(float dt, const sf::Vector2f& targetPos) {
+    // Smoothly pull the anchor position to the new heir
+    float t = 1.0f - std::exp(-2.5f * dt);
+    anchorPos.x += (targetPos.x - anchorPos.x) * t;
+    anchorPos.y += (targetPos.y - anchorPos.y) * t;
+
+    // Suppress trauma and look-ahead during cinematic transitions
+    lookAheadOffset = {0.f, 0.f};
+    trauma = 0.f;
+    shakeOffset = {0.f, 0.f};
+
+    sf::Vector2f idealPos = anchorPos;
+    idealPos.y -= 100.f; // Keep player in lower-middle
+
+    sf::Vector2f currentCenter = view.getCenter();
+    sf::Vector2f newCenter;
+    newCenter.x = currentCenter.x + (idealPos.x - currentCenter.x) * t;
+    newCenter.y = currentCenter.y + (idealPos.y - currentCenter.y) * t;
+
+    currentZoom += (targetZoom - currentZoom) * dt * 3.0f;
+    view.setSize(1280.f * currentZoom, 720.f * currentZoom);
+
+    // Enforce strict pixel-perfect rendering
+    newCenter.x = std::floor(newCenter.x);
+    newCenter.y = std::floor(newCenter.y);
+
+    view.setCenter(newCenter.x, newCenter.y);
+    view.setRotation(0.f);
+}
+
 void CameraManager::setZoom(float zoom) { targetZoom = zoom; }
 const sf::View& CameraManager::getView() const { return view; }
 CameraTuning& CameraManager::getTuning() { return tuning; }

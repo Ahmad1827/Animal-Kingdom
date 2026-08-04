@@ -36,6 +36,7 @@ private:
 public:
     CameraManager(sf::Vector2f size);
     void update(float dt, const sf::Vector2f& targetPos, const sf::Vector2f& targetVelocity, ApeState state);
+    void updateTransition(float dt, const sf::Vector2f& targetPos);
     void addTrauma(float amount); 
     void setZoom(float zoom);
     

@@ -20,7 +20,6 @@ struct ApeData {
     float hunger;
     std::vector<Trait> traits;
     
-    // Spatial tracking for chunk streaming
     float worldX;
     float worldY;
     int currentChunkX;
@@ -30,7 +29,14 @@ struct ApeData {
     KingdomID currentKingdom;
     Occupation currentOccupation;
     Goal currentGoal;
+
+    EntityID fatherId = 0;
+    EntityID motherId = 0;
+    EntityID spouseId = 0;
+    std::vector<EntityID> children;
+    std::vector<EntityID> siblings;
     std::vector<EntityID> relationships;
+
     bool alive;
     uint64_t birthDateTicks;
 };

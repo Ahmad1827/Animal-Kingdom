@@ -2,7 +2,7 @@
 
 namespace sim {
 
-SimulationManager::SimulationManager() : isPaused(false) {}
+SimulationManager::SimulationManager() : isPaused(false), controlledApeID(0) {}
 
 void SimulationManager::update(float dt) {
     if (isPaused) {
@@ -41,6 +41,14 @@ void SimulationManager::resume() {
 
 bool SimulationManager::getPaused() const {
     return isPaused;
+}
+
+void SimulationManager::setControlledApe(EntityID id) {
+    controlledApeID = id;
+}
+
+EntityID SimulationManager::getControlledApe() const {
+    return controlledApeID;
 }
 
 SimulationRegistry& SimulationManager::getRegistry() {

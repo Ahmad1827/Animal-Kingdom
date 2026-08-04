@@ -44,12 +44,12 @@ void PlayState::processEvents(const sf::Event& event) {
 }
 
 void PlayState::update(float dt) {
-    // FIX: Moved static variables to the top of the function so all scopes share them!
     static uint64_t grabbedChunk = 0;
     static int grabbedVine = -1;
     static int grabbedSeg = -1;
     static sf::FloatRect activeBranch;
     static bool isDroppingToHang = false;
+    static float climbTimer = 0.f;
 
     profiler.resetPerFrame();
     profiler.fps = (dt > 0.f) ? 1.f / dt : 0.f;
@@ -364,32 +364,9 @@ void PlayState::update(float dt) {
                 playerWrapper->setState(ApeState::ClimbingVine);
                 grabbedChunk = tChunk;
                 grabbedVine = tVine;
+                grabbedSeg = tSeg;
                 isDroppingToHang = false;
                 
-                float pCenterY = playerBounds.top + playerBounds.height / 2.f;
-                int bestSeg = 1;
-                float bestDist = 99999.f;
-                int segCount = worldManager->getVineSegmentCount(tChunk, tVine);
-                for (int i = 1; i < segCount; ++i) {
-                    float sY = worldManager->getVineSegmentPosition(tChunk, tVine, i).y;
-                    float expectedY = sY + 120.f;
-                    float dist = std::abs(expectedY - playerBounds.top);
-                    if (dist < bestDist) {
-                        bestDist = dist;
-                        bestSeg = i;
-                    }
-                }
-                
-                while (bestSeg > 1) {
-                    float sY = worldManager->getVineSegmentPosition(tChunk, tVine, bestSeg).y;
-                    if (sY + 120.f + playerBounds.height >= groundHeight - 5.f) {
-                        bestSeg--;
-                    } else {
-                        break;
-                    }
-                }
-                
-                grabbedSeg = bestSeg;
                 float transferForce = std::clamp(playerWrapper->getVelocity().x * 0.02f, -12.f, 12.f);
                 worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(transferForce, 0.f));
             }
@@ -447,9 +424,24 @@ void PlayState::update(float dt) {
         float groundHeight = worldManager->getTerrainHeight(playerCenterX);
 
         if (playerWrapper->getState() == ApeState::ClimbingVine && grabbedVine != -1) {
+            climbTimer -= dt;
+            if (climbTimer <= 0.f) {
+                if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+                    if (grabbedSeg > 1) {
+                        grabbedSeg--;
+                        climbTimer = 0.15f;
+                    }
+                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+                    if (grabbedSeg < worldManager->getVineSegmentCount(grabbedChunk, grabbedVine) - 1) {
+                        grabbedSeg++;
+                        climbTimer = 0.15f;
+                    }
+                }
+            }
+
             sf::Vector2f segPos = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, grabbedSeg);
             
-            float targetY = segPos.y + 120.f;
+            float targetY = segPos.y;
             if (targetY + playerWrapper->getBounds().height > groundHeight) {
                 targetY = groundHeight - playerWrapper->getBounds().height;
             }
@@ -457,7 +449,8 @@ void PlayState::update(float dt) {
             playerWrapper->setPosition(segPos.x - (playerWrapper->getBounds().width / 2.f), targetY);
             
             sf::Vector2f vineVel = worldManager->getVineSegmentVelocity(grabbedChunk, grabbedVine, grabbedSeg, dt);
-            playerWrapper->setVelocity(vineVel.x, 0.f);
+            float fakeVy = (climbTimer > 0.f) ? 10.f : 0.f;
+            playerWrapper->setVelocity(vineVel.x, fakeVy);
         }
     }
 

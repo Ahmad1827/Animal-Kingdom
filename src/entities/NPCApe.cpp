@@ -17,11 +17,6 @@ bool NPCApe::hasTrait(sim::ApeData* data, sim::Trait trait) {
 void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry) {
     sim::VillageData* v = registry.getVillage(data->villageId);
 
-    if (data->carriedType == sim::ResourceType::Food) physicalApe.setCarriedItem(1);
-    else if (data->carriedType == sim::ResourceType::Wood) physicalApe.setCarriedItem(2);
-    else if (data->carriedType == sim::ResourceType::Stone) physicalApe.setCarriedItem(3);
-    else physicalApe.setCarriedItem(0);
-
     if (data->currentJob == sim::Job::CarryResource) {
         if (data->currentTargetStructure != 0) {
             sim::StructureData* s = registry.getStructure(data->currentTargetStructure);

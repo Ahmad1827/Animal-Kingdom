@@ -1,10 +1,10 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "graphics/Animator.h"
+#include "entities/LandingDetector.h"
 #include "simulation/ApeData.h"
 
 enum class ApeState { Grounded, Airborne, ClimbingTrunk, HangingBranch, ClimbingVine };
-enum class ImpactLevel { None, Light, Medium, Heavy };
 
 class Ape {
 public:
@@ -17,6 +17,7 @@ public:
     void setVelocity(float vx, float vy);
     void setState(ApeState state);
     void setDroppingThrough(bool drop);
+    void setIsPlayer(bool player);
     void setCarriedItem(int itemType);
     void setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amount, bool king);
     
@@ -35,6 +36,9 @@ private:
     sf::Sprite sprite;
     sf::Texture& texture;
     Animator animator;
+    LandingDetector landingDetector;
+    
+    sf::FloatRect bounds;
     sf::Vector2f velocity;
     ApeState state;
     bool droppingThrough;

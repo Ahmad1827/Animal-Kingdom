@@ -29,4 +29,12 @@ public:
     
     sim::EntityID getId() const { return simId; }
     sf::FloatRect getBounds() const { return physicalApe.getBounds(); }
+
+    template<typename T>
+    void setVisualEquipment(T equippedTool, sim::ResourceType carriedType, int carriedAmount, bool isKing) {
+        if (carriedType == sim::ResourceType::Food) physicalApe.setCarriedItem(1);
+        else if (carriedType == sim::ResourceType::Wood) physicalApe.setCarriedItem(2);
+        else if (carriedType == sim::ResourceType::Stone) physicalApe.setCarriedItem(3);
+        else physicalApe.setCarriedItem(0);
+    }
 };

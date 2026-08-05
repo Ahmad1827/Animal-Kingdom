@@ -31,6 +31,14 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
             bounds.top + bounds.height < unloadBounds.top || bounds.top > unloadBounds.top + unloadBounds.height) {
             it = activeNPCs.erase(it);
         } else {
+            bool isKing = false;
+            if (data->currentKingdom != 0) {
+                sim::KingdomData* kd = simManager.getRegistry().getKingdom(data->currentKingdom);
+                if (kd && kd->currentKingId == data->id) isKing = true;
+            }
+            
+            it->second->setVisualEquipment(data->equippedTool, data->carriedType, data->carriedAmount, isKing);
+
             it->second->update(dt, data, worldManager, timeOfDay, simManager.getRegistry());
             ++it;
         }

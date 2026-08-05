@@ -1,12 +1,13 @@
 #pragma once
-#include <SFML/Graphics.hpp>
 #include "simulation/SimulationRegistry.h"
 #include "world/WorldManager.h"
+#include <SFML/Graphics.hpp>
 
 class StructureManager {
-private:
-    sf::RectangleShape shape;
 public:
     StructureManager();
-    void draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* worldManager, const sf::FloatRect& viewBounds);
+    ~StructureManager() = default;
+
+    void update(float dt, sim::SimulationRegistry& registry);
+    void draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
 };

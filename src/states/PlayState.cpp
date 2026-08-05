@@ -234,10 +234,13 @@ void PlayState::update(float dt) {
             pData->worldY = playerWrapper->getPosition().y;
             pData->currentChunkX = static_cast<int>(std::floor(pData->worldX / 2000.f));
             
-            if (pData->carriedType == sim::ResourceType::Food) playerWrapper->setCarriedItem(1);
-            else if (pData->carriedType == sim::ResourceType::Wood) playerWrapper->setCarriedItem(2);
-            else if (pData->carriedType == sim::ResourceType::Stone) playerWrapper->setCarriedItem(3);
-            else playerWrapper->setCarriedItem(0);
+            bool isKing = false;
+            if (pData->currentKingdom != 0) {
+                sim::KingdomData* kd = simulationManager->getRegistry().getKingdom(pData->currentKingdom);
+                if (kd && kd->currentKingId == pData->id) isKing = true;
+            }
+            
+            playerWrapper->setVisualEquipment(pData->equippedTool, pData->carriedType, pData->carriedAmount, isKing);
         }
 
         if (playerWrapper->getState() != ApeState::ClimbingVine) {

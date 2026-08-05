@@ -8,7 +8,7 @@
 
 namespace sim {
 
-enum class DiplomacyStatus { Unknown, Neutral, Peace, Friendly, Alliance, Rival, War };
+enum class DiplomacyStatus { Unknown, Neutral, Peace, Friendly, Alliance, Trade, Rival, War };
 
 struct KingdomData {
     KingdomID id;

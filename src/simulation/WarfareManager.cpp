@@ -1,5 +1,5 @@
 #include "simulation/WarfareManager.h"
-#include "simulation/IDGenerator.h"
+#include "simulation/EntityID.h"
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>

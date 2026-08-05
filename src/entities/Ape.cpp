@@ -233,6 +233,8 @@ void Ape::draw(sf::RenderTarget& target) {
 
     sf::Vector2f center = sprite.getPosition();
     center.y -= sprite.getGlobalBounds().height / 2.f;
+    
+    float facingDir = (sprite.getScale().x > 0) ? 1.f : -1.f;
 
     if (isKing) {
         sf::ConvexShape crown(3);
@@ -242,7 +244,7 @@ void Ape::draw(sf::RenderTarget& target) {
         crown.setFillColor(sf::Color(255, 215, 0));
         crown.setOutlineColor(sf::Color(184, 134, 11));
         crown.setOutlineThickness(1.f);
-        crown.setPosition(center.x, center.y - 25.f);
+        crown.setPosition(center.x + (18.f * facingDir), center.y - 35.f);
         target.draw(crown);
     }
 
@@ -250,37 +252,74 @@ void Ape::draw(sf::RenderTarget& target) {
         sf::RectangleShape handle(sf::Vector2f(4.f, 24.f));
         handle.setFillColor(sf::Color(139, 69, 19));
         handle.setOrigin(2.f, 12.f);
-        handle.setPosition(center.x + (sprite.getScale().x > 0 ? 15.f : -15.f), center.y);
+        handle.setPosition(center.x + (15.f * facingDir), center.y);
         target.draw(handle);
         
         sf::RectangleShape head(sf::Vector2f(12.f, 10.f));
         head.setFillColor(sf::Color(105, 105, 105));
         head.setOrigin(6.f, 5.f);
-        head.setPosition(center.x + (sprite.getScale().x > 0 ? 18.f : -18.f), center.y - 8.f);
+        head.setPosition(center.x + (18.f * facingDir), center.y - 8.f);
         target.draw(head);
     } else if (currentTool == sim::ToolType::WoodenSpear) {
         sf::RectangleShape spear(sf::Vector2f(3.f, 45.f));
         spear.setFillColor(sf::Color(160, 82, 45));
         spear.setOrigin(1.5f, 22.5f);
-        spear.setPosition(center.x + (sprite.getScale().x > 0 ? 15.f : -15.f), center.y - 5.f);
+        spear.setPosition(center.x + (15.f * facingDir), center.y - 5.f);
         target.draw(spear);
     } else if (currentTool == sim::ToolType::Basket) {
         sf::RectangleShape basket(sf::Vector2f(18.f, 14.f));
         basket.setFillColor(sf::Color(218, 165, 32));
         basket.setOrigin(9.f, 7.f);
-        basket.setPosition(center.x - (sprite.getScale().x > 0 ? 20.f : -20.f), center.y + 5.f);
+        basket.setPosition(center.x - (20.f * facingDir), center.y + 5.f);
         target.draw(basket);
     }
 
-    if (resourceAmount > 0) {
-        sf::CircleShape resShape(8.f);
-        if (currentResource == sim::ResourceType::Food) resShape.setFillColor(sf::Color(220, 20, 60));
-        else if (currentResource == sim::ResourceType::Wood) resShape.setFillColor(sf::Color(139, 69, 19));
-        else if (currentResource == sim::ResourceType::Stone) resShape.setFillColor(sf::Color(169, 169, 169));
+    if (carriedItemType == 1 || (resourceAmount > 0 && currentResource == sim::ResourceType::Food)) {
+        float bx = center.x + (20.f * facingDir);
+        float by = center.y + 5.f;
         
-        resShape.setOrigin(8.f, 8.f);
-        resShape.setPosition(center.x, center.y - 15.f);
-        target.draw(resShape);
+        sf::CircleShape banana1(6.f, 3);
+        banana1.setScale(0.5f, 1.5f);
+        banana1.setFillColor(sf::Color(255, 225, 0));
+        banana1.setPosition(bx - 5.f, by);
+        banana1.setRotation(15.f);
+        target.draw(banana1);
+
+        sf::CircleShape banana2(6.f, 3);
+        banana2.setScale(0.5f, 1.5f);
+        banana2.setFillColor(sf::Color(255, 215, 0));
+        banana2.setPosition(bx, by - 2.f);
+        target.draw(banana2);
+        
+        sf::CircleShape banana3(6.f, 3);
+        banana3.setScale(0.5f, 1.5f);
+        banana3.setFillColor(sf::Color(255, 235, 0));
+        banana3.setPosition(bx + 5.f, by);
+        banana3.setRotation(-15.f);
+        target.draw(banana3);
+    } 
+    else if (carriedItemType == 2 || (resourceAmount > 0 && currentResource == sim::ResourceType::Wood)) {
+        sf::RectangleShape log(sf::Vector2f(30.f, 8.f));
+        log.setFillColor(sf::Color(101, 67, 33));
+        log.setOutlineColor(sf::Color(60, 30, 10));
+        log.setOutlineThickness(1.f);
+        log.setOrigin(15.f, 4.f);
+        log.setPosition(center.x + (5.f * facingDir), center.y - 25.f);
+        log.setRotation(facingDir > 0 ? 15.f : -15.f);
+        target.draw(log);
+    } 
+    else if (carriedItemType == 3 || (resourceAmount > 0 && currentResource == sim::ResourceType::Stone)) {
+        sf::ConvexShape rock(5);
+        rock.setPoint(0, sf::Vector2f(0.f, -8.f));
+        rock.setPoint(1, sf::Vector2f(6.f, -4.f));
+        rock.setPoint(2, sf::Vector2f(8.f, 4.f));
+        rock.setPoint(3, sf::Vector2f(0.f, 8.f));
+        rock.setPoint(4, sf::Vector2f(-8.f, 2.f));
+        rock.setFillColor(sf::Color(128, 128, 128));
+        rock.setOutlineColor(sf::Color(80, 80, 80));
+        rock.setOutlineThickness(1.f);
+        rock.setPosition(center.x + (20.f * facingDir), center.y + 5.f);
+        target.draw(rock);
     }
 }
 

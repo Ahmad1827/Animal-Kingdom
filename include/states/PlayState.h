@@ -1,6 +1,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <memory>
+#include <string>
 #include "states/GameState.h"
 #include "world/WorldManager.h"
 #include "world/CameraManager.h"
@@ -15,7 +16,7 @@
 #include "core/DebugOverlay.h"
 #include "simulation/SimulationManager.h"
 #include "world/NPCManager.h"
-#include "world/StructureManager.h" // Phase 5 Additions
+#include "world/StructureManager.h"
 
 class Game;
 
@@ -35,7 +36,7 @@ private:
     
     std::unique_ptr<sim::SimulationManager> simulationManager;
     std::unique_ptr<NPCManager> npcManager;
-    std::unique_ptr<StructureManager> structureManager; // Phase 5 Additions
+    std::unique_ptr<StructureManager> structureManager;
 
     ProfilerStats profiler;
     uint32_t activeSeed;
@@ -53,6 +54,11 @@ private:
     bool f9PressedLastFrame;
     bool f10PressedLastFrame;
     bool f11PressedLastFrame;
+
+    int currentPlayerKingdomId = -1;
+    float cinematicTextTimer = 0.f;
+    std::string cinematicText = "";
+    sf::Font cinematicFont;
 
 public:
     PlayState(Game* game);

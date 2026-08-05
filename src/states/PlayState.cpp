@@ -29,6 +29,8 @@ void PlayState::init() {
     simulationManager = std::make_unique<sim::SimulationManager>();
     structureManager = std::make_unique<StructureManager>();
     
+    cinematicFont.loadFromFile("font.ttf");
+
     sim::EntityID startApeId = sim::PopulationGenerator::generatePlayerDynasty(simulationManager->getRegistry(), activeSeed);
     simulationManager->setControlledApe(startApeId);
     sim::PopulationGenerator::generateVillages(simulationManager->getRegistry(), activeSeed);
@@ -474,6 +476,33 @@ void PlayState::update(float dt) {
         sf::Clock cameraClock; 
         cameraManager->update(dt, playerWrapper->getPosition(), playerWrapper->getVelocity(), playerWrapper->getState());
         profiler.cameraTime = cameraClock.getElapsedTime().asSeconds();
+
+        if (cinematicTextTimer > 0.f) {
+            cinematicTextTimer -= dt;
+        }
+
+        float playerX = playerWrapper->getPosition().x;
+        int foundKingdomId = -1;
+        std::string foundKingdomName = "Wilderness";
+
+        for (auto& pair : simulationManager->getRegistry().getAllVillages()) {
+            sim::VillageData& v = pair.second;
+            if (playerX >= v.centerX - v.territoryRadius && playerX <= v.centerX + v.territoryRadius) {
+                foundKingdomId = v.kingdomId;
+                foundKingdomName = v.name; 
+                break;
+            }
+        }
+
+        if (foundKingdomId != currentPlayerKingdomId) {
+            if (foundKingdomId != -1) {
+                cinematicText = "Entering Kingdom of " + foundKingdomName;
+            } else {
+                cinematicText = "Leaving Kingdom Boundaries";
+            }
+            currentPlayerKingdomId = foundKingdomId;
+            cinematicTextTimer = 4.0f; 
+        }
     }
 
     sf::FloatRect preloadBounds;
@@ -728,6 +757,8 @@ void PlayState::draw(sf::RenderWindow& window) {
             }
         }
 
+        worldManager->drawTerritoryMarkers(window, simulationManager->getRegistry(), cameraManager->getViewBounds());
+        
         worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
         
         if (particleSystem) particleSystem->draw(window);
@@ -770,6 +801,25 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
     
     window.setView(window.getDefaultView());
+    
+    if (cinematicTextTimer > 0.f) {
+        float alpha = 255.f;
+        if (cinematicTextTimer > 3.0f) alpha = (4.0f - cinematicTextTimer) * 255.f; 
+        else if (cinematicTextTimer < 1.0f) alpha = cinematicTextTimer * 255.f;     
+
+        sf::Text transitionText(cinematicText, cinematicFont, 36);
+        
+        sf::FloatRect textRect = transitionText.getLocalBounds();
+        transitionText.setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
+        transitionText.setPosition(window.getSize().x / 2.0f, window.getSize().y / 4.0f);
+        
+        transitionText.setFillColor(sf::Color(255, 255, 255, static_cast<sf::Uint8>(alpha)));
+        transitionText.setOutlineColor(sf::Color(0, 0, 0, static_cast<sf::Uint8>(alpha)));
+        transitionText.setOutlineThickness(2.f);
+
+        window.draw(transitionText);
+    }
+
     if (lightingManager) lightingManager->drawAmbient(window);
 
     if (debugOverlay) debugOverlay->draw(window);

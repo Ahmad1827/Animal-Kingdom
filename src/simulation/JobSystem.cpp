@@ -1,9 +1,10 @@
 #include "simulation/JobSystem.h"
 #include "simulation/WorldEventManager.h"
+#include "simulation/KingdomManager.h"
+#include "simulation/WarfareManager.h"
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
-#include "simulation/KingdomManager.h"
 
 namespace sim {
 
@@ -151,6 +152,8 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
 
     WorldEventManager::update(registry, totalTicks);
     updateReputations(registry, totalTicks);
+    KingdomManager::update(registry, totalTicks);
+    WarfareManager::update(registry, totalTicks);
 
     for (auto& pair : registry.getAllResources()) {
         if (pair.second.amount < pair.second.maxAmount) {
@@ -175,7 +178,58 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
         if (ape.hunger < 0.f) ape.hunger = 0.f;
 
         VillageData* village = registry.getVillage(ape.villageId);
+
+        // Army & Warfare Job Overrides
+        if (ape.currentArmyId != 0) {
+            ArmyData* army = registry.getArmy(ape.currentArmyId);
+            if (army) {
+                if (army->objective == ArmyObjective::Muster) {
+                    ape.currentJob = Job::Muster;
+                    ape.currentTargetNode = 0;
+                    if (std::abs(ape.worldX - army->worldX) > 50.0f) {
+                        ape.worldX += (army->worldX > ape.worldX) ? 2.0f : -2.0f;
+                    }
+                } else if (army->objective == ArmyObjective::March) {
+                    ape.currentJob = Job::March;
+                    ape.worldX = army->worldX; 
+                } else if (army->objective == ArmyObjective::Attack) {
+                    ape.currentJob = Job::Combat;
+                }
+                continue;
+            } else {
+                ape.currentArmyId = 0;
+                ape.currentJob = Job::Idle;
+            }
+        }
         
+        if (totalTicks % 60 == 0) {
+            for (auto& otherPair : registry.getAllApes()) {
+                if (otherPair.first != ape.id && otherPair.second.alive) {
+                    if (std::abs(ape.worldX - otherPair.second.worldX) < 150.0f) {
+                        if (ape.currentKingdom != 0 && otherPair.second.currentKingdom != 0 && ape.currentKingdom != otherPair.second.currentKingdom) {
+                            KingdomData* myK = registry.getKingdom(ape.currentKingdom);
+                            if (myK) {
+                                DiplomacyStatus status = myK->relations[otherPair.second.currentKingdom];
+                                if (status == DiplomacyStatus::War) {
+                                    ape.currentJob = Job::Combat;
+                                    ape.currentCombatTarget = otherPair.first;
+                                } else if (status == DiplomacyStatus::Rival) {
+                                    ape.currentJob = Job::Intimidate;
+                                } else if (status == DiplomacyStatus::Neutral) {
+                                    ape.currentJob = Job::Observe;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (ape.currentJob == Job::Observe || ape.currentJob == Job::Intimidate) {
+            if (totalTicks % 300 == 0) ape.currentJob = Job::Idle;
+            continue;
+        }
+
         if (village && ape.equippedTool == ToolType::None) {
             if (village->toolsBasket > 0 && ape.currentOccupation == Occupation::Unemployed) {
                 ape.equippedTool = ToolType::Basket;
@@ -266,7 +320,10 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
 
         if (ape.currentJob == Job::Idle || ape.currentJob == Job::Wander || ape.currentJob == Job::Socialize || ape.currentJob == Job::Eat) {
             if (village) {
-                if (village->food < static_cast<int>(village->members.size() * 3) || registry.getSeason() == Season::Autumn) {
+                if (ape.equippedTool == ToolType::WoodenSpear && village->kingdomId != 0) {
+                    ape.currentJob = Job::Patrol;
+                }
+                else if (village->food < static_cast<int>(village->members.size() * 3) || registry.getSeason() == Season::Autumn) {
                     ape.currentJob = Job::Forage;
                     ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Food, village);
                 }
@@ -364,6 +421,17 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                         if (village->kingdomId != 0 && vPair.second.kingdomId != 0 && village->kingdomId != vPair.second.kingdomId) {
                             KingdomManager::handleFirstContact(registry, village->kingdomId, vPair.second.kingdomId);
                         }
+                    }
+                }
+            }
+        }
+        else if (ape.currentJob == Job::Patrol) {
+            if (ape.currentKingdom != 0) {
+                KingdomData* kd = registry.getKingdom(ape.currentKingdom);
+                if (kd) {
+                    float targetEdge = (std::rand() % 2 == 0) ? kd->territoryMaxX : kd->territoryMinX;
+                    if (std::abs(ape.worldX - targetEdge) < 200.f) {
+                        ape.currentJob = Job::Idle;
                     }
                 }
             }

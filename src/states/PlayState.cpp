@@ -4,6 +4,7 @@
 #include "simulation/PopulationGenerator.h"
 #include "simulation/SuccessionManager.h"
 #include "simulation/KingdomManager.h"
+#include "simulation/WarfareManager.h"
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
@@ -56,6 +57,29 @@ void PlayState::processEvents(const sf::Event& event) {
         if (event.key.code == sf::Keyboard::F7) {
             sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
             if (cData) sim::SuccessionManager::handleDeath(simulationManager->getRegistry(), cData->id);
+        }
+        if (event.key.code == sf::Keyboard::N) {
+            debugOverlay->toggleWarfareDebug();
+        }
+        if (event.key.code == sf::Keyboard::F12) {
+            sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+            if (cData && cData->currentKingdom != 0) {
+                sim::KingdomData* myK = simulationManager->getRegistry().getKingdom(cData->currentKingdom);
+                if (myK && !myK->knownKingdoms.empty()) {
+                    sim::KingdomID targetK = *myK->knownKingdoms.begin();
+                    sim::WarfareManager::declareWar(simulationManager->getRegistry(), myK->id, targetK, "Royal decree by player.");
+                }
+            }
+        }
+        if (event.key.code == sf::Keyboard::M) {
+            sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+            if (cData && cData->currentKingdom != 0) {
+                sim::KingdomData* myK = simulationManager->getRegistry().getKingdom(cData->currentKingdom);
+                if (myK && myK->currentKingId == cData->id && !myK->knownKingdoms.empty()) {
+                    sim::KingdomID targetK = *myK->knownKingdoms.begin();
+                    sim::WarfareManager::issueMusterOrder(simulationManager->getRegistry(), myK->id, targetK, cData->id);
+                }
+            }
         }
     }
 }
@@ -643,6 +667,27 @@ void PlayState::update(float dt) {
                     }
                 }
             }
+
+            if (debugOverlay->getShowWarfareDebug()) {
+                std::string warInfo = "--- WARFARE OVERLAY (N) ---\n";
+                for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
+                    warInfo += "Kingdom: " + pair.second.name + "\n";
+                    warInfo += "Territory: [" + std::to_string(static_cast<int>(pair.second.territoryMinX)) + " to " + std::to_string(static_cast<int>(pair.second.territoryMaxX)) + "]\n";
+                    warInfo += "Active Armies: " + std::to_string(pair.second.activeArmies.size()) + "\n";
+                    for (const auto& tenPair : pair.second.borderTension) {
+                        sim::KingdomData* ok = simulationManager->getRegistry().getKingdom(tenPair.first);
+                        if (ok) {
+                            warInfo += "  Tension w/ " + ok->name + ": " + std::to_string(static_cast<int>(tenPair.second)) + "\n";
+                        }
+                    }
+                }
+                warInfo += "\n--- ARMIES ---\n";
+                for (const auto& pair : simulationManager->getRegistry().getAllArmies()) {
+                    warInfo += "Army " + std::to_string(pair.second.id % 100) + " | Size: " + std::to_string(pair.second.members.size());
+                    warInfo += " | Objective: " + std::to_string(static_cast<int>(pair.second.objective)) + "\n";
+                }
+                debugOverlay->updateWarfareStats(warInfo);
+            }
         }
     }
     
@@ -665,6 +710,19 @@ void PlayState::draw(sf::RenderWindow& window) {
         
         if (structureManager) {
             structureManager->draw(window, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
+        }
+
+        if (debugOverlay && debugOverlay->getShowWarfareDebug()) {
+            for(auto& p : simulationManager->getRegistry().getAllKingdoms()) {
+                if (p.second.territoryMaxX > p.second.territoryMinX) {
+                    sf::RectangleShape rect(sf::Vector2f(p.second.territoryMaxX - p.second.territoryMinX, 2000.f));
+                    sf::Color c = p.second.color;
+                    c.a = 40; 
+                    rect.setFillColor(c);
+                    rect.setPosition(p.second.territoryMinX, -1000.f);
+                    window.draw(rect);
+                }
+            }
         }
 
         worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);

@@ -2,7 +2,7 @@
 #include "simulation/EntityID.h"
 
 namespace sim {
-    enum class StructureType { Nest, StorageHut, WatchPlatform, WoodPile, StonePile, SimpleBarrier, TreeLadder };
+    enum class StructureType { Nest, StorageHut, WatchPlatform, WoodPile, StonePile, SimpleBarrier, TreeLadder, VillageCenter, BuilderHut, Bonfire };
 
     struct StructureData {
         StructureID id;

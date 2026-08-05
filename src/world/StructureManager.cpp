@@ -9,33 +9,42 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
     for (auto& pair : registry.getAllStructures()) {
         sim::StructureData& s = pair.second;
         
-        if (s.worldX < viewBounds.left - 200.f || s.worldX > viewBounds.left + viewBounds.width + 200.f) continue;
+        if (s.worldX < viewBounds.left - 300.f || s.worldX > viewBounds.left + viewBounds.width + 300.f) continue;
 
         float groundY = world->getTerrainHeight(s.worldX);
 
         if (!s.isFinished) {
             float progressRatio = s.progress / s.maxProgress;
-            if (progressRatio < 0.1f) progressRatio = 0.1f; 
             
-            float height = 50.f + (50.f * progressRatio);
-            
-            sf::RectangleShape scaffold(sf::Vector2f(80.f, height));
-            scaffold.setOrigin(40.f, height);
-            scaffold.setPosition(s.worldX, groundY);
-            scaffold.setFillColor(sf::Color(0, 0, 0, 0));
-            scaffold.setOutlineColor(sf::Color(139, 69, 19, 180));
-            scaffold.setOutlineThickness(3.f);
-            target.draw(scaffold);
-            
-            int planks = static_cast<int>(progressRatio * 4.0f);
-            for (int i = 0; i < planks; ++i) {
-                sf::RectangleShape plank(sf::Vector2f(90.f, 6.f));
-                plank.setOrigin(45.f, 3.f);
-                plank.setPosition(s.worldX, groundY - (height * ((float)(i+1)/4.0f)));
-                plank.setFillColor(sf::Color(160, 82, 45));
-                target.draw(plank);
+            // Phase 1: Foundation (0% - 33%)
+            sf::RectangleShape foundation(sf::Vector2f(100.f, 10.f));
+            foundation.setOrigin(50.f, 10.f);
+            foundation.setPosition(s.worldX, groundY);
+            foundation.setFillColor(sf::Color(105, 105, 105)); 
+            target.draw(foundation);
+
+            // Phase 2: Scaffolding (33% - 66%)
+            if (progressRatio >= 0.33f) {
+                float height = 40.f;
+                sf::RectangleShape scaffold(sf::Vector2f(80.f, height));
+                scaffold.setOrigin(40.f, height);
+                scaffold.setPosition(s.worldX, groundY - 10.f);
+                scaffold.setFillColor(sf::Color::Transparent);
+                scaffold.setOutlineColor(sf::Color(139, 69, 19, 200));
+                scaffold.setOutlineThickness(2.f);
+                target.draw(scaffold);
+            }
+
+            // Phase 3: Half-built (66% - 99%)
+            if (progressRatio >= 0.66f) {
+                sf::RectangleShape walls(sf::Vector2f(90.f, 30.f));
+                walls.setOrigin(45.f, 30.f);
+                walls.setPosition(s.worldX, groundY - 10.f);
+                walls.setFillColor(sf::Color(160, 82, 45, 150)); 
+                target.draw(walls);
             }
         } else {
+            // Finished Structures
             if (s.type == sim::StructureType::StorageHut) {
                 sf::RectangleShape hutBase(sf::Vector2f(120.f, 90.f));
                 hutBase.setOrigin(60.f, 90.f);
@@ -50,13 +59,7 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
                 roof.setPosition(s.worldX, groundY - 90.f);
                 roof.setFillColor(sf::Color(139, 69, 19));
                 target.draw(roof);
-                
-                sf::RectangleShape door(sf::Vector2f(30.f, 45.f));
-                door.setOrigin(15.f, 45.f);
-                door.setPosition(s.worldX, groundY);
-                door.setFillColor(sf::Color(50, 30, 15));
-                target.draw(door);
-                
+
             } else if (s.type == sim::StructureType::Nest) {
                 sf::CircleShape nest(40.f);
                 nest.setOrigin(40.f, 40.f);
@@ -73,23 +76,56 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
                 target.draw(inner);
 
             } else if (s.type == sim::StructureType::WatchPlatform) {
-                sf::RectangleShape poleLeft(sf::Vector2f(8.f, 180.f));
-                poleLeft.setOrigin(4.f, 180.f);
-                poleLeft.setPosition(s.worldX - 25.f, groundY);
-                poleLeft.setFillColor(sf::Color(101, 67, 33));
-                target.draw(poleLeft);
-                
-                sf::RectangleShape poleRight(sf::Vector2f(8.f, 180.f));
-                poleRight.setOrigin(4.f, 180.f);
-                poleRight.setPosition(s.worldX + 25.f, groundY);
-                poleRight.setFillColor(sf::Color(101, 67, 33));
-                target.draw(poleRight);
+                sf::RectangleShape pole(sf::Vector2f(12.f, 180.f));
+                pole.setOrigin(6.f, 180.f);
+                pole.setPosition(s.worldX, groundY);
+                pole.setFillColor(sf::Color(101, 67, 33));
+                target.draw(pole);
                 
                 sf::RectangleShape plat(sf::Vector2f(80.f, 12.f));
                 plat.setOrigin(40.f, 6.f);
-                plat.setPosition(s.worldX, groundY - 170.f);
+                plat.setPosition(s.worldX, groundY - 150.f);
                 plat.setFillColor(sf::Color(160, 82, 45));
                 target.draw(plat);
+
+            } else if (s.type == sim::StructureType::VillageCenter) {
+                sf::RectangleShape base(sf::Vector2f(160.f, 120.f));
+                base.setOrigin(80.f, 120.f);
+                base.setPosition(s.worldX, groundY);
+                base.setFillColor(sf::Color(80, 50, 20));
+                target.draw(base);
+
+                sf::RectangleShape flagPole(sf::Vector2f(6.f, 200.f));
+                flagPole.setOrigin(3.f, 200.f);
+                flagPole.setPosition(s.worldX - 50.f, groundY);
+                flagPole.setFillColor(sf::Color(50, 50, 50));
+                target.draw(flagPole);
+
+            } else if (s.type == sim::StructureType::BuilderHut) {
+                sf::RectangleShape hutBase(sf::Vector2f(100.f, 70.f));
+                hutBase.setOrigin(50.f, 70.f);
+                hutBase.setPosition(s.worldX, groundY);
+                hutBase.setFillColor(sf::Color(120, 80, 40));
+                target.draw(hutBase);
+
+                sf::RectangleShape roof(sf::Vector2f(110.f, 10.f));
+                roof.setOrigin(55.f, 10.f);
+                roof.setPosition(s.worldX, groundY - 70.f);
+                roof.setFillColor(sf::Color(90, 60, 30));
+                target.draw(roof);
+
+            } else if (s.type == sim::StructureType::Bonfire) {
+                sf::RectangleShape log1(sf::Vector2f(40.f, 10.f));
+                log1.setOrigin(20.f, 5.f);
+                log1.setPosition(s.worldX, groundY - 5.f);
+                log1.setFillColor(sf::Color(60, 30, 10));
+                target.draw(log1);
+                
+                sf::CircleShape fire(15.f, 3); 
+                fire.setOrigin(15.f, 30.f);
+                fire.setPosition(s.worldX, groundY - 10.f);
+                fire.setFillColor(sf::Color(255, 100, 0, 200));
+                target.draw(fire);
             }
         }
     }

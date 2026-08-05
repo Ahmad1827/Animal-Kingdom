@@ -8,6 +8,7 @@ namespace sim {
     using VillageID = uint64_t;
     using StructureID = uint64_t;
     using EventID = uint64_t;
+    using ArmyID = uint64_t;
 
     class IDGenerator {
     private:

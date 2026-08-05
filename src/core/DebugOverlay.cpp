@@ -16,6 +16,7 @@ DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions
     villText.setFont(font); villText.setCharacterSize(14); villText.setFillColor(sf::Color::Green); villText.setOutlineColor(sf::Color::Black); villText.setOutlineThickness(1.f); villText.setPosition(10.f, 500.f);
     historyText.setFont(font); historyText.setCharacterSize(14); historyText.setFillColor(sf::Color::Magenta); historyText.setOutlineColor(sf::Color::Black); historyText.setOutlineThickness(1.f); historyText.setPosition(800.f, 10.f);
     kingdomText.setFont(font); kingdomText.setCharacterSize(14); kingdomText.setFillColor(sf::Color::Red); kingdomText.setOutlineColor(sf::Color::Black); kingdomText.setOutlineThickness(1.f); kingdomText.setPosition(800.f, 200.f);
+    warfareText.setFont(font); warfareText.setCharacterSize(14); warfareText.setFillColor(sf::Color::Yellow); warfareText.setOutlineColor(sf::Color::Black); warfareText.setOutlineThickness(1.f); warfareText.setPosition(400.f, 200.f);
 }
 
 void DebugOverlay::toggle() { isVisible = !isVisible; }
@@ -103,6 +104,15 @@ void DebugOverlay::draw(sf::RenderTarget& target) const {
         target.draw(historyText);
         if (showVillageDebug) target.draw(villText);
         if (showKingdomDebug) target.draw(kingdomText);
+        if (showWarfareDebug) target.draw(warfareText);
         target.setView(currentView);
     }
+}
+
+void DebugOverlay::toggleWarfareDebug() { showWarfareDebug = !showWarfareDebug; }
+bool DebugOverlay::getShowWarfareDebug() const { return showWarfareDebug; }
+
+void DebugOverlay::updateWarfareStats(const std::string& info) {
+    if (!showWarfareDebug || !isVisible) { warfareText.setString(""); return; }
+    warfareText.setString(info);
 }

@@ -23,9 +23,15 @@ private:
     bool showKinematicsDebug;
     bool showVillageDebug;
     bool showKingdomDebug;
+    sf::Text warfareText;
+    bool showWarfareDebug;
 
 public:
     DebugOverlay();
+
+    void updateWarfareStats(const std::string& info);
+    void toggleWarfareDebug();
+    bool getShowWarfareDebug() const;
     
     void updateInfo(float dt, int chunkIdx, float playerX, float playerY, uint32_t seed, const std::string& regionName, const ProfilerStats& profiler);
     void updateSimStats(int simApes, int loadedNPCs, int loadedChunks, uint64_t simTick, int hour, int min, int day, int season, int year, int activeEvents);

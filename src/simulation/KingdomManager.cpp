@@ -39,12 +39,25 @@ void KingdomManager::updateInfluence(SimulationRegistry& registry, KingdomData& 
     int totalPop = 0;
     int totalStructs = 0;
     
+    float minX = 999999.0f;
+    float maxX = -999999.0f;
+    
     for (VillageID vid : kingdom.controlledVillages) {
         VillageData* v = registry.getVillage(vid);
         if (v) {
             totalPop += v->members.size();
             totalStructs += v->finishedStructures.size();
+            
+            float leftBound = v->centerX - v->territoryRadius;
+            float rightBound = v->centerX + v->territoryRadius;
+            if (leftBound < minX) minX = leftBound;
+            if (rightBound > maxX) maxX = rightBound;
         }
+    }
+    
+    if (minX <= maxX) {
+        kingdom.territoryMinX = minX;
+        kingdom.territoryMaxX = maxX;
     }
     
     kingdom.population = totalPop;

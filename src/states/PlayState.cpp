@@ -11,6 +11,7 @@
 #include <cmath>
 #include <iostream>
 #include <algorithm>
+#include "world/targets/VillageCenterInteractionTarget.hpp"
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -46,8 +47,13 @@ void PlayState::init() {
     for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
         const sim::VillageData& v = pair.second;
         float groundHeight = worldManager->getTerrainHeight(v.centerX);
+        
         interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
             v.id, simulationManager->getRegistry(), v.centerX, groundHeight - 50.f, audioManager.get(), particleSystem.get()
+        ));
+
+        interactionManager.registerTarget(std::make_shared<VillageCenterInteractionTarget>(
+            v.id, simulationManager->getRegistry(), v.centerX - 150.f, groundHeight - 50.f, audioManager.get()
         ));
     }
     

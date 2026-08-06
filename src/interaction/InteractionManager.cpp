@@ -96,6 +96,11 @@ void InteractionManager::handleEvent(const sf::Event& event, CameraManager& came
                 if (!currentMenuEntries.empty() && selectedMenuIndex < static_cast<int>(currentMenuEntries.size())) {
                     if (currentMenuEntries[selectedMenuIndex].action) {
                         currentMenuEntries[selectedMenuIndex].action();
+                        
+                        currentMenuEntries = activeTarget->buildInteractionMenu();
+                        if (selectedMenuIndex >= static_cast<int>(currentMenuEntries.size())) {
+                            selectedMenuIndex = 0;
+                        }
                     }
                 }
             }

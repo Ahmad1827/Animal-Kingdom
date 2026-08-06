@@ -47,7 +47,8 @@ private:
     bool isTransitioning;
     float transitionTimer;
     sf::Vector2f transitionTarget;
-
+    size_t lastKingdomCount = 99999; // Set high to force a refresh on frame 1
+    void refreshInteractionTargets();
     bool f3PressedLastFrame;
     bool f4PressedLastFrame;
     bool f5PressedLastFrame;

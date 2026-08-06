@@ -1,6 +1,7 @@
 #pragma once
 #include "interaction/InteractionTarget.h"
 #include "simulation/SimulationRegistry.h"
+#include "world/WorldManager.h"
 #include <string>
 #include <vector>
 
@@ -8,8 +9,8 @@ class BorderTotemInteractionTarget : public InteractionTarget {
 private:
     sim::KingdomID kingdomId;
     sim::SimulationRegistry& registry;
-    float posX;
-    float posY;
+    WorldManager* worldManager;
+    bool isLeftBorder;
 
     std::string getTensionDescription(int tension) const {
         if (tension > 75) return "Hostile (War is imminent)";
@@ -19,12 +20,22 @@ private:
     }
 
 public:
-    BorderTotemInteractionTarget(sim::KingdomID id, sim::SimulationRegistry& reg, float x, float y)
-        : kingdomId(id), registry(reg), posX(x), posY(y) {}
+    BorderTotemInteractionTarget(sim::KingdomID id, sim::SimulationRegistry& reg, WorldManager* wm, bool isLeft)
+        : kingdomId(id), registry(reg), worldManager(wm), isLeftBorder(isLeft) {}
 
     std::string getInteractionType() const override { return "BorderTotem"; }
-    sf::Vector2f getInteractionPosition() const override { return sf::Vector2f(posX, posY); }
-    bool canInteract() const override { return true; }
+
+    // Dynamically track the moving border every frame
+    sf::Vector2f getInteractionPosition() const override {
+        sim::KingdomData* kd = registry.getKingdom(kingdomId);
+        if (!kd) return sf::Vector2f(0.f, 0.f);
+        
+        float x = isLeftBorder ? kd->territoryMinX : kd->territoryMaxX;
+        float y = worldManager->getTerrainHeight(x) - 40.f; 
+        return sf::Vector2f(x, y);
+    }
+    
+    bool canInteract() const override { return registry.getKingdom(kingdomId) != nullptr; }
 
     std::string getInteractionTitle() const override {
         sim::KingdomData* kd = registry.getKingdom(kingdomId);
@@ -54,7 +65,6 @@ public:
         if (kd->borderTension.empty()) {
             entries.push_back({"This kingdom is largely isolated.", nullptr});
         } else {
-            // Display tension with known neighbors
             for (const auto& tensionPair : kd->borderTension) {
                 sim::KingdomData* other = registry.getKingdom(tensionPair.first);
                 if (other) {
@@ -62,7 +72,6 @@ public:
                 }
             }
         }
-
         return entries;
     }
 };

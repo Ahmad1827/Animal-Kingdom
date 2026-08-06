@@ -47,46 +47,7 @@ void PlayState::init() {
         playerWrapper = std::make_unique<Ape>(pData->worldX, pData->worldY, game->getAssetManager().getTexture("playerTex"), true);
     }
     
-    for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
-        const sim::VillageData& v = pair.second;
-        float groundHeight = worldManager->getTerrainHeight(v.centerX);
-        
-        interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX, groundHeight - 50.f, audioManager.get(), particleSystem.get()
-        ));
 
-        interactionManager.registerTarget(std::make_shared<VillageCenterInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX - 150.f, groundHeight - 50.f, audioManager.get()
-        ));
-        
-        interactionManager.registerTarget(std::make_shared<StorageHutInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX + 250.f, groundHeight - 50.f
-        ));
-    }
-
-    for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
-        const sim::KingdomData& k = pair.second;
-        
-        if (k.territoryMinX != 0.f) {
-            float leftHeight = worldManager->getTerrainHeight(k.territoryMinX);
-            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-                k.id, simulationManager->getRegistry(), k.territoryMinX, leftHeight - 50.f
-            ));
-        }
-        
-        if (k.territoryMaxX != 0.f) {
-            float rightHeight = worldManager->getTerrainHeight(k.territoryMaxX);
-            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-                k.id, simulationManager->getRegistry(), k.territoryMaxX, rightHeight - 50.f
-            ));
-        }
-
-        if (k.currentKingId != 0) {
-            interactionManager.registerTarget(std::make_shared<KingInteractionTarget>(
-                k.currentKingId, simulationManager->getRegistry()
-            ));
-        }
-    }
     
     worldClock->setMultiplier(30.f);
 }
@@ -136,6 +97,11 @@ void PlayState::processEvents(const sf::Event& event) {
 }
 
 void PlayState::update(float dt) {
+    size_t currentKingdomCount = simulationManager->getRegistry().getAllKingdoms().size();
+    if (currentKingdomCount != lastKingdomCount) {
+        refreshInteractionTargets();
+        lastKingdomCount = currentKingdomCount;
+    }
     static uint64_t grabbedChunk = 0;
     static int grabbedVine = -1;
     static int grabbedSeg = -1;
@@ -828,7 +794,28 @@ void PlayState::draw(sf::RenderWindow& window) {
         worldManager->drawTerritoryMarkers(window, simulationManager->getRegistry(), cameraManager->getViewBounds());
         
         worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
-        
+        for(auto& p : simulationManager->getRegistry().getAllKingdoms()) {
+            if (p.second.territoryMinX != 0.f) {
+                float yLeft = worldManager->getTerrainHeight(p.second.territoryMinX);
+                sf::RectangleShape leftTotem(sf::Vector2f(12.f, 100.f));
+                leftTotem.setOrigin(6.f, 100.f);
+                leftTotem.setPosition(p.second.territoryMinX, yLeft);
+                leftTotem.setFillColor(sf::Color(70, 45, 25));
+                leftTotem.setOutlineColor(sf::Color(30, 15, 5));
+                leftTotem.setOutlineThickness(2.f);
+                window.draw(leftTotem);
+            }
+            if (p.second.territoryMaxX != 0.f) {
+                float yRight = worldManager->getTerrainHeight(p.second.territoryMaxX);
+                sf::RectangleShape rightTotem(sf::Vector2f(12.f, 100.f));
+                rightTotem.setOrigin(6.f, 100.f);
+                rightTotem.setPosition(p.second.territoryMaxX, yRight);
+                rightTotem.setFillColor(sf::Color(70, 45, 25));
+                rightTotem.setOutlineColor(sf::Color(30, 15, 5));
+                rightTotem.setOutlineThickness(2.f);
+                window.draw(rightTotem);
+            }
+        }
         if (particleSystem) particleSystem->draw(window);
 
         if (debugOverlay) {
@@ -897,4 +884,48 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (debugOverlay) debugOverlay->draw(window);
     
     profiler.renderTime = renderClock.getElapsedTime().asSeconds();
+}
+
+void PlayState::refreshInteractionTargets() {
+    interactionManager.clearTargets();
+
+    // Register Villages
+    for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
+        const sim::VillageData& v = pair.second;
+        float groundHeight = worldManager->getTerrainHeight(v.centerX);
+        
+        interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
+            v.id, simulationManager->getRegistry(), v.centerX, groundHeight - 50.f, audioManager.get(), particleSystem.get()
+        ));
+
+        interactionManager.registerTarget(std::make_shared<VillageCenterInteractionTarget>(
+            v.id, simulationManager->getRegistry(), v.centerX - 150.f, groundHeight - 50.f, audioManager.get()
+        ));
+        
+        interactionManager.registerTarget(std::make_shared<StorageHutInteractionTarget>(
+            v.id, simulationManager->getRegistry(), v.centerX + 250.f, groundHeight - 50.f
+        ));
+    }
+
+    // Register Kingdoms
+    for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
+        const sim::KingdomData& k = pair.second;
+        
+        if (k.territoryMinX != 0.f) {
+            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+                k.id, simulationManager->getRegistry(), worldManager.get(), true
+            ));
+        }
+        if (k.territoryMaxX != 0.f) {
+            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+                k.id, simulationManager->getRegistry(), worldManager.get(), false
+            ));
+        }
+
+        if (k.currentKingId != 0) {
+            interactionManager.registerTarget(std::make_shared<KingInteractionTarget>(
+                k.currentKingId, simulationManager->getRegistry()
+            ));
+        }
+    }
 }

@@ -43,12 +43,11 @@ void PlayState::init() {
         playerWrapper = std::make_unique<Ape>(pData->worldX, pData->worldY, game->getAssetManager().getTexture("playerTex"), true);
     }
     
-    // Register initial interaction targets (Bonfires in villages)
     for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
         const sim::VillageData& v = pair.second;
         float groundHeight = worldManager->getTerrainHeight(v.centerX);
         interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX, groundHeight - 50.f
+            v.id, simulationManager->getRegistry(), v.centerX, groundHeight - 50.f, audioManager.get(), particleSystem.get()
         ));
     }
     

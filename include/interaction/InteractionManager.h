@@ -12,17 +12,19 @@ private:
     std::shared_ptr<InteractionTarget> activeTarget;
 
     bool isMenuOpen;
+    bool isClosing;
     std::vector<InteractionMenuEntry> currentMenuEntries;
     int selectedMenuIndex;
 
     sf::Font menuFont;
     bool fontLoaded;
 
-    // Camera transition state
     sf::Vector2f preInteractionCenter;
     float preInteractionZoom;
     float interactionTransitionTimer;
-    const float transitionDuration = 0.4f;
+    const float transitionDuration = 0.5f;
+
+    float getEase() const;
 
 public:
     InteractionManager();
@@ -34,5 +36,5 @@ public:
     void handleEvent(const sf::Event& event, CameraManager& cameraManager);
     void draw(sf::RenderWindow& window);
 
-    bool isInteracting() const { return isMenuOpen; }
+    bool isInteracting() const { return isMenuOpen || isClosing; }
 };

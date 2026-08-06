@@ -18,7 +18,8 @@ public:
     virtual bool canInteract() const = 0;
     virtual std::string getInteractionTitle() const = 0;
     virtual std::vector<InteractionMenuEntry> buildInteractionMenu() = 0;
-    virtual int getPriority() const { return 10; } // Higher priority overrides lower
+    virtual int getPriority() const { return 10; }
     
     virtual void onInteract() {}
+    virtual void onClose() {}
 };

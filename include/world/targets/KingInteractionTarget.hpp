@@ -8,16 +8,24 @@ class KingInteractionTarget : public InteractionTarget {
 private:
     sim::EntityID kingId;
     sim::SimulationRegistry& registry;
-    float posX;
-    float posY;
 
 public:
-    KingInteractionTarget(sim::EntityID id, sim::SimulationRegistry& reg, float x, float y)
-        : kingId(id), registry(reg), posX(x), posY(y) {}
+    // Notice we removed posX and posY from the constructor
+    KingInteractionTarget(sim::EntityID id, sim::SimulationRegistry& reg)
+        : kingId(id), registry(reg) {}
 
     std::string getInteractionType() const override { return "King"; }
-    sf::Vector2f getInteractionPosition() const override { return sf::Vector2f(posX, posY); }
-    bool canInteract() const override { return true; }
+    
+    // Dynamically fetch the King's exact physical position every single frame
+    sf::Vector2f getInteractionPosition() const override { 
+        sim::ApeData* king = registry.getApe(kingId);
+        if (king) {
+            return sf::Vector2f(king->worldX, king->worldY - 30.f); 
+        }
+        return sf::Vector2f(0.f, 0.f);
+    }
+    
+    bool canInteract() const override { return registry.getApe(kingId) != nullptr; }
 
     std::string getInteractionTitle() const override {
         sim::ApeData* king = registry.getApe(kingId);
@@ -25,7 +33,7 @@ public:
         return "King " + king->name;
     }
 
-    int getPriority() const override { return 25; }
+    int getPriority() const override { return 25; } // Higher priority than buildings
 
     void onInteract() override {}
     void onClose() override {}

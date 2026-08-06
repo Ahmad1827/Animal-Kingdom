@@ -13,6 +13,8 @@
 #include <algorithm>
 #include "world/targets/VillageCenterInteractionTarget.hpp"
 #include "world/targets/StorageHutInteractionTarget.hpp"
+#include "world/targets/KingInteractionTarget.hpp"
+#include "world/targets/BorderTotemInteractionTarget.hpp"
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -60,6 +62,30 @@ void PlayState::init() {
         interactionManager.registerTarget(std::make_shared<StorageHutInteractionTarget>(
             v.id, simulationManager->getRegistry(), v.centerX + 250.f, groundHeight - 50.f
         ));
+    }
+
+    for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
+        const sim::KingdomData& k = pair.second;
+        
+        if (k.territoryMinX != 0.f) {
+            float leftHeight = worldManager->getTerrainHeight(k.territoryMinX);
+            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+                k.id, simulationManager->getRegistry(), k.territoryMinX, leftHeight - 50.f
+            ));
+        }
+        
+        if (k.territoryMaxX != 0.f) {
+            float rightHeight = worldManager->getTerrainHeight(k.territoryMaxX);
+            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+                k.id, simulationManager->getRegistry(), k.territoryMaxX, rightHeight - 50.f
+            ));
+        }
+
+        if (k.currentKingId != 0) {
+            interactionManager.registerTarget(std::make_shared<KingInteractionTarget>(
+                k.currentKingId, simulationManager->getRegistry()
+            ));
+        }
     }
     
     worldClock->setMultiplier(30.f);

@@ -2,14 +2,14 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdlib>
+#include <iostream>
 
 NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture) 
     : simId(id), physicalApe(x, y, texture, false), stateTimer(0.f), intendedMoveX(0.f), 
-      isDroppingToHang(false), grabbedChunk(0), grabbedVine(-1), grabbedSeg(-1), pauseTimer(0.f) {
+      isDroppingToHang(false), grabbedChunk(0), grabbedVine(-1), grabbedSeg(-1), 
+      pauseTimer(0.f), workTimer(0.f) {
     
-    // Give each ape a slightly different walking speed (90% to 110%)
     baseSpeedMultiplier = 0.9f + (std::rand() % 20) / 100.f;
-    // Give each ape a personal spacing offset so they don't stand inside each other
     personalOffset = ((id * 37) % 100) - 50.f; 
 }
 
@@ -20,6 +20,10 @@ bool NPCApe::hasTrait(sim::ApeData* data, sim::Trait trait) {
     return false;
 }
 
+void NPCApe::fireAudioHook(const std::string& soundEvent) {
+    std::cout << "AUDIO_HOOK: " << soundEvent << "\n";
+}
+
 void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry) {
     sim::VillageData* v = registry.getVillage(data->villageId);
 
@@ -28,15 +32,18 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
     else if (data->carriedType == sim::ResourceType::Stone) physicalApe.setCarriedItem(3);
     else physicalApe.setCarriedItem(0);
 
-    // Random micro-pauses while thinking
     if (std::rand() % 100 < 5 && pauseTimer <= 0.f) {
-        pauseTimer = 0.5f + (std::rand() % 15) / 10.f; 
+        pauseTimer = 0.5f + (std::rand() % 15) / 10.f;
         intendedMoveX = 0.f;
+        if (physicalApe.getState() != ApeState::Working) {
+            physicalApe.setState(ApeState::Grounded);
+        }
         return;
     }
 
     float targetX = physicalApe.getPosition().x;
     float stopDistance = 15.f;
+    bool shouldWorkAtTarget = false;
 
     if (data->currentJob == sim::Job::CarryResource) {
         if (data->currentTargetStructure != 0) {
@@ -49,7 +56,10 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
     else if (data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::Woodcutter || data->currentJob == sim::Job::StoneGatherer) {
         if (data->currentTargetNode != 0) {
             sim::ResourceNode* node = registry.getResource(data->currentTargetNode);
-            if (node) targetX = node->worldX;
+            if (node) {
+                targetX = node->worldX;
+                shouldWorkAtTarget = true;
+            }
         }
     } 
     else if (data->currentJob == sim::Job::Builder) {
@@ -60,6 +70,7 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
                     targetX = v ? v->centerX : physicalApe.getPosition().x; 
                 } else {
                     targetX = s->worldX;
+                    if (!s->isFinished) shouldWorkAtTarget = true;
                 }
             }
         }
@@ -82,7 +93,7 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
         
         if (std::abs(physicalApe.getPosition().x - targetX) < 100.f) {
             if (std::rand() % 100 < 10 && pauseTimer <= 0.f) {
-                pauseTimer = 3.f + (std::rand() % 30) / 10.f; // Guards pause to look around
+                pauseTimer = 3.f + (std::rand() % 30) / 10.f; 
             }
         }
     } 
@@ -96,10 +107,10 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
 
             if (isKing) {
                 if (std::rand() % 100 < 20) targetX = v->centerX + (std::rand() % 400 - 200); 
-                else targetX = v->centerX; // Supervise near bonfire
+                else targetX = v->centerX;
                 stopDistance = 40.f;
             } else {
-                targetX = v->centerX + personalOffset; // Gather near bonfire organically
+                targetX = v->centerX + personalOffset; 
                 stopDistance = 15.f;
             }
         }
@@ -107,10 +118,16 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
 
     if (std::abs(physicalApe.getPosition().x - targetX) > stopDistance) {
         intendedMoveX = (physicalApe.getPosition().x < targetX) ? 1.f : -1.f;
+        physicalApe.setState(ApeState::Grounded);
     } else {
         intendedMoveX = 0.f;
-        if (pauseTimer <= 0.f && std::rand() % 100 < 20) {
-            pauseTimer = 1.0f + (std::rand() % 20) / 10.f; // Pause upon arriving
+        if (shouldWorkAtTarget) {
+            physicalApe.setState(ApeState::Working);
+        } else {
+            physicalApe.setState(ApeState::Grounded);
+            if (pauseTimer <= 0.f && std::rand() % 100 < 20) {
+                pauseTimer = 1.0f + (std::rand() % 20) / 10.f;
+            }
         }
     }
 }
@@ -118,9 +135,9 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
 void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
     sf::FloatRect playerBounds = physicalApe.getBounds();
     sf::FloatRect platformBounds;
-    bool wasGrounded = (physicalApe.getState() == ApeState::Grounded);
+    bool wasGrounded = (physicalApe.getState() == ApeState::Grounded || physicalApe.getState() == ApeState::Working);
 
-    if (physicalApe.getState() != ApeState::ClimbingTrunk && physicalApe.getState() != ApeState::HangingBranch && physicalApe.getState() != ApeState::ClimbingVine) physicalApe.setState(ApeState::Airborne);
+    if (physicalApe.getState() != ApeState::ClimbingTrunk && physicalApe.getState() != ApeState::HangingBranch && physicalApe.getState() != ApeState::ClimbingVine && physicalApe.getState() != ApeState::Working) physicalApe.setState(ApeState::Airborne);
 
     float groundHeight = worldManager->getTerrainHeight(playerBounds.left + playerBounds.width / 2.f);
     float bottomY = playerBounds.top + playerBounds.height;
@@ -128,7 +145,9 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
     if (physicalApe.getVelocity().y >= 0.f && bottomY >= groundHeight) {
         physicalApe.setPosition(physicalApe.getPosition().x, groundHeight - playerBounds.height);
         physicalApe.setVelocity(physicalApe.getVelocity().x, 0.f);
-        physicalApe.setState(ApeState::Grounded);
+        if (physicalApe.getState() != ApeState::Working) {
+            physicalApe.setState(ApeState::Grounded);
+        }
         physicalApe.setDroppingThrough(false);
         isDroppingToHang = false;
     }
@@ -155,11 +174,24 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
         stateTimer -= dt;
         if (stateTimer <= 0.f) {
             determineNextAction(data, timeOfDay, registry);
-            stateTimer = 0.2f + (std::rand() % 10) / 100.f; // Organic decision variance
+            stateTimer = 0.2f + (std::rand() % 10) / 100.f; 
         }
     }
 
-    if (physicalApe.getState() == ApeState::Grounded || physicalApe.getState() == ApeState::Airborne) {
+    if (physicalApe.getState() == ApeState::Working) {
+        intendedMoveX = 0.f;
+        workTimer += dt;
+        if (workTimer >= 1.0f) {
+            workTimer -= 1.0f;
+            if (data->currentJob == sim::Job::Builder) fireAudioHook("hammer");
+            else if (data->currentJob == sim::Job::Woodcutter) fireAudioHook("axe");
+            else if (data->currentJob == sim::Job::StoneGatherer) fireAudioHook("pickaxe");
+        }
+    } else {
+        workTimer = 0.f;
+    }
+
+    if (physicalApe.getState() == ApeState::Grounded || physicalApe.getState() == ApeState::Airborne || physicalApe.getState() == ApeState::Working) {
         float speed = 140.f * baseSpeedMultiplier;
         
         if (data->currentJob == sim::Job::Guard || data->currentJob == sim::Job::Scout) {

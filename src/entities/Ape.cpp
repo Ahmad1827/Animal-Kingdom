@@ -44,6 +44,9 @@ Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer)
     animator.addAnimation("Climb", 0, 4, frameW, frameH, 10, 10.f, true,  0.f, 0.f);
     animator.addAnimation("Hang",  0, 5, frameW, frameH, 5,  4.f,  true,  0.f, 0.f);
     animator.addAnimation("Swing", 5, 5, frameW, frameH, 4,  12.f, true,  0.f, 0.f);
+    
+    // Fallback Work animation (reusing Idle row) so it doesn't break your sprite sheet.
+    animator.addAnimation("Work",  0, 0, frameW, frameH, 4,  8.f,  true,  0.f, 0.f); 
 
     animator.play("Idle");
 }
@@ -184,6 +187,9 @@ void Ape::update(float dt) {
             animator.play("Idle");
         }
     } 
+    else if (state == ApeState::Working) {
+        animator.play("Work");
+    }
     else if (state == ApeState::Airborne) {
         if (velocity.y < -150.f) {
             animator.play("Jump");

@@ -4,6 +4,7 @@
 #include "simulation/SimulationRegistry.h"
 #include "world/WorldManager.h"
 #include <SFML/Graphics.hpp>
+#include <string>
 
 class NPCApe {
 private:
@@ -21,10 +22,12 @@ private:
     float pauseTimer;
     float baseSpeedMultiplier;
     float personalOffset;
+    float workTimer;
 
     void determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry);
     void applyPhysics(float dt, WorldManager* worldManager);
     bool hasTrait(sim::ApeData* data, sim::Trait trait);
+    void fireAudioHook(const std::string& soundEvent);
 
 public:
     NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture);

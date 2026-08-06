@@ -4,7 +4,7 @@
 #include "entities/LandingDetector.h"
 #include "simulation/ApeData.h"
 
-enum class ApeState { Grounded, Airborne, ClimbingTrunk, HangingBranch, ClimbingVine };
+enum class ApeState { Grounded, Airborne, ClimbingTrunk, HangingBranch, ClimbingVine, Working };
 
 class Ape {
 public:

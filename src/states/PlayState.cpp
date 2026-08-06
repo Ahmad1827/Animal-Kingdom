@@ -12,6 +12,7 @@
 #include <iostream>
 #include <algorithm>
 #include "world/targets/VillageCenterInteractionTarget.hpp"
+#include "world/targets/StorageHutInteractionTarget.hpp"
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -54,6 +55,10 @@ void PlayState::init() {
 
         interactionManager.registerTarget(std::make_shared<VillageCenterInteractionTarget>(
             v.id, simulationManager->getRegistry(), v.centerX - 150.f, groundHeight - 50.f, audioManager.get()
+        ));
+        
+        interactionManager.registerTarget(std::make_shared<StorageHutInteractionTarget>(
+            v.id, simulationManager->getRegistry(), v.centerX + 250.f, groundHeight - 50.f
         ));
     }
     

@@ -5,6 +5,7 @@
 #include "simulation/SuccessionManager.h"
 #include "simulation/KingdomManager.h"
 #include "simulation/WarfareManager.h"
+#include "world/targets/BonfireInteractionTarget.hpp"
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
@@ -42,10 +43,22 @@ void PlayState::init() {
         playerWrapper = std::make_unique<Ape>(pData->worldX, pData->worldY, game->getAssetManager().getTexture("playerTex"), true);
     }
     
+    // Register initial interaction targets (Bonfires in villages)
+    for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
+        const sim::VillageData& v = pair.second;
+        float groundHeight = worldManager->getTerrainHeight(v.centerX);
+        interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
+            v.id, simulationManager->getRegistry(), v.centerX, groundHeight - 50.f
+        ));
+    }
+    
     worldClock->setMultiplier(30.f);
 }
 
 void PlayState::processEvents(const sf::Event& event) {
+    // Route events through the interaction manager first
+    interactionManager.handleEvent(event, *cameraManager);
+
     if (event.type == sf::Event::KeyPressed) {
         if (event.key.code == sf::Keyboard::K) {
             debugOverlay->toggleKingdomDebug();
@@ -191,9 +204,12 @@ void PlayState::update(float dt) {
         if (current) current->alive = false;
     }
 
-    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
-    else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
-    else cameraManager->setZoom(1.35f);
+    // Only allow camera zooming if not interacting
+    if (!interactionManager.isInteracting()) {
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
+        else cameraManager->setZoom(1.35f);
+    }
 
     if (!isTransitioning && playerWrapper) {
         sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
@@ -228,7 +244,16 @@ void PlayState::update(float dt) {
     }
 
     if (!isTransitioning && playerWrapper) {
+        // Universal interaction framework update
+        interactionManager.update(dt, playerWrapper->getPosition(), *cameraManager);
+
+        // Update player physical state
         playerWrapper->update(dt);
+        
+        // Zero out horizontal velocity if stuck in an interaction menu to prevent wandering off
+        if (interactionManager.isInteracting()) {
+            playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
+        }
         
         sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
         if (pData) {
@@ -256,7 +281,8 @@ void PlayState::update(float dt) {
         
         bool wasGrounded = (playerWrapper->getState() == ApeState::Grounded);
 
-        if (wasGrounded && (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down))) {
+        // Disallow player drop-down through branches if interacting
+        if (wasGrounded && !interactionManager.isInteracting() && (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down))) {
             sf::FloatRect dropCheck = playerBounds;
             dropCheck.top += playerBounds.height;
             dropCheck.height = 20.f; 
@@ -361,8 +387,9 @@ void PlayState::update(float dt) {
         
         bool touchingTrunk = worldManager->checkTrunkCollision(playerBounds, trunkCenter, trunkTop);
         
+        // Disallow climbing up trunks if interacting
         if (touchingTrunk) {
-            if ((sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
+            if (!interactionManager.isInteracting() && (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
                 playerWrapper->getState() != ApeState::ClimbingTrunk && 
                 playerWrapper->getState() != ApeState::HangingBranch) {
                 
@@ -396,25 +423,27 @@ void PlayState::update(float dt) {
                 float maxSwingSpeed = 200.f; 
                 float swingPush = 400.f * dt; 
                 
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-                    if (vineVel.x > -maxSwingSpeed) {
-                        worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(-swingPush, 0.f));
+                if (!interactionManager.isInteracting()) {
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
+                        if (vineVel.x > -maxSwingSpeed) {
+                            worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(-swingPush, 0.f));
+                        }
+                    } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
+                        if (vineVel.x < maxSwingSpeed) {
+                            worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(swingPush, 0.f));
+                        }
                     }
-                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-                    if (vineVel.x < maxSwingSpeed) {
-                        worldManager->applyVineForce(grabbedChunk, grabbedVine, grabbedSeg, sf::Vector2f(swingPush, 0.f));
+    
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
+                        playerWrapper->setState(ApeState::Airborne);
+                        float jumpOffX = std::clamp(vineVel.x * 1.5f, -400.f, 400.f);
+                        playerWrapper->setVelocity(jumpOffX, -500.f); 
+                        grabbedVine = -1;
                     }
-                }
-
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::Space)) {
-                    playerWrapper->setState(ApeState::Airborne);
-                    float jumpOffX = std::clamp(vineVel.x * 1.5f, -400.f, 400.f);
-                    playerWrapper->setVelocity(jumpOffX, -500.f); 
-                    grabbedVine = -1;
                 }
             }
         } 
-        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::G) && playerWrapper->getState() != ApeState::ClimbingVine) {
+        else if (!interactionManager.isInteracting() && sf::Keyboard::isKeyPressed(sf::Keyboard::G) && playerWrapper->getState() != ApeState::ClimbingVine) {
             if (worldManager->checkVineCollision(playerBounds, tChunk, tVine, tSeg)) {
                 playerWrapper->setState(ApeState::ClimbingVine);
                 grabbedChunk = tChunk;
@@ -530,15 +559,18 @@ void PlayState::update(float dt) {
         if (playerWrapper->getState() == ApeState::ClimbingVine && grabbedVine != -1) {
             climbTimer -= dt;
             if (climbTimer <= 0.f) {
-                if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
-                    if (grabbedSeg > 1) {
-                        grabbedSeg--;
-                        climbTimer = 0.15f;
-                    }
-                } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
-                    if (grabbedSeg < worldManager->getVineSegmentCount(grabbedChunk, grabbedVine) - 1) {
-                        grabbedSeg++;
-                        climbTimer = 0.15f;
+                // Ignore vine climbing controls if interacting
+                if (!interactionManager.isInteracting()) {
+                    if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
+                        if (grabbedSeg > 1) {
+                            grabbedSeg--;
+                            climbTimer = 0.15f;
+                        }
+                    } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down)) {
+                        if (grabbedSeg < worldManager->getVineSegmentCount(grabbedChunk, grabbedVine) - 1) {
+                            grabbedSeg++;
+                            climbTimer = 0.15f;
+                        }
                     }
                 }
             }
@@ -821,6 +853,9 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (lightingManager) lightingManager->drawAmbient(window);
+
+    // Ensure the interaction framework UI is drawn securely over everything
+    interactionManager.draw(window);
 
     if (debugOverlay) debugOverlay->draw(window);
     

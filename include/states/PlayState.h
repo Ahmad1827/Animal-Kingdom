@@ -17,6 +17,7 @@
 #include "simulation/SimulationManager.h"
 #include "world/NPCManager.h"
 #include "world/StructureManager.h"
+#include "interaction/InteractionManager.h"
 
 class Game;
 
@@ -37,6 +38,8 @@ private:
     std::unique_ptr<sim::SimulationManager> simulationManager;
     std::unique_ptr<NPCManager> npcManager;
     std::unique_ptr<StructureManager> structureManager;
+    
+    InteractionManager interactionManager;
 
     ProfilerStats profiler;
     uint32_t activeSeed;

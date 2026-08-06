@@ -18,6 +18,10 @@ private:
     int grabbedVine;
     int grabbedSeg;
 
+    float pauseTimer;
+    float baseSpeedMultiplier;
+    float personalOffset;
+
     void determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry);
     void applyPhysics(float dt, WorldManager* worldManager);
     bool hasTrait(sim::ApeData* data, sim::Trait trait);
@@ -30,11 +34,7 @@ public:
     sim::EntityID getId() const { return simId; }
     sf::FloatRect getBounds() const { return physicalApe.getBounds(); }
 
-    template<typename T>
-    void setVisualEquipment(T equippedTool, sim::ResourceType carriedType, int carriedAmount, bool isKing) {
-        if (carriedType == sim::ResourceType::Food) physicalApe.setCarriedItem(1);
-        else if (carriedType == sim::ResourceType::Wood) physicalApe.setCarriedItem(2);
-        else if (carriedType == sim::ResourceType::Stone) physicalApe.setCarriedItem(3);
-        else physicalApe.setCarriedItem(0);
+    void setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amount, bool isKing) {
+        physicalApe.setVisualEquipment(tool, res, amount, isKing);
     }
 };

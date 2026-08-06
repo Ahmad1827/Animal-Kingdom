@@ -864,7 +864,8 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     if (lightingManager) lightingManager->drawAmbient(window);
 
-    // Ensure the interaction framework UI is drawn securely over everything
+    window.setView(cameraManager->getView());
+
     interactionManager.draw(window);
 
     if (debugOverlay) debugOverlay->draw(window);

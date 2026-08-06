@@ -131,17 +131,18 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         sf::Vector2f worldPos = currentPromptTarget->getInteractionPosition();
         sf::Vector2i screenPos = window.mapCoordsToPixel(worldPos, originalView);
 
-        sf::RectangleShape promptBg(sf::Vector2f(110.f, 30.f));
-        promptBg.setFillColor(sf::Color(40, 30, 20, 220));
-        promptBg.setOutlineColor(sf::Color(180, 140, 90));
-        promptBg.setOutlineThickness(2.f);
-        promptBg.setOrigin(55.f, 45.f);
-        promptBg.setPosition(static_cast<float>(screenPos.x), static_cast<float>(screenPos.y - 40.f));
-
         sf::Text promptText("[E] " + currentPromptTarget->getInteractionTitle(), menuFont, 14);
         promptText.setFillColor(sf::Color::White);
         sf::FloatRect textRect = promptText.getLocalBounds();
         promptText.setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
+
+        sf::RectangleShape promptBg(sf::Vector2f(textRect.width + 24.f, 30.f));
+        promptBg.setFillColor(sf::Color(40, 30, 20, 220));
+        promptBg.setOutlineColor(sf::Color(180, 140, 90));
+        promptBg.setOutlineThickness(2.f);
+        promptBg.setOrigin((textRect.width + 24.f) / 2.f, 15.f);
+        promptBg.setPosition(static_cast<float>(screenPos.x), static_cast<float>(screenPos.y - 40.f));
+
         promptText.setPosition(promptBg.getPosition());
 
         window.draw(promptBg);

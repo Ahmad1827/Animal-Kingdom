@@ -47,8 +47,8 @@ void KingdomManager::updateInfluence(SimulationRegistry& registry, KingdomData& 
         }
     }
     
-    // BORDER RECALCULATION COMPLETELY REMOVED HERE.
-    // Territory is now strictly persistent and static.
+    // THE BUG IS GONE: Territory recalculation is completely removed from this tick cycle.
+    // Territory bounds remain perfectly static from creation.
     
     kingdom.population = totalPop;
     kingdom.totalResources = kingdom.treasuryFood + kingdom.treasuryWood + kingdom.treasuryStone + kingdom.treasuryTools;
@@ -121,8 +121,7 @@ void KingdomManager::spawnDebugKingdom(SimulationRegistry& registry, VillageID c
     VillageData* v = registry.getVillage(capitalId);
     if (v) {
         v->kingdomId = k.id;
-        
-        // SINGLE SOURCE OF TRUTH FOR INITIAL TERRITORY
+        // STATIC BOUNDARY LOCK: Established once during explicit creation.
         k.territoryMinX = v->centerX - v->territoryRadius;
         k.territoryMaxX = v->centerX + v->territoryRadius;
     }

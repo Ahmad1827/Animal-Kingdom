@@ -805,7 +805,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             window.draw(rightTotem);
         }
 
-        // --- DRAW NEUTRAL DIPLOMATIC MEETING GROUNDS ---
+        // --- DRAW UNIFIED DIPLOMATIC MEETING GROUNDS ---
         struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; };
         std::vector<Polity> polities;
         for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
@@ -842,29 +842,22 @@ void PlayState::draw(sf::RenderWindow& window) {
                 if (gap >= 0.f && gap <= 4000.f) {
                     float midY = worldManager->getTerrainHeight(midX);
                     
-                    sf::RectangleShape stoneBase(sf::Vector2f(100.f, 15.f));
-                    stoneBase.setOrigin(50.f, 15.f);
-                    stoneBase.setPosition(midX, midY);
-                    stoneBase.setFillColor(sf::Color(120, 120, 130));
-                    stoneBase.setOutlineColor(sf::Color(40, 40, 40));
-                    stoneBase.setOutlineThickness(2.f);
-                    window.draw(stoneBase);
+                    // Large obvious visual marker so you cannot miss it
+                    sf::RectangleShape monolith(sf::Vector2f(20.f, 160.f));
+                    monolith.setOrigin(10.f, 160.f);
+                    monolith.setPosition(midX, midY);
+                    monolith.setFillColor(sf::Color(80, 80, 90));
+                    monolith.setOutlineColor(sf::Color::Black);
+                    monolith.setOutlineThickness(2.f);
+                    window.draw(monolith);
 
-                    sf::RectangleShape leftPole(sf::Vector2f(4.f, 60.f));
-                    leftPole.setOrigin(2.f, 60.f);
-                    leftPole.setPosition(midX - 40.f, midY - 15.f);
-                    leftPole.setFillColor(sf::Color(220, 220, 200));
-                    leftPole.setOutlineColor(sf::Color::Black);
-                    leftPole.setOutlineThickness(1.f);
-                    window.draw(leftPole);
-
-                    sf::RectangleShape rightPole(sf::Vector2f(4.f, 60.f));
-                    rightPole.setOrigin(2.f, 60.f);
-                    rightPole.setPosition(midX + 40.f, midY - 15.f);
-                    rightPole.setFillColor(sf::Color(220, 220, 200));
-                    rightPole.setOutlineColor(sf::Color::Black);
-                    rightPole.setOutlineThickness(1.f);
-                    window.draw(rightPole);
+                    sf::RectangleShape peaceBanner(sf::Vector2f(40.f, 60.f));
+                    peaceBanner.setOrigin(20.f, 0.f);
+                    peaceBanner.setPosition(midX, midY - 150.f);
+                    peaceBanner.setFillColor(sf::Color(220, 220, 230));
+                    peaceBanner.setOutlineColor(sf::Color::Black);
+                    peaceBanner.setOutlineThickness(1.f);
+                    window.draw(peaceBanner);
                 }
             }
         }
@@ -982,7 +975,7 @@ void PlayState::refreshInteractionTargets() {
         }
     }
 
-    // --- UNIVERSAL DIPLOMATIC MEETING GROUNDS ---
+    // --- UNIFIED DIPLOMATIC MEETING GROUNDS ---
     struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; };
     std::vector<Polity> polities;
     

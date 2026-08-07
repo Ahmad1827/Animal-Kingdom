@@ -39,28 +39,16 @@ void KingdomManager::updateInfluence(SimulationRegistry& registry, KingdomData& 
     int totalPop = 0;
     int totalStructs = 0;
     
-    float minX = 999999.0f;
-    float maxX = -999999.0f;
-    
     for (VillageID vid : kingdom.controlledVillages) {
         VillageData* v = registry.getVillage(vid);
         if (v) {
-            v->territoryRadius = 2000.0f;
-
             totalPop += v->members.size();
             totalStructs += v->finishedStructures.size();
-            
-            float leftBound = v->centerX - 2000.0f;
-            float rightBound = v->centerX + 2000.0f;
-            if (leftBound < minX) minX = leftBound;
-            if (rightBound > maxX) maxX = rightBound;
         }
     }
     
-    if (minX <= maxX) {
-        kingdom.territoryMinX = minX;
-        kingdom.territoryMaxX = maxX;
-    }
+    // BORDER RECALCULATION COMPLETELY REMOVED HERE.
+    // Territory is now strictly persistent and static.
     
     kingdom.population = totalPop;
     kingdom.totalResources = kingdom.treasuryFood + kingdom.treasuryWood + kingdom.treasuryStone + kingdom.treasuryTools;
@@ -131,7 +119,13 @@ void KingdomManager::spawnDebugKingdom(SimulationRegistry& registry, VillageID c
     k.controlledVillages.push_back(capitalId);
     
     VillageData* v = registry.getVillage(capitalId);
-    if (v) v->kingdomId = k.id;
+    if (v) {
+        v->kingdomId = k.id;
+        
+        // SINGLE SOURCE OF TRUTH FOR INITIAL TERRITORY
+        k.territoryMinX = v->centerX - v->territoryRadius;
+        k.territoryMaxX = v->centerX + v->territoryRadius;
+    }
     
     ApeData* a = registry.getApe(kingId);
     if (a) a->currentKingdom = k.id;

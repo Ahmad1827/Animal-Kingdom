@@ -6,16 +6,16 @@
 #include "simulation/KingdomManager.h"
 #include "simulation/WarfareManager.h"
 #include "world/targets/BonfireInteractionTarget.hpp"
-#include <cstdlib>
-#include <ctime>
-#include <cmath>
-#include <iostream>
-#include <algorithm>
 #include "world/targets/VillageCenterInteractionTarget.hpp"
 #include "world/targets/StorageHutInteractionTarget.hpp"
 #include "world/targets/KingInteractionTarget.hpp"
 #include "world/targets/BorderTotemInteractionTarget.hpp"
 #include "world/targets/DiplomaticMeetingInteractionTarget.hpp"
+#include <cstdlib>
+#include <ctime>
+#include <cmath>
+#include <iostream>
+#include <algorithm>
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -48,13 +48,10 @@ void PlayState::init() {
         playerWrapper = std::make_unique<Ape>(pData->worldX, pData->worldY, game->getAssetManager().getTexture("playerTex"), true);
     }
     
-
-    
     worldClock->setMultiplier(30.f);
 }
 
 void PlayState::processEvents(const sf::Event& event) {
-    // Route events through the interaction manager first
     interactionManager.handleEvent(event, *cameraManager);
 
     if (event.type == sf::Event::KeyPressed) {
@@ -207,7 +204,6 @@ void PlayState::update(float dt) {
         if (current) current->alive = false;
     }
 
-    // Only allow camera zooming if not interacting
     if (!interactionManager.isInteracting()) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
@@ -247,13 +243,9 @@ void PlayState::update(float dt) {
     }
 
     if (!isTransitioning && playerWrapper) {
-        // Universal interaction framework update
         interactionManager.update(dt, playerWrapper->getPosition(), *cameraManager);
-
-        // Update player physical state
         playerWrapper->update(dt);
         
-        // Zero out horizontal velocity if stuck in an interaction menu to prevent wandering off
         if (interactionManager.isInteracting()) {
             playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
         }
@@ -284,7 +276,6 @@ void PlayState::update(float dt) {
         
         bool wasGrounded = (playerWrapper->getState() == ApeState::Grounded);
 
-        // Disallow player drop-down through branches if interacting
         if (wasGrounded && !interactionManager.isInteracting() && (sf::Keyboard::isKeyPressed(sf::Keyboard::S) || sf::Keyboard::isKeyPressed(sf::Keyboard::Down))) {
             sf::FloatRect dropCheck = playerBounds;
             dropCheck.top += playerBounds.height;
@@ -390,7 +381,6 @@ void PlayState::update(float dt) {
         
         bool touchingTrunk = worldManager->checkTrunkCollision(playerBounds, trunkCenter, trunkTop);
         
-        // Disallow climbing up trunks if interacting
         if (touchingTrunk) {
             if (!interactionManager.isInteracting() && (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) && 
                 playerWrapper->getState() != ApeState::ClimbingTrunk && 
@@ -562,7 +552,6 @@ void PlayState::update(float dt) {
         if (playerWrapper->getState() == ApeState::ClimbingVine && grabbedVine != -1) {
             climbTimer -= dt;
             if (climbTimer <= 0.f) {
-                // Ignore vine climbing controls if interacting
                 if (!interactionManager.isInteracting()) {
                     if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
                         if (grabbedSeg > 1) {
@@ -815,46 +804,52 @@ void PlayState::draw(sf::RenderWindow& window) {
             rightTotem.setOutlineThickness(2.f);
             window.draw(rightTotem);
         }
-        for (const auto& pair1 : simulationManager->getRegistry().getAllKingdoms()) {
-            const sim::KingdomData& k1 = pair1.second;
-            for (sim::KingdomID k2_id : k1.knownKingdoms) {
-                if (k1.id >= k2_id) continue; 
+
+        // --- DRAW NEUTRAL DIPLOMATIC MEETING GROUNDS ---
+        struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; };
+        std::vector<Polity> polities;
+        for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
+            if (pair.second.kingdomId == 0) {
+                polities.push_back({pair.first, false, pair.second.centerX - pair.second.territoryRadius, pair.second.centerX + pair.second.territoryRadius});
+            }
+        }
+        for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
+            if (pair.second.territoryMaxX != 0.f) {
+                polities.push_back({pair.first, true, pair.second.territoryMinX, pair.second.territoryMaxX});
+            }
+        }
+        for (size_t i = 0; i < polities.size(); ++i) {
+            for (size_t j = i + 1; j < polities.size(); ++j) {
+                const Polity& p1 = polities[i];
+                const Polity& p2 = polities[j];
                 
-                sim::KingdomData* pK2 = simulationManager->getRegistry().getKingdom(k2_id);
-                if (!pK2) continue;
-                const sim::KingdomData& k2 = *pK2;
-
-                if (k1.territoryMaxX == 0.f || k2.territoryMaxX == 0.f) continue;
-
                 float gap = 0.f;
                 float midX = 0.f;
 
-                if (k1.territoryMaxX < k2.territoryMinX) {
-                    gap = k2.territoryMinX - k1.territoryMaxX;
-                    midX = k1.territoryMaxX + (gap / 2.f);
-                } else if (k2.territoryMaxX < k1.territoryMinX) {
-                    gap = k1.territoryMinX - k2.territoryMaxX;
-                    midX = k2.territoryMaxX + (gap / 2.f);
+                if (p1.maxX < p2.minX) {
+                    gap = p2.minX - p1.maxX;
+                    midX = p1.maxX + (gap / 2.f);
+                } else if (p2.maxX < p1.minX) {
+                    gap = p1.minX - p2.maxX;
+                    midX = p2.maxX + (gap / 2.f);
                 } else {
                     gap = 0.f;
-                    float overlapStart = std::max(k1.territoryMinX, k2.territoryMinX);
-                    float overlapEnd = std::min(k1.territoryMaxX, k2.territoryMaxX);
+                    float overlapStart = std::max(p1.minX, p2.minX);
+                    float overlapEnd = std::min(p1.maxX, p2.maxX);
                     midX = overlapStart + ((overlapEnd - overlapStart) / 2.f);
                 }
 
                 if (gap >= 0.f && gap <= 4000.f) {
                     float midY = worldManager->getTerrainHeight(midX);
                     
-                    // Simple neutral stone platform
                     sf::RectangleShape stoneBase(sf::Vector2f(100.f, 15.f));
                     stoneBase.setOrigin(50.f, 15.f);
                     stoneBase.setPosition(midX, midY);
-                    stoneBase.setFillColor(sf::Color(120, 120, 130)); // Neutral Gray
+                    stoneBase.setFillColor(sf::Color(120, 120, 130));
                     stoneBase.setOutlineColor(sf::Color(40, 40, 40));
                     stoneBase.setOutlineThickness(2.f);
                     window.draw(stoneBase);
 
-                    // Two small neutral white/bone poles
                     sf::RectangleShape leftPole(sf::Vector2f(4.f, 60.f));
                     leftPole.setOrigin(2.f, 60.f);
                     leftPole.setPosition(midX - 40.f, midY - 15.f);
@@ -964,40 +959,70 @@ void PlayState::refreshInteractionTargets() {
         ));
     }
 
-    for (const auto& pair1 : simulationManager->getRegistry().getAllKingdoms()) {
-        const sim::KingdomData& k1 = pair1.second;
-        for (sim::KingdomID k2_id : k1.knownKingdoms) {
-            if (k1.id >= k2_id) continue; // Prevent duplicates (only process A->B, not B->A)
+    for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
+        const sim::KingdomData& k = pair.second;
+        
+        if (k.territoryMinX != 0.f) {
+            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+                k.id, simulationManager->getRegistry(), worldManager.get(), true
+            ));
+        }
+        if (k.territoryMaxX != 0.f) {
+            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+                k.id, simulationManager->getRegistry(), worldManager.get(), false
+            ));
+        }
+
+        if (k.currentKingId != 0) {
+            interactionManager.registerTarget(std::make_shared<KingInteractionTarget>(
+                k.currentKingId, 
+                simulationManager->getRegistry(),
+                simulationManager->getControlledApe()
+            ));
+        }
+    }
+
+    // --- UNIVERSAL DIPLOMATIC MEETING GROUNDS ---
+    struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; };
+    std::vector<Polity> polities;
+    
+    for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
+        if (pair.second.kingdomId == 0) {
+            polities.push_back({pair.first, false, pair.second.centerX - pair.second.territoryRadius, pair.second.centerX + pair.second.territoryRadius});
+        }
+    }
+    
+    for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
+        if (pair.second.territoryMaxX != 0.f) {
+            polities.push_back({pair.first, true, pair.second.territoryMinX, pair.second.territoryMaxX});
+        }
+    }
+
+    for (size_t i = 0; i < polities.size(); ++i) {
+        for (size_t j = i + 1; j < polities.size(); ++j) {
+            const Polity& p1 = polities[i];
+            const Polity& p2 = polities[j];
             
-            sim::KingdomData* pK2 = simulationManager->getRegistry().getKingdom(k2_id);
-            if (!pK2) continue;
-            const sim::KingdomData& k2 = *pK2;
-
-            // Ensure both are fully formed kingdoms with physical borders
-            if (k1.territoryMaxX == 0.f || k2.territoryMaxX == 0.f) continue;
-
             float gap = 0.f;
             float midX = 0.f;
 
-            if (k1.territoryMaxX < k2.territoryMinX) {
-                gap = k2.territoryMinX - k1.territoryMaxX;
-                midX = k1.territoryMaxX + (gap / 2.f);
-            } else if (k2.territoryMaxX < k1.territoryMinX) {
-                gap = k1.territoryMinX - k2.territoryMaxX;
-                midX = k2.territoryMaxX + (gap / 2.f);
+            if (p1.maxX < p2.minX) {
+                gap = p2.minX - p1.maxX;
+                midX = p1.maxX + (gap / 2.f);
+            } else if (p2.maxX < p1.minX) {
+                gap = p1.minX - p2.maxX;
+                midX = p2.maxX + (gap / 2.f);
             } else {
-                // Borders overlap; place at the center of the overlap
-                gap = 0.f; 
-                float overlapStart = std::max(k1.territoryMinX, k2.territoryMinX);
-                float overlapEnd = std::min(k1.territoryMaxX, k2.territoryMaxX);
+                gap = 0.f;
+                float overlapStart = std::max(p1.minX, p2.minX);
+                float overlapEnd = std::min(p1.maxX, p2.maxX);
                 midX = overlapStart + ((overlapEnd - overlapStart) / 2.f);
             }
 
-            // Only spawn if they are neighbors (gap <= 4000)
             if (gap >= 0.f && gap <= 4000.f) {
                 float midY = worldManager->getTerrainHeight(midX);
                 interactionManager.registerTarget(std::make_shared<DiplomaticMeetingInteractionTarget>(
-                    k1.id, k2.id, midX, midY, simulationManager->getRegistry(), simulationManager->getControlledApe()
+                    p1.id, p1.isKingdom, p2.id, p2.isKingdom, midX, midY, simulationManager->getRegistry(), simulationManager->getControlledApe()
                 ));
             }
         }

@@ -70,6 +70,9 @@ struct ApeData {
 
     bool alive = true;
     uint64_t birthDateTicks = 0;
+
+    bool hasTravelDestination = false;
+    float travelDestinationX = 0.0f;
 };
 
 }

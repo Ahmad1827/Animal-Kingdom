@@ -52,12 +52,29 @@ public:
 
     int getPriority() const override { return 30; }
     void onInteract() override {}
-    void onClose() override {}
+    
+    void onClose() override {
+        // If the player walks away or presses ESC, release the representative
+        if (state != MeetingState::Idle && summonedRepresentativeId != 0) {
+            sim::ApeData* rep = registry.getApe(summonedRepresentativeId);
+            if (rep) {
+                rep->hasTravelDestination = true;
+                rep->travelDestinationX = rep->homeX; // Send them physically walking back home
+            }
+        }
+        state = MeetingState::Idle;
+    }
 
     void requestAudience(sim::EntityID repId) {
         state = MeetingState::WaitingForRepresentative;
         summonedRepresentativeId = repId;
-        // Step 4 integration: Here we will inject the movement hook to the NPCManager.
+        
+        sim::ApeData* rep = registry.getApe(repId);
+        if (rep) {
+            rep->hasTravelDestination = true;
+            // Stand 50 units away from the center fire
+            rep->travelDestinationX = (rep->worldX < worldX) ? worldX - 50.f : worldX + 50.f; 
+        }
     }
 
     std::vector<InteractionMenuEntry> buildInteractionMenu() override {
@@ -92,30 +109,26 @@ public:
             }
         }
 
-        // --- STATE: IDLE ---
+        // --- STATE: IDLE (Initial Arrival) ---
         if (state == MeetingState::Idle) {
-            entries.push_back({"Target: " + targetName, nullptr});
+            entries.push_back({targetName, nullptr});
             entries.push_back({"", nullptr});
-            
-            // InteractionMenuEntry expects a std::string and a std::function<void()>
             entries.push_back({"[ Request Audience ]", [this, targetRepId]() { 
                 this->requestAudience(targetRepId); 
             }});
-            
             entries.push_back({"[ Leave ]", nullptr});
             return entries;
         }
 
-        // --- STATE: WAITING FOR ARRIVAL ---
+        // --- STATE: WAITING FOR PHYSICAL ARRIVAL ---
         if (state == MeetingState::WaitingForRepresentative) {
-            // Check if representative has physically arrived
             sim::ApeData* rep = registry.getApe(summonedRepresentativeId);
             if (rep) {
                 float dist = std::abs(rep->worldX - worldX);
-                if (dist < 150.0f) {
+                // PHYSICAL ARRIVAL DETECTION
+                if (dist <= 150.0f) {
                     state = MeetingState::MeetingActive;
-                    // Force rebuild of menu immediately upon state change
-                    return buildInteractionMenu();
+                    return buildInteractionMenu(); // Immediately refresh UI to conversation
                 }
             }
             
@@ -125,24 +138,39 @@ public:
             entries.push_back({"from " + targetName + "...", nullptr});
             entries.push_back({"", nullptr});
             entries.push_back({"[ Cancel & Leave ]", [this]() {
-                this->state = MeetingState::Idle;
+                this->onClose(); // Triggers the representative to walk back home
             }});
             return entries;
         }
 
-        // --- STATE: MEETING ACTIVE (Step 6/7 Placeholder) ---
+        // --- STATE: MEETING ACTIVE ---
         if (state == MeetingState::MeetingActive) {
             std::string repName = "Representative";
             sim::ApeData* rep = registry.getApe(summonedRepresentativeId);
             if (rep) repName = rep->name;
 
             entries.push_back({targetName, nullptr});
-            entries.push_back({repName, nullptr});
+            entries.push_back({"Representative " + repName, nullptr});
             entries.push_back({"", nullptr});
             entries.push_back({"\"Why have you summoned me?\"", nullptr});
             entries.push_back({"", nullptr});
+            
+            // Placeholder for next step (Diplomacy actions)
+            if (myIsKingdom && targetIsKingdom) {
+                sim::KingdomData* myK = registry.getKingdom(myId);
+                if (myK) {
+                    if (myK->relations[targetId] == sim::DiplomacyStatus::Neutral || myK->relations[targetId] == sim::DiplomacyStatus::Trade) {
+                        entries.push_back({"[ Declare War ]", nullptr});
+                    }
+                    if (myK->relations[targetId] == sim::DiplomacyStatus::Neutral) {
+                        entries.push_back({"[ Discuss Trade ]", nullptr});
+                    }
+                }
+            }
+
+            entries.push_back({"", nullptr});
             entries.push_back({"[ End Audience ]", [this]() {
-                this->state = MeetingState::Idle;
+                this->onClose(); // Ends conversation, unlocks player, sends rep home.
             }});
             return entries;
         }

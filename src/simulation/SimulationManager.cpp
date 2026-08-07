@@ -1,5 +1,6 @@
 #include "simulation/SimulationManager.h"
 #include "simulation/JobSystem.h"
+#include <cmath>
 
 namespace sim {
 
@@ -18,6 +19,7 @@ void SimulationManager::tick() {
     simulateAging();
     simulatePregnancies();
     simulateDiplomacy();
+    simulateAI(); // Added to the tick loop
 }
 
 void SimulationManager::simulateAging() {}
@@ -25,7 +27,27 @@ void SimulationManager::simulateHunger() {}
 void SimulationManager::simulatePregnancies() {}
 void SimulationManager::simulateResourceProduction() {}
 void SimulationManager::simulateDiplomacy() {}
-void SimulationManager::simulateAI() {}
+
+void SimulationManager::simulateAI() {
+    for (auto& pair : registry.getAllApes()) {
+        ApeData& ape = pair.second;
+        
+        // If an ape is summoned for diplomacy, override normal wandering 
+        // and physically move them through the world.
+        if (ape.alive && ape.hasTravelDestination) {
+            float dist = ape.travelDestinationX - ape.worldX;
+            
+            if (std::abs(dist) > 5.0f) {
+                // Move 6 units per tick (approx 180 units per second)
+                // NPCManager will naturally detect this movement, update the sprite position, 
+                // flip the facing direction, and play the walking animation.
+                ape.worldX += (dist > 0 ? 1.0f : -1.0f) * 6.0f; 
+            } else {
+                ape.worldX = ape.travelDestinationX;
+            }
+        }
+    }
+}
 
 void SimulationManager::pause() { isPaused = true; }
 void SimulationManager::resume() { isPaused = false; }

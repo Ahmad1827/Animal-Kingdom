@@ -19,7 +19,9 @@ void SimulationManager::tick() {
     simulateAging();
     simulatePregnancies();
     simulateDiplomacy();
-    simulateAI(); // Added to the tick loop
+    
+    // Add the physical walking override to the simulation tick
+    simulateAI(); 
 }
 
 void SimulationManager::simulateAging() {}

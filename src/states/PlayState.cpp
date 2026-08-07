@@ -204,15 +204,27 @@ void PlayState::update(float dt) {
         if (current) current->alive = false;
     }
 
-    sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-    bool isCinematicWait = (pData && pData->isWaitingForAudience);
+    sim::ApeData* pDataCheck = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    bool isCinematicWait = false;
+    if (pDataCheck && pDataCheck->isWaitingForAudience) {
+        sim::ApeData* repCheck = simulationManager->getRegistry().getApe(pDataCheck->summonedRepId);
+        if (repCheck && std::abs(repCheck->worldX - pDataCheck->meetingX) > 150.f) {
+            isCinematicWait = true;
+        }
+    }
     
     if (!interactionManager.isInteracting() && !isCinematicWait) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
         else cameraManager->setZoom(1.35f);
     } else if (isCinematicWait) {
-        cameraManager->setZoom(0.8f); // Soft, cinematic zoom on the meeting area
+        cameraManager->setZoom(0.8f); // Soft cinematic zoom on meeting area
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
+            pDataCheck->isWaitingForAudience = false;
+            sim::ApeData* rep = simulationManager->getRegistry().getApe(pDataCheck->summonedRepId);
+            if (rep) { rep->hasTravelDestination = true; rep->travelDestinationX = rep->homeX; }
+            pDataCheck->summonedRepId = 0;
+        }
     }
 
     if (!isTransitioning && playerWrapper) {
@@ -936,26 +948,28 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     if (debugOverlay && debugOverlay->getShowVillageDebug()) {
         for(auto& p : simulationManager->getRegistry().getAllVillages()) {
-            // FIX: Ensure visual bounds are 100% frozen in world space.
-            // Do NOT use territoryRadius which dynamically updates.
-            float fixedMinX = p.second.centerX - 2500.f; // Fallback frozen bound
-            float fixedMaxX = p.second.centerX + 2500.f;
+            // Read strictly from the fixed physical bounds
+            float minX = p.second.borderMinX;
+            float maxX = p.second.borderMaxX;
             
-            // Connect precisely to Kingdom physical borders if available
+            // If it belongs to a kingdom, map tightly to the kingdom's frozen borders
             if (p.second.kingdomId != 0) {
                 sim::KingdomData* kData = simulationManager->getRegistry().getKingdom(p.second.kingdomId);
                 if (kData && kData->territoryMaxX > kData->territoryMinX) {
-                    fixedMinX = kData->territoryMinX;
-                    fixedMaxX = kData->territoryMaxX;
+                    minX = kData->territoryMinX;
+                    maxX = kData->territoryMaxX;
                 }
             }
-
-            float width = fixedMaxX - fixedMinX;
-            sf::RectangleShape terr(sf::Vector2f(width, 4000.f));
-            terr.setFillColor(sf::Color(0, 255, 0, 30));
-            terr.setOrigin(0.f, 2000.f); 
-            terr.setPosition(fixedMinX, p.second.centerY);
-            window.draw(terr);
+            
+            float width = maxX - minX;
+            if (width > 0.f) {
+                // Static visual matching the authoritative borders exactly
+                sf::RectangleShape terr(sf::Vector2f(width, 4000.f));
+                terr.setFillColor(sf::Color(0, 255, 0, 30));
+                terr.setOrigin(0.f, 2000.f);
+                terr.setPosition(minX, p.second.centerY);
+                window.draw(terr);
+            }
         }
     }
 
@@ -994,34 +1008,39 @@ void PlayState::draw(sf::RenderWindow& window) {
         window.draw(transitionText);
     }
     // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
-    sim::ApeData* playerApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-    if (playerApe && playerApe->isWaitingForAudience) {
-        sim::ApeData* rep = simulationManager->getRegistry().getApe(playerApe->summonedRepId);
-        float dist = rep ? std::abs(rep->worldX - playerApe->meetingX) : 9999.f;
-        int timeEst = static_cast<int>(dist / 180.f); 
-        
-        std::string waitStr;
-        if (dist <= 150.f) {
-            waitStr = "REPRESENTATIVE ARRIVED\n\nReady for diplomacy.";
-        } else {
-            waitStr = "AWAITING ARRIVAL\n\nRepresentative arriving...\nArrival: " + std::to_string(timeEst) + "s";
+    // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
+    sim::ApeData* pDataHUD = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    bool isCinematicWait = false;
+    
+    if (pDataHUD && pDataHUD->isWaitingForAudience) {
+        sim::ApeData* rep = simulationManager->getRegistry().getApe(pDataHUD->summonedRepId);
+        if (rep && std::abs(rep->worldX - pDataHUD->meetingX) > 150.0f) {
+            isCinematicWait = true;
+            
+            // Calculate actual physical ETA based on current distance
+            int timeEst = static_cast<int>(std::abs(rep->worldX - pDataHUD->meetingX) / 180.0f);
+            std::string waitStr = "AWAITING ARRIVAL\nRepresentative is traveling here.\nETA: " + std::to_string(timeEst) + "s";
+            
+            sf::Text waitText(waitStr, cinematicFont, 32);
+            sf::FloatRect textRect = waitText.getLocalBounds();
+            waitText.setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
+            waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.15f);
+            waitText.setFillColor(sf::Color::White);
+            waitText.setOutlineColor(sf::Color::Black);
+            waitText.setOutlineThickness(2.f);
+            window.draw(waitText);
         }
-        
-        sf::Text waitText(waitStr, cinematicFont, 32);
-        sf::FloatRect textRect = waitText.getLocalBounds();
-        waitText.setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
-        waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.15f);
-        waitText.setFillColor(sf::Color::White);
-        waitText.setOutlineColor(sf::Color::Black);
-        waitText.setOutlineThickness(2.f);
-        window.draw(waitText);
     }
 
     if (lightingManager) lightingManager->drawAmbient(window);
 
     window.setView(cameraManager->getView());
 
-    interactionManager.draw(window);
+    // FIX: Suppress the giant wooden menu while physically waiting.
+    // It remains logically "open" so it immediately pops back up with diplomacy options when they arrive.
+    if (!isCinematicWait) {
+        interactionManager.draw(window);
+    }
 
     if (debugOverlay) debugOverlay->draw(window);
     

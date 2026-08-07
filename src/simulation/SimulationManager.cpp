@@ -19,16 +19,21 @@ void SimulationManager::tick() {
     simulateAging();
     simulatePregnancies();
     simulateDiplomacy();
-    
-    // --- PHYSICAL REPRESENTATIVE TRAVEL OVERRIDE ---
-    ApeData* player = registry.getApe(controlledApeID);
-    if (player && player->isWaitingForAudience && player->summonedRepId != 0) {
-        ApeData* rep = registry.getApe(player->summonedRepId);
-        if (rep) {
-            float dist = player->meetingX - rep->worldX;
-            if (std::abs(dist) > 150.f) {
-                rep->currentJob = Job::March; // Temporarily override autonomous AI
-                rep->worldX += (dist > 0 ? 1.0f : -1.0f) * 6.0f; // Walk 180 units/sec physically
+
+    // BUG #2 FIX: PHYSICAL REPRESENTATIVE TRAVEL OVERRIDE
+    // Runs after normal AI to prevent the AI from canceling the movement
+    for (auto& pair : registry.getAllApes()) {
+        ApeData& ape = pair.second;
+        if (ape.alive && ape.hasTravelDestination) {
+            ape.currentJob = Job::March; // Lock AI to walking state
+            float dist = ape.travelDestinationX - ape.worldX;
+            
+            if (std::abs(dist) > 5.0f) {
+                // Physically move 180 units per second (6 units * 30 ticks)
+                // NPCManager reads this worldX, flips the sprite, and animates it walking
+                ape.worldX += (dist > 0 ? 1.0f : -1.0f) * 6.0f; 
+            } else {
+                ape.worldX = ape.travelDestinationX;
             }
         }
     }

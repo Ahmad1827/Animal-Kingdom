@@ -15,6 +15,7 @@
 #include "world/targets/StorageHutInteractionTarget.hpp"
 #include "world/targets/KingInteractionTarget.hpp"
 #include "world/targets/BorderTotemInteractionTarget.hpp"
+#include "world/targets/DiplomaticMeetingInteractionTarget.hpp"
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -814,6 +815,64 @@ void PlayState::draw(sf::RenderWindow& window) {
             rightTotem.setOutlineThickness(2.f);
             window.draw(rightTotem);
         }
+        for (const auto& pair1 : simulationManager->getRegistry().getAllKingdoms()) {
+            const sim::KingdomData& k1 = pair1.second;
+            for (sim::KingdomID k2_id : k1.knownKingdoms) {
+                if (k1.id >= k2_id) continue; 
+                
+                sim::KingdomData* pK2 = simulationManager->getRegistry().getKingdom(k2_id);
+                if (!pK2) continue;
+                const sim::KingdomData& k2 = *pK2;
+
+                if (k1.territoryMaxX == 0.f || k2.territoryMaxX == 0.f) continue;
+
+                float gap = 0.f;
+                float midX = 0.f;
+
+                if (k1.territoryMaxX < k2.territoryMinX) {
+                    gap = k2.territoryMinX - k1.territoryMaxX;
+                    midX = k1.territoryMaxX + (gap / 2.f);
+                } else if (k2.territoryMaxX < k1.territoryMinX) {
+                    gap = k1.territoryMinX - k2.territoryMaxX;
+                    midX = k2.territoryMaxX + (gap / 2.f);
+                } else {
+                    gap = 0.f;
+                    float overlapStart = std::max(k1.territoryMinX, k2.territoryMinX);
+                    float overlapEnd = std::min(k1.territoryMaxX, k2.territoryMaxX);
+                    midX = overlapStart + ((overlapEnd - overlapStart) / 2.f);
+                }
+
+                if (gap >= 0.f && gap <= 4000.f) {
+                    float midY = worldManager->getTerrainHeight(midX);
+                    
+                    // Simple neutral stone platform
+                    sf::RectangleShape stoneBase(sf::Vector2f(100.f, 15.f));
+                    stoneBase.setOrigin(50.f, 15.f);
+                    stoneBase.setPosition(midX, midY);
+                    stoneBase.setFillColor(sf::Color(120, 120, 130)); // Neutral Gray
+                    stoneBase.setOutlineColor(sf::Color(40, 40, 40));
+                    stoneBase.setOutlineThickness(2.f);
+                    window.draw(stoneBase);
+
+                    // Two small neutral white/bone poles
+                    sf::RectangleShape leftPole(sf::Vector2f(4.f, 60.f));
+                    leftPole.setOrigin(2.f, 60.f);
+                    leftPole.setPosition(midX - 40.f, midY - 15.f);
+                    leftPole.setFillColor(sf::Color(220, 220, 200));
+                    leftPole.setOutlineColor(sf::Color::Black);
+                    leftPole.setOutlineThickness(1.f);
+                    window.draw(leftPole);
+
+                    sf::RectangleShape rightPole(sf::Vector2f(4.f, 60.f));
+                    rightPole.setOrigin(2.f, 60.f);
+                    rightPole.setPosition(midX + 40.f, midY - 15.f);
+                    rightPole.setFillColor(sf::Color(220, 220, 200));
+                    rightPole.setOutlineColor(sf::Color::Black);
+                    rightPole.setOutlineThickness(1.f);
+                    window.draw(rightPole);
+                }
+            }
+        }
 
         if (particleSystem) particleSystem->draw(window);
 
@@ -905,23 +964,42 @@ void PlayState::refreshInteractionTargets() {
         ));
     }
 
-    for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
-        const sim::KingdomData& k = pair.second;
-        
-        interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-            k.id, simulationManager->getRegistry(), worldManager.get(), true
-        ));
-        
-        interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-            k.id, simulationManager->getRegistry(), worldManager.get(), false
-        ));
+    for (const auto& pair1 : simulationManager->getRegistry().getAllKingdoms()) {
+        const sim::KingdomData& k1 = pair1.second;
+        for (sim::KingdomID k2_id : k1.knownKingdoms) {
+            if (k1.id >= k2_id) continue; // Prevent duplicates (only process A->B, not B->A)
+            
+            sim::KingdomData* pK2 = simulationManager->getRegistry().getKingdom(k2_id);
+            if (!pK2) continue;
+            const sim::KingdomData& k2 = *pK2;
 
-        if (k.currentKingId != 0) {
-            interactionManager.registerTarget(std::make_shared<KingInteractionTarget>(
-                k.currentKingId, 
-                simulationManager->getRegistry(),
-                simulationManager->getControlledApe()
-            ));
+            // Ensure both are fully formed kingdoms with physical borders
+            if (k1.territoryMaxX == 0.f || k2.territoryMaxX == 0.f) continue;
+
+            float gap = 0.f;
+            float midX = 0.f;
+
+            if (k1.territoryMaxX < k2.territoryMinX) {
+                gap = k2.territoryMinX - k1.territoryMaxX;
+                midX = k1.territoryMaxX + (gap / 2.f);
+            } else if (k2.territoryMaxX < k1.territoryMinX) {
+                gap = k1.territoryMinX - k2.territoryMaxX;
+                midX = k2.territoryMaxX + (gap / 2.f);
+            } else {
+                // Borders overlap; place at the center of the overlap
+                gap = 0.f; 
+                float overlapStart = std::max(k1.territoryMinX, k2.territoryMinX);
+                float overlapEnd = std::min(k1.territoryMaxX, k2.territoryMaxX);
+                midX = overlapStart + ((overlapEnd - overlapStart) / 2.f);
+            }
+
+            // Only spawn if they are neighbors (gap <= 4000)
+            if (gap >= 0.f && gap <= 4000.f) {
+                float midY = worldManager->getTerrainHeight(midX);
+                interactionManager.registerTarget(std::make_shared<DiplomaticMeetingInteractionTarget>(
+                    k1.id, k2.id, midX, midY, simulationManager->getRegistry(), simulationManager->getControlledApe()
+                ));
+            }
         }
     }
 }

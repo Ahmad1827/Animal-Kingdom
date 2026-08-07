@@ -32,6 +32,8 @@ struct VillageData {
     float centerY;
     float territoryRadius = 1500.0f;
 
+    float borderMinX = 0.f;
+    float borderMaxX = 0.f;
     int food = 0;
     int wood = 0;
     int stone = 0;

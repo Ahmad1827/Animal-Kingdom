@@ -80,6 +80,10 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.food = 50; pVillage.wood = 20; pVillage.stone = 5;
     pVillage.toolsAxe = 1; pVillage.toolsPick = 0; pVillage.toolsSpear = 0; pVillage.toolsTorch = 0;
     pVillage.territoryRadius = 3000.0f;
+    
+    // FREEZE PHYSICAL BORDERS AT CREATION
+    pVillage.borderMinX = pVillage.centerX - pVillage.territoryRadius;
+    pVillage.borderMaxX = pVillage.centerX + pVillage.territoryRadius;
 
     // Initial Storage Hut
     StructureData s;
@@ -152,6 +156,10 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         village.food = 30; village.wood = 10; village.stone = 5;
         village.toolsAxe = 0; village.toolsPick = 0; village.toolsSpear = 0; village.toolsTorch = 0;
         village.territoryRadius = 2500.f;
+
+        // FREEZE PHYSICAL BORDERS AT CREATION
+        village.borderMinX = village.centerX - village.territoryRadius;
+        village.borderMaxX = village.centerX + village.territoryRadius;
 
         StructureData s;
         s.id = IDGenerator::generateStructureID();

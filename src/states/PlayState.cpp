@@ -509,7 +509,8 @@ void PlayState::update(float dt) {
 
         for (auto& pair : simulationManager->getRegistry().getAllVillages()) {
             sim::VillageData& v = pair.second;
-            if (playerX >= v.centerX - v.territoryRadius && playerX <= v.centerX + v.territoryRadius) {
+            // CHECK AGAINST STATIC BOUNDARIES
+            if (playerX >= v.borderMinX && playerX <= v.borderMaxX) {
                 foundKingdomId = v.kingdomId;
                 foundKingdomName = v.name; 
                 break;
@@ -810,7 +811,8 @@ void PlayState::draw(sf::RenderWindow& window) {
         std::vector<Polity> polities;
         for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
             if (pair.second.kingdomId == 0) {
-                polities.push_back({pair.first, false, pair.second.centerX - pair.second.territoryRadius, pair.second.centerX + pair.second.territoryRadius});
+                // MEETING POINT NOW RELIES EXCLUSIVELY ON STATIC BORDERS
+                polities.push_back({pair.first, false, pair.second.borderMinX, pair.second.borderMaxX});
             }
         }
         for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
@@ -842,22 +844,73 @@ void PlayState::draw(sf::RenderWindow& window) {
                 if (gap >= 0.f && gap <= 4000.f) {
                     float midY = worldManager->getTerrainHeight(midX);
                     
-                    // Large obvious visual marker so you cannot miss it
-                    sf::RectangleShape monolith(sf::Vector2f(20.f, 160.f));
-                    monolith.setOrigin(10.f, 160.f);
-                    monolith.setPosition(midX, midY);
-                    monolith.setFillColor(sf::Color(80, 80, 90));
-                    monolith.setOutlineColor(sf::Color::Black);
-                    monolith.setOutlineThickness(2.f);
-                    window.draw(monolith);
+                    sf::Color color1 = sf::Color(40, 140, 40); // Default Tribal Green
+                    if (p1.isKingdom) {
+                        sim::KingdomData* k1 = simulationManager->getRegistry().getKingdom(p1.id);
+                        if (k1) color1 = k1->color;
+                    }
+                    
+                    sf::Color color2 = sf::Color(40, 140, 40); // Default Tribal Green
+                    if (p2.isKingdom) {
+                        sim::KingdomData* k2 = simulationManager->getRegistry().getKingdom(p2.id);
+                        if (k2) color2 = k2->color;
+                    }
+                    
+                    // Central Stone Fire Pit
+                    sf::RectangleShape firePit(sf::Vector2f(60.f, 15.f));
+                    firePit.setOrigin(30.f, 15.f);
+                    firePit.setPosition(midX, midY);
+                    firePit.setFillColor(sf::Color(100, 100, 100));
+                    firePit.setOutlineColor(sf::Color::Black);
+                    firePit.setOutlineThickness(2.f);
+                    window.draw(firePit);
+                    
+                    // Fire (Primitive triangles)
+                    sf::ConvexShape flameOuter(3);
+                    flameOuter.setPoint(0, sf::Vector2f(0.f, -30.f));
+                    flameOuter.setPoint(1, sf::Vector2f(15.f, 0.f));
+                    flameOuter.setPoint(2, sf::Vector2f(-15.f, 0.f));
+                    flameOuter.setPosition(midX, midY - 15.f);
+                    flameOuter.setFillColor(sf::Color(220, 80, 20));
+                    window.draw(flameOuter);
+                    
+                    sf::ConvexShape flameInner(3);
+                    flameInner.setPoint(0, sf::Vector2f(0.f, -15.f));
+                    flameInner.setPoint(1, sf::Vector2f(8.f, 0.f));
+                    flameInner.setPoint(2, sf::Vector2f(-8.f, 0.f));
+                    flameInner.setPosition(midX, midY - 15.f);
+                    flameInner.setFillColor(sf::Color(240, 200, 40));
+                    window.draw(flameInner);
 
-                    sf::RectangleShape peaceBanner(sf::Vector2f(40.f, 60.f));
-                    peaceBanner.setOrigin(20.f, 0.f);
-                    peaceBanner.setPosition(midX, midY - 150.f);
-                    peaceBanner.setFillColor(sf::Color(220, 220, 230));
-                    peaceBanner.setOutlineColor(sf::Color::Black);
-                    peaceBanner.setOutlineThickness(1.f);
-                    window.draw(peaceBanner);
+                    // Left Banner (Entity 1)
+                    sf::RectangleShape leftPole(sf::Vector2f(4.f, 80.f));
+                    leftPole.setOrigin(2.f, 80.f);
+                    leftPole.setPosition(midX - 60.f, midY);
+                    leftPole.setFillColor(sf::Color(90, 60, 40));
+                    window.draw(leftPole);
+                    
+                    sf::RectangleShape leftFlag(sf::Vector2f(30.f, 40.f));
+                    leftFlag.setOrigin(30.f, 0.f); // Hangs towards the fire
+                    leftFlag.setPosition(midX - 60.f, midY - 75.f);
+                    leftFlag.setFillColor(color1);
+                    leftFlag.setOutlineColor(sf::Color::Black);
+                    leftFlag.setOutlineThickness(1.f);
+                    window.draw(leftFlag);
+
+                    // Right Banner (Entity 2)
+                    sf::RectangleShape rightPole(sf::Vector2f(4.f, 80.f));
+                    rightPole.setOrigin(2.f, 80.f);
+                    rightPole.setPosition(midX + 60.f, midY);
+                    rightPole.setFillColor(sf::Color(90, 60, 40));
+                    window.draw(rightPole);
+
+                    sf::RectangleShape rightFlag(sf::Vector2f(30.f, 40.f));
+                    rightFlag.setOrigin(0.f, 0.f); // Hangs towards the fire
+                    rightFlag.setPosition(midX + 60.f, midY - 75.f);
+                    rightFlag.setFillColor(color2);
+                    rightFlag.setOutlineColor(sf::Color::Black);
+                    rightFlag.setOutlineThickness(1.f);
+                    window.draw(rightFlag);
                 }
             }
         }
@@ -981,7 +1034,8 @@ void PlayState::refreshInteractionTargets() {
     
     for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
         if (pair.second.kingdomId == 0) {
-            polities.push_back({pair.first, false, pair.second.centerX - pair.second.territoryRadius, pair.second.centerX + pair.second.territoryRadius});
+            // INTERACTION TARGET NOW RELIES EXCLUSIVELY ON STATIC BORDERS
+            polities.push_back({pair.first, false, pair.second.borderMinX, pair.second.borderMaxX});
         }
     }
     

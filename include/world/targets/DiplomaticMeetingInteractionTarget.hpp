@@ -5,6 +5,12 @@
 #include <vector>
 #include <cmath>
 
+enum class MeetingState {
+    Idle,
+    WaitingForRepresentative,
+    MeetingActive
+};
+
 class DiplomaticMeetingInteractionTarget : public InteractionTarget {
 private:
     sim::EntityID entityA_Id;
@@ -17,9 +23,12 @@ private:
     sim::SimulationRegistry& registry;
     sim::EntityID playerApeId;
 
+    MeetingState state;
+    sim::EntityID summonedRepresentativeId;
+
 public:
     DiplomaticMeetingInteractionTarget(sim::EntityID idA, bool kA, sim::EntityID idB, bool kB, float x, float y, sim::SimulationRegistry& reg, sim::EntityID pId)
-        : entityA_Id(idA), isKingdomA(kA), entityB_Id(idB), isKingdomB(kB), worldX(x), worldY(y), registry(reg), playerApeId(pId) {}
+        : entityA_Id(idA), isKingdomA(kA), entityB_Id(idB), isKingdomB(kB), worldX(x), worldY(y), registry(reg), playerApeId(pId), state(MeetingState::Idle), summonedRepresentativeId(0) {}
 
     std::string getInteractionType() const override { return "Diplomacy"; }
     
@@ -45,6 +54,12 @@ public:
     void onInteract() override {}
     void onClose() override {}
 
+    void requestAudience(sim::EntityID repId) {
+        state = MeetingState::WaitingForRepresentative;
+        summonedRepresentativeId = repId;
+        // Step 4 integration: Here we will inject the movement hook to the NPCManager.
+    }
+
     std::vector<InteractionMenuEntry> buildInteractionMenu() override {
         std::vector<InteractionMenuEntry> entries;
         sim::ApeData* player = registry.getApe(playerApeId);
@@ -57,15 +72,6 @@ public:
 
         sim::EntityID targetId = belongsToA ? entityB_Id : entityA_Id;
         bool targetIsKingdom = belongsToA ? isKingdomB : isKingdomA;
-
-        std::string myName = "Unknown";
-        if (myIsKingdom) {
-            sim::KingdomData* k = registry.getKingdom(myId);
-            if (k) myName = k->name;
-        } else {
-            sim::VillageData* v = registry.getVillage(myId);
-            if (v) myName = v->name;
-        }
 
         std::string targetName = "Unknown";
         sim::EntityID targetRepId = 0;
@@ -86,41 +92,61 @@ public:
             }
         }
 
-        entries.push_back({myName + " <-> " + targetName, nullptr});
-        entries.push_back({"", nullptr});
-
-        sim::ApeData* rep = registry.getApe(targetRepId);
-        bool repIsPresent = false;
-        
-        if (rep) {
-            float dist = std::abs(rep->worldX - worldX);
-            if (dist < 400.0f) {
-                repIsPresent = true;
-            }
+        // --- STATE: IDLE ---
+        if (state == MeetingState::Idle) {
+            entries.push_back({"Target: " + targetName, nullptr});
+            entries.push_back({"", nullptr});
+            
+            // InteractionMenuEntry expects a std::string and a std::function<void()>
+            entries.push_back({"[ Request Audience ]", [this, targetRepId]() { 
+                this->requestAudience(targetRepId); 
+            }});
+            
+            entries.push_back({"[ Leave ]", nullptr});
+            return entries;
         }
 
-        if (!repIsPresent) {
-            entries.push_back({"[ Request Audience ]", nullptr});
-            entries.push_back({"Representative is not present.", nullptr});
-        } else {
-            entries.push_back({"Representative Present", nullptr});
-            
-            if (myIsKingdom && targetIsKingdom) {
-                sim::KingdomData* myK = registry.getKingdom(myId);
-                if (myK) {
-                    if (myK->relations[targetId] == sim::DiplomacyStatus::Neutral || myK->relations[targetId] == sim::DiplomacyStatus::Trade) {
-                        entries.push_back({"[ Declare War ]", nullptr});
-                    }
-                    if (myK->relations[targetId] == sim::DiplomacyStatus::Neutral) {
-                        entries.push_back({"[ Discuss Trade ]", nullptr});
-                    }
+        // --- STATE: WAITING FOR ARRIVAL ---
+        if (state == MeetingState::WaitingForRepresentative) {
+            // Check if representative has physically arrived
+            sim::ApeData* rep = registry.getApe(summonedRepresentativeId);
+            if (rep) {
+                float dist = std::abs(rep->worldX - worldX);
+                if (dist < 150.0f) {
+                    state = MeetingState::MeetingActive;
+                    // Force rebuild of menu immediately upon state change
+                    return buildInteractionMenu();
                 }
             }
+            
+            entries.push_back({"Requesting an audience...", nullptr});
+            entries.push_back({"", nullptr});
+            entries.push_back({"Awaiting the representative", nullptr});
+            entries.push_back({"from " + targetName + "...", nullptr});
+            entries.push_back({"", nullptr});
+            entries.push_back({"[ Cancel & Leave ]", [this]() {
+                this->state = MeetingState::Idle;
+            }});
+            return entries;
         }
-        
-        entries.push_back({"", nullptr});
-        entries.push_back({"[ Leave ]", nullptr});
-        
+
+        // --- STATE: MEETING ACTIVE (Step 6/7 Placeholder) ---
+        if (state == MeetingState::MeetingActive) {
+            std::string repName = "Representative";
+            sim::ApeData* rep = registry.getApe(summonedRepresentativeId);
+            if (rep) repName = rep->name;
+
+            entries.push_back({targetName, nullptr});
+            entries.push_back({repName, nullptr});
+            entries.push_back({"", nullptr});
+            entries.push_back({"\"Why have you summoned me?\"", nullptr});
+            entries.push_back({"", nullptr});
+            entries.push_back({"[ End Audience ]", [this]() {
+                this->state = MeetingState::Idle;
+            }});
+            return entries;
+        }
+
         return entries;
     }
 };

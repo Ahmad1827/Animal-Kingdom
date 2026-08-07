@@ -278,8 +278,8 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
     for (auto& pair : registry.getAllVillages()) {
         sim::VillageData& v = pair.second;
         
-        float leftEdge = v.centerX - v.territoryRadius;
-        float rightEdge = v.centerX + v.territoryRadius;
+        float leftEdge = v.borderMinX;
+        float rightEdge = v.borderMaxX;
         
         sf::Color kingdomColor = sf::Color(200, 50, 50); 
         if (v.kingdomId % 3 == 1) kingdomColor = sf::Color(50, 100, 200);

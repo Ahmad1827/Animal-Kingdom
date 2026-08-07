@@ -791,31 +791,31 @@ void PlayState::draw(sf::RenderWindow& window) {
             }
         }
 
-        worldManager->drawTerritoryMarkers(window, simulationManager->getRegistry(), cameraManager->getViewBounds());
-        
         worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
+        
         for(auto& p : simulationManager->getRegistry().getAllKingdoms()) {
             if (p.second.territoryMinX != 0.f) {
                 float yLeft = worldManager->getTerrainHeight(p.second.territoryMinX);
-                sf::RectangleShape leftTotem(sf::Vector2f(12.f, 100.f));
-                leftTotem.setOrigin(6.f, 100.f);
+                sf::RectangleShape leftTotem(sf::Vector2f(16.f, 150.f));
+                leftTotem.setOrigin(8.f, 150.f);
                 leftTotem.setPosition(p.second.territoryMinX, yLeft);
-                leftTotem.setFillColor(sf::Color(70, 45, 25));
-                leftTotem.setOutlineColor(sf::Color(30, 15, 5));
+                leftTotem.setFillColor(sf::Color(60, 40, 20));
+                leftTotem.setOutlineColor(sf::Color::Black);
                 leftTotem.setOutlineThickness(2.f);
                 window.draw(leftTotem);
             }
             if (p.second.territoryMaxX != 0.f) {
                 float yRight = worldManager->getTerrainHeight(p.second.territoryMaxX);
-                sf::RectangleShape rightTotem(sf::Vector2f(12.f, 100.f));
-                rightTotem.setOrigin(6.f, 100.f);
+                sf::RectangleShape rightTotem(sf::Vector2f(16.f, 150.f));
+                rightTotem.setOrigin(8.f, 150.f);
                 rightTotem.setPosition(p.second.territoryMaxX, yRight);
-                rightTotem.setFillColor(sf::Color(70, 45, 25));
-                rightTotem.setOutlineColor(sf::Color(30, 15, 5));
+                rightTotem.setFillColor(sf::Color(60, 40, 20));
+                rightTotem.setOutlineColor(sf::Color::Black);
                 rightTotem.setOutlineThickness(2.f);
                 window.draw(rightTotem);
             }
         }
+
         if (particleSystem) particleSystem->draw(window);
 
         if (debugOverlay) {
@@ -909,16 +909,13 @@ void PlayState::refreshInteractionTargets() {
     for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
         const sim::KingdomData& k = pair.second;
         
-        if (k.territoryMinX != 0.f) {
-            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-                k.id, simulationManager->getRegistry(), worldManager.get(), true
-            ));
-        }
-        if (k.territoryMaxX != 0.f) {
-            interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-                k.id, simulationManager->getRegistry(), worldManager.get(), false
-            ));
-        }
+        interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+            k.id, simulationManager->getRegistry(), worldManager.get(), true
+        ));
+        
+        interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+            k.id, simulationManager->getRegistry(), worldManager.get(), false
+        ));
 
         if (k.currentKingId != 0) {
             interactionManager.registerTarget(std::make_shared<KingInteractionTarget>(

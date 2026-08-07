@@ -45,11 +45,13 @@ void KingdomManager::updateInfluence(SimulationRegistry& registry, KingdomData& 
     for (VillageID vid : kingdom.controlledVillages) {
         VillageData* v = registry.getVillage(vid);
         if (v) {
+            v->territoryRadius = 2000.0f;
+
             totalPop += v->members.size();
             totalStructs += v->finishedStructures.size();
             
-            float leftBound = v->centerX - v->territoryRadius;
-            float rightBound = v->centerX + v->territoryRadius;
+            float leftBound = v->centerX - 2000.0f;
+            float rightBound = v->centerX + 2000.0f;
             if (leftBound < minX) minX = leftBound;
             if (rightBound > maxX) maxX = rightBound;
         }
@@ -133,6 +135,8 @@ void KingdomManager::spawnDebugKingdom(SimulationRegistry& registry, VillageID c
     
     ApeData* a = registry.getApe(kingId);
     if (a) a->currentKingdom = k.id;
+
+    updateInfluence(registry, k);
 
     registry.registerKingdom(k);
     

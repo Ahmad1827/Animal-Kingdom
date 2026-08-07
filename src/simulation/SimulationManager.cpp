@@ -20,8 +20,18 @@ void SimulationManager::tick() {
     simulatePregnancies();
     simulateDiplomacy();
     
-    // Add the physical walking override to the simulation tick
-    simulateAI(); 
+    // --- PHYSICAL REPRESENTATIVE TRAVEL OVERRIDE ---
+    ApeData* player = registry.getApe(controlledApeID);
+    if (player && player->isWaitingForAudience && player->summonedRepId != 0) {
+        ApeData* rep = registry.getApe(player->summonedRepId);
+        if (rep) {
+            float dist = player->meetingX - rep->worldX;
+            if (std::abs(dist) > 150.f) {
+                rep->currentJob = Job::March; // Temporarily override autonomous AI
+                rep->worldX += (dist > 0 ? 1.0f : -1.0f) * 6.0f; // Walk 180 units/sec physically
+            }
+        }
+    }
 }
 
 void SimulationManager::simulateAging() {}

@@ -57,6 +57,14 @@ public:
         sim::ApeData* player = registry.getApe(playerApeId);
         if (!player) return false;
         
+        // Hide the [E] prompt and auto-close the wooden menu during the physical waiting phase
+        if (player->isWaitingForAudience) {
+            sim::ApeData* rep = registry.getApe(player->summonedRepId);
+            if (!rep || std::abs(rep->worldX - player->meetingX) > 150.f) {
+                return false; 
+            }
+        }
+        
         bool belongsToA = (isKingdomA && player->currentKingdom == entityA_Id) || (!isKingdomA && player->villageId == entityA_Id && player->currentKingdom == 0);
         bool belongsToB = (isKingdomB && player->currentKingdom == entityB_Id) || (!isKingdomB && player->villageId == entityB_Id && player->currentKingdom == 0);
         
@@ -101,85 +109,65 @@ public:
 
     std::vector<InteractionMenuEntry> buildInteractionMenu() override {
         std::vector<InteractionMenuEntry> entries;
-        
-        if (state == MeetingState::Idle) {
-            // Because onInteract() instantly shifts the state to Waiting, this should never realistically draw.
-            return entries; 
-        }
-
         sim::ApeData* player = registry.getApe(playerApeId);
         if (!player) return entries;
 
         bool belongsToA = (isKingdomA && player->currentKingdom == entityA_Id) || (!isKingdomA && player->villageId == entityA_Id && player->currentKingdom == 0);
-        sim::EntityID myId = belongsToA ? entityA_Id : entityB_Id;
-        bool myIsKingdom = belongsToA ? isKingdomA : isKingdomB;
         sim::EntityID targetId = belongsToA ? entityB_Id : entityA_Id;
         bool targetIsKingdom = belongsToA ? isKingdomB : isKingdomA;
 
         std::string targetName = "Unknown Entity";
+        sim::EntityID targetRepId = 0;
+        
         if (targetIsKingdom) {
             sim::KingdomData* k = registry.getKingdom(targetId);
-            if (k) targetName = "Kingdom of " + k->name;
+            if (k) { targetName = "Kingdom of " + k->name; targetRepId = k->currentKingId; }
         } else {
             sim::VillageData* v = registry.getVillage(targetId);
-            if (v) targetName = "Village of " + v->name;
-        }
-
-        // --- STATE: WAITING FOR PHYSICAL ARRIVAL ---
-        if (state == MeetingState::WaitingForRepresentative) {
-            sim::ApeData* rep = registry.getApe(summonedRepresentativeId);
-            if (rep) {
-                float dist = std::abs(rep->worldX - worldX);
-                // PHYSICAL ARRIVAL DETECTION
-                if (dist <= 150.0f) {
-                    state = MeetingState::MeetingActive;
-                    return buildInteractionMenu(); // Refresh immediately to show conversation
-                }
+            if (v) { 
+                targetName = "Village of " + v->name; 
+                if (!v->members.empty()) targetRepId = v->members[0]; 
             }
-            
-            entries.push_back({"Requesting an audience...", nullptr});
-            entries.push_back({"", nullptr});
-            entries.push_back({"Awaiting the representative", nullptr});
-            entries.push_back({"from " + targetName + "...", nullptr});
-            entries.push_back({"", nullptr});
-            entries.push_back({"[ Cancel & Leave ]", [this]() {
-                this->onClose(); 
-            }});
-            return entries;
         }
 
-        // --- STATE: MEETING ACTIVE ---
-        if (state == MeetingState::MeetingActive) {
-            std::string repName = "Representative";
-            sim::ApeData* rep = registry.getApe(summonedRepresentativeId);
-            if (rep) repName = rep->name;
-
-            entries.push_back({targetName, nullptr});
-            entries.push_back({"Representative " + repName, nullptr});
-            entries.push_back({"", nullptr});
-            entries.push_back({"\"Why have you summoned me?\"", nullptr});
-            entries.push_back({"", nullptr});
-            
-            // Actions placeholders for next steps
-            if (myIsKingdom && targetIsKingdom) {
-                sim::KingdomData* myK = registry.getKingdom(myId);
-                if (myK) {
-                    if (myK->relations[targetId] == sim::DiplomacyStatus::Neutral || myK->relations[targetId] == sim::DiplomacyStatus::Trade) {
-                        entries.push_back({"[ Declare War ]", nullptr});
-                    }
-                    if (myK->relations[targetId] == sim::DiplomacyStatus::Neutral) {
-                        entries.push_back({"[ Discuss Trade ]", nullptr});
-                    }
-                }
+        // --- STATE: REPRESENTATIVE HAS ARRIVED ---
+        if (player->isWaitingForAudience) {
+            sim::ApeData* rep = registry.getApe(player->summonedRepId);
+            if (rep && std::abs(rep->worldX - player->meetingX) <= 150.f) {
+                entries.push_back({targetName, nullptr});
+                entries.push_back({"Representative " + rep->name, nullptr});
+                entries.push_back({"", nullptr});
+                entries.push_back({"\"Why have you summoned me?\"", nullptr});
+                entries.push_back({"", nullptr});
+                entries.push_back({"[ Propose Peace ]", nullptr});
+                entries.push_back({"[ Discuss Trade ]", nullptr});
+                entries.push_back({"[ Declare War ]", nullptr});
+                entries.push_back({"", nullptr});
+                entries.push_back({"[ End Audience ]", [player]() {
+                    // Release the representative back to autonomous AI
+                    player->isWaitingForAudience = false;
+                    player->summonedRepId = 0;
+                }});
+                return entries;
             }
-
-            entries.push_back({"", nullptr});
-            entries.push_back({"[ End Audience ]", [this]() {
-                this->onClose(); 
-            }});
-            return entries;
         }
 
+        // --- STATE: IDLE / INITIAL APPROACH ---
+        entries.push_back({"Target: " + targetName, nullptr});
+        entries.push_back({"", nullptr});
+        
+        if (targetRepId != 0) {
+            entries.push_back({"[ Request Audience ]", [this, player, targetRepId]() {
+                // Requesting triggers the cinematic state and forces canInteract() to false, closing the menu.
+                player->isWaitingForAudience = true;
+                player->summonedRepId = targetRepId;
+                player->meetingX = this->worldX;
+            }});
+        } else {
+            entries.push_back({"No representative available.", nullptr});
+        }
+        
+        entries.push_back({"[ Leave ]", nullptr});
         return entries;
     }
 };

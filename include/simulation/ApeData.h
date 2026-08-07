@@ -73,6 +73,10 @@ struct ApeData {
 
     bool hasTravelDestination = false;
     float travelDestinationX = 0.0f;
+    
+    bool isWaitingForAudience = false;
+    EntityID summonedRepId = 0;
+    float meetingX = 0.0f;
 };
 
 }

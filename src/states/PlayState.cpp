@@ -204,10 +204,15 @@ void PlayState::update(float dt) {
         if (current) current->alive = false;
     }
 
-    if (!interactionManager.isInteracting()) {
+    sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    bool isCinematicWait = (pData && pData->isWaitingForAudience);
+    
+    if (!interactionManager.isInteracting() && !isCinematicWait) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
         else cameraManager->setZoom(1.35f);
+    } else if (isCinematicWait) {
+        cameraManager->setZoom(0.8f); // Soft, cinematic zoom on the meeting area
     }
 
     if (!isTransitioning && playerWrapper) {
@@ -931,10 +936,25 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     if (debugOverlay && debugOverlay->getShowVillageDebug()) {
         for(auto& p : simulationManager->getRegistry().getAllVillages()) {
-            sf::CircleShape terr(p.second.territoryRadius);
+            // FIX: Ensure visual bounds are 100% frozen in world space.
+            // Do NOT use territoryRadius which dynamically updates.
+            float fixedMinX = p.second.centerX - 2500.f; // Fallback frozen bound
+            float fixedMaxX = p.second.centerX + 2500.f;
+            
+            // Connect precisely to Kingdom physical borders if available
+            if (p.second.kingdomId != 0) {
+                sim::KingdomData* kData = simulationManager->getRegistry().getKingdom(p.second.kingdomId);
+                if (kData && kData->territoryMaxX > kData->territoryMinX) {
+                    fixedMinX = kData->territoryMinX;
+                    fixedMaxX = kData->territoryMaxX;
+                }
+            }
+
+            float width = fixedMaxX - fixedMinX;
+            sf::RectangleShape terr(sf::Vector2f(width, 4000.f));
             terr.setFillColor(sf::Color(0, 255, 0, 30));
-            terr.setOrigin(p.second.territoryRadius, p.second.territoryRadius);
-            terr.setPosition(p.second.centerX, p.second.centerY);
+            terr.setOrigin(0.f, 2000.f); 
+            terr.setPosition(fixedMinX, p.second.centerY);
             window.draw(terr);
         }
     }
@@ -972,6 +992,29 @@ void PlayState::draw(sf::RenderWindow& window) {
         transitionText.setOutlineThickness(2.f);
 
         window.draw(transitionText);
+    }
+    // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
+    sim::ApeData* playerApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    if (playerApe && playerApe->isWaitingForAudience) {
+        sim::ApeData* rep = simulationManager->getRegistry().getApe(playerApe->summonedRepId);
+        float dist = rep ? std::abs(rep->worldX - playerApe->meetingX) : 9999.f;
+        int timeEst = static_cast<int>(dist / 180.f); 
+        
+        std::string waitStr;
+        if (dist <= 150.f) {
+            waitStr = "REPRESENTATIVE ARRIVED\n\nReady for diplomacy.";
+        } else {
+            waitStr = "AWAITING ARRIVAL\n\nRepresentative arriving...\nArrival: " + std::to_string(timeEst) + "s";
+        }
+        
+        sf::Text waitText(waitStr, cinematicFont, 32);
+        sf::FloatRect textRect = waitText.getLocalBounds();
+        waitText.setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
+        waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.15f);
+        waitText.setFillColor(sf::Color::White);
+        waitText.setOutlineColor(sf::Color::Black);
+        waitText.setOutlineThickness(2.f);
+        window.draw(waitText);
     }
 
     if (lightingManager) lightingManager->drawAmbient(window);

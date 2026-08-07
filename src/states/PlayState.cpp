@@ -889,7 +889,6 @@ void PlayState::draw(sf::RenderWindow& window) {
 void PlayState::refreshInteractionTargets() {
     interactionManager.clearTargets();
 
-    // Register Villages
     for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
         const sim::VillageData& v = pair.second;
         float groundHeight = worldManager->getTerrainHeight(v.centerX);
@@ -907,7 +906,6 @@ void PlayState::refreshInteractionTargets() {
         ));
     }
 
-    // Register Kingdoms
     for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
         const sim::KingdomData& k = pair.second;
         
@@ -924,7 +922,9 @@ void PlayState::refreshInteractionTargets() {
 
         if (k.currentKingId != 0) {
             interactionManager.registerTarget(std::make_shared<KingInteractionTarget>(
-                k.currentKingId, simulationManager->getRegistry()
+                k.currentKingId, 
+                simulationManager->getRegistry(),
+                simulationManager->getControlledApe()
             ));
         }
     }

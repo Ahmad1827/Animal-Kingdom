@@ -1025,8 +1025,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         window.draw(transitionText);
     }
     // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
-    // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
-    // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
     sim::ApeData* pDataHUD = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     bool isCinematicWait = false;
     
@@ -1036,30 +1034,29 @@ void PlayState::draw(sf::RenderWindow& window) {
             float dist = std::abs(rep->worldX - pDataHUD->meetingX);
             isCinematicWait = (dist > 150.0f); 
             
-            // Only draw cinematic text while actively waiting. 
-            // Once they arrive, this draws nothing, letting the InteractionManager seamlessly take over.
             if (isCinematicWait) {
                 // True physical countdown, capped at a minimum of 0
                 int secondsLeft = std::max(0, static_cast<int>(dist / 180.0f));
 
-                // Minimal, elegant top-center text
-                sf::Text waitText("Awaiting representative...", cinematicFont, 16);
+                // A bit more writing, bigger size, and prettier elegant gold formatting
+                sf::Text waitText("Awaiting Diplomatic Representative...", cinematicFont, 24);
                 sf::FloatRect waitRect = waitText.getLocalBounds();
                 waitText.setOrigin(waitRect.left + waitRect.width / 2.0f, waitRect.top + waitRect.height / 2.0f);
-                waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.10f);
-                waitText.setFillColor(sf::Color(220, 220, 220, 230)); 
-                waitText.setOutlineColor(sf::Color(0, 0, 0, 200));
-                waitText.setOutlineThickness(1.5f);
+                waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f);
+                waitText.setFillColor(sf::Color(255, 215, 100, 255)); // Strong, warm gold
+                waitText.setOutlineColor(sf::Color(0, 0, 0, 255)); // Solid black outline for readability
+                waitText.setOutlineThickness(2.0f);
                 window.draw(waitText);
 
-                // True countdown number centered directly below it
-                sf::Text timeText(std::to_string(secondsLeft), cinematicFont, 16);
+                // Polished countdown text with descriptive wording
+                std::string timeString = "Arrival in: " + std::to_string(secondsLeft) + " seconds";
+                sf::Text timeText(timeString, cinematicFont, 18);
                 sf::FloatRect timeRect = timeText.getLocalBounds();
                 timeText.setOrigin(timeRect.left + timeRect.width / 2.0f, timeRect.top + timeRect.height / 2.0f);
-                timeText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.10f + 25.f);
-                timeText.setFillColor(sf::Color(220, 220, 220, 230));
-                timeText.setOutlineColor(sf::Color(0, 0, 0, 200));
-                timeText.setOutlineThickness(1.5f);
+                timeText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 32.f);
+                timeText.setFillColor(sf::Color(220, 230, 240, 255)); // Crisp off-white
+                timeText.setOutlineColor(sf::Color(0, 0, 0, 255));
+                timeText.setOutlineThickness(2.0f);
                 window.draw(timeText);
             }
         }

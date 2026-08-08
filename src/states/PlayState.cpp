@@ -27,8 +27,14 @@ void PlayState::init() {
     cameraManager = std::make_unique<CameraManager>(sf::Vector2f(1280.f, 720.f));
     lightingManager = std::make_unique<LightingManager>();
     // Initialize the independent minimap view
-    mapView.setSize(1280.f * 6.0f, 720.f * 6.0f); // Zoomed out to see the region
-    mapView.setViewport(sf::FloatRect(0.70f, 0.05f, 0.28f, 0.28f)); // Top right corner overlay
+    // Initialize the independent minimap view and animation targets
+    currentMapZoom = 6.0f;
+    targetMapZoom = 6.0f;
+    currentViewport = sf::FloatRect(0.70f, 0.05f, 0.28f, 0.28f);
+    targetViewport = currentViewport;
+    
+    mapView.setSize(1280.f * currentMapZoom, 720.f * currentMapZoom);
+    mapView.setViewport(currentViewport);
     weatherManager = std::make_unique<WeatherManager>();
     particleSystem = std::make_unique<ParticleSystem>();
     audioManager = std::make_unique<AudioManager>();
@@ -55,12 +61,63 @@ void PlayState::init() {
 }
 
 void PlayState::processEvents(const sf::Event& event) {
-    // --- WORLD MAP TOGGLE ---
-    // --- WORLD MAP TOGGLE ---
-    // --- MINIMAP TOGGLE ---
     if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Tab) {
-        isMapActive = !isMapActive;
-        return; // Do not consume other events; allow the player to keep running while it's open!
+        if (mapMode == MapMode::Hidden) {
+            mapMode = MapMode::Mini;
+            targetViewport = sf::FloatRect(0.70f, 0.05f, 0.28f, 0.28f);
+            targetMapZoom = 6.0f;
+            isMapDetached = false;
+        } else if (mapMode == MapMode::Mini) {
+            mapMode = MapMode::Expanded;
+            targetViewport = sf::FloatRect(0.15f, 0.10f, 0.70f, 0.75f); // Large centered map
+            targetMapZoom = 12.0f; // Zoom out to see the realm
+        } else {
+            mapMode = MapMode::Hidden;
+        }
+        return; 
+    }
+
+    if (mapMode != MapMode::Hidden) {
+        // Calculate the map's pixel boundaries on the screen so we only drag/zoom when interacting WITH the map
+        sf::Vector2f winSize(game->getWindow().getSize().x, game->getWindow().getSize().y);
+        sf::FloatRect vpPixels(
+            currentViewport.left * winSize.x, currentViewport.top * winSize.y,
+            currentViewport.width * winSize.x, currentViewport.height * winSize.y
+        );
+
+        if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+            if (vpPixels.contains(event.mouseButton.x, event.mouseButton.y)) {
+                isDraggingMap = true;
+                isMapDetached = true; // Detach from player auto-tracking
+                lastMousePos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
+                return; // Consume event
+            }
+        }
+        if (event.type == sf::Event::MouseMoved && isDraggingMap) {
+            sf::Vector2i newPos(event.mouseMove.x, event.mouseMove.y);
+            sf::Vector2f delta = game->getWindow().mapPixelToCoords(lastMousePos, mapView) - game->getWindow().mapPixelToCoords(newPos, mapView);
+            mapCenter += delta;
+            lastMousePos = newPos;
+            return; // Consume event
+        }
+        if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
+            if (isDraggingMap) {
+                isDraggingMap = false;
+                return;
+            }
+        }
+        if (event.type == sf::Event::MouseWheelScrolled) {
+            if (vpPixels.contains(event.mouseWheelScroll.x, event.mouseWheelScroll.y)) {
+                targetMapZoom -= event.mouseWheelScroll.delta * 1.5f;
+                targetMapZoom = std::clamp(targetMapZoom, 2.0f, 40.0f);
+                isMapDetached = true; // Zooming also detaches to let the player inspect freely
+                return;
+            }
+        }
+        if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::C) {
+            isMapDetached = false; // Press C to quickly re-center on the player
+            return;
+        }
     }
 
     if (isDialogueActive) {
@@ -321,8 +378,27 @@ void PlayState::update(float dt) {
         }
 
         // Minimap actively tracks the player as they move
-        if (isMapActive) {
-            mapView.setCenter(playerWrapper->getPosition().x, playerWrapper->getPosition().y - 1000.f); 
+        // --- MAP ANIMATION AND LERPING ---
+        if (mapMode != MapMode::Hidden) {
+            float lerp = 1.0f - std::exp(-8.0f * dt); // Smooth interpolation
+            
+            // 1. Animate the UI Viewport expanding/shrinking
+            currentViewport.left += (targetViewport.left - currentViewport.left) * lerp;
+            currentViewport.top += (targetViewport.top - currentViewport.top) * lerp;
+            currentViewport.width += (targetViewport.width - currentViewport.width) * lerp;
+            currentViewport.height += (targetViewport.height - currentViewport.height) * lerp;
+            mapView.setViewport(currentViewport);
+
+            // 2. Animate the Zoom level
+            currentMapZoom += (targetMapZoom - currentMapZoom) * lerp;
+            mapView.setSize(1280.f * currentMapZoom, 720.f * currentMapZoom);
+
+            // 3. Track player ONLY if the map is not manually detached
+            if (!isMapDetached && playerWrapper) {
+                sf::Vector2f targetCenter(playerWrapper->getPosition().x, playerWrapper->getPosition().y - 1000.f);
+                mapCenter += (targetCenter - mapCenter) * lerp;
+            }
+            mapView.setCenter(mapCenter);
         }
         
         sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
@@ -1170,15 +1246,11 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     window.setView(cameraManager->getView());
 
-    // FIX: Suppress the giant wooden menu while physically waiting.
-    // It remains logically "open" so it immediately pops back up with diplomacy options when they arrive.
-    // FIX: Suppress the giant wooden menu while physically waiting.
     if (!isCinematicWait) {
         interactionManager.draw(window);
     }
 
-    // Draw the Minimap Overlay on top of the world
-    if (isMapActive) {
+    if (mapMode != MapMode::Hidden) {
         drawWorldMap(window);
     }
 
@@ -1505,26 +1577,22 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
 }
 
 void PlayState::drawWorldMap(sf::RenderWindow& window) {
-    // 1. SAVE THE MAIN VIEW
     sf::View originalView = window.getView();
-    
-    // 2. SWITCH TO MINIMAP VIEW (Hardware clipping is applied automatically to the 0.70/0.05 viewport)
     window.setView(mapView);
 
-    // Draw dark minimap background
+    // Deep Parchment/Ocean Background
     sf::RectangleShape bg(sf::Vector2f(mapView.getSize().x, mapView.getSize().y));
     bg.setOrigin(bg.getSize().x / 2.f, bg.getSize().y / 2.f);
     bg.setPosition(mapView.getCenter());
-    bg.setFillColor(sf::Color(30, 40, 30, 230)); // Deep translucent jungle green
+    bg.setFillColor(sf::Color(210, 195, 160)); 
     window.draw(bg);
 
-    // 3. EXTRACT KNOWLEDGE + FIX PHYSICAL PROXIMITY GAP
+    // EXTRACT KNOWLEDGE
     std::unordered_set<sim::KingdomID> kKnown;
     std::unordered_set<sim::VillageID> vKnown;
-    
     sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    
     if (pData) {
-        // Base Formal Knowledge
         if (pData->currentKingdom != 0) {
             kKnown.insert(pData->currentKingdom);
             sim::KingdomData* k = simulationManager->getRegistry().getKingdom(pData->currentKingdom);
@@ -1538,8 +1606,6 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
             sim::VillageData* v = simulationManager->getRegistry().getVillage(pData->villageId);
             if (v) for (auto id : v->knownVillages) vKnown.insert(id);
         }
-
-        // PROXIMITY OVERRIDE: If the player walks physically close to any village, instantly reveal it
         for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
             if (std::abs(pData->worldX - pair.second.centerX) < pair.second.territoryRadius + 800.f) {
                 vKnown.insert(pair.first);
@@ -1548,79 +1614,134 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
         }
     }
 
-    // 4. RENDER KNOWN TERRITORIES
+    // DRAW TERRAIN TOPOGRAPHY
+    float viewLeft = mapView.getCenter().x - (mapView.getSize().x / 2.f);
+    float viewRight = mapView.getCenter().x + (mapView.getSize().x / 2.f);
+    sf::VertexArray ground(sf::TriangleStrip);
+    for (float x = viewLeft - 2000.f; x <= viewRight + 2000.f; x += 500.f) {
+        float y = worldManager->getTerrainHeight(x);
+        ground.append(sf::Vertex(sf::Vector2f(x, y), sf::Color(160, 140, 100))); // Ground top
+        ground.append(sf::Vertex(sf::Vector2f(x, y + 8000.f), sf::Color(110, 95, 70))); // Ground depth
+    }
+    window.draw(ground);
+
+    // RENDER KINGDOM TERRITORIES
     for (auto kId : kKnown) {
         sim::KingdomData* k = simulationManager->getRegistry().getKingdom(kId);
         if (!k) continue;
         float width = k->territoryMaxX - k->territoryMinX;
         if (width > 0.f) {
-            sf::RectangleShape rect(sf::Vector2f(width, mapView.getSize().y));
-            rect.setOrigin(0.f, rect.getSize().y / 2.f);
-            rect.setPosition(k->territoryMinX, mapView.getCenter().y);
+            sf::RectangleShape rect(sf::Vector2f(width, 10000.f));
+            rect.setOrigin(0.f, 5000.f);
+            rect.setPosition(k->territoryMinX, worldManager->getTerrainHeight(k->territoryMinX));
             sf::Color c = k->color;
             c.a = 90; // Soft painted map territory
             rect.setFillColor(c);
             window.draw(rect);
+
+            // Kingdom Banner Label
+            sf::Text kLabel("Realm of " + k->name, cinematicFont, 240);
+            kLabel.setFillColor(sf::Color(255, 255, 255, 220));
+            kLabel.setOutlineColor(sf::Color::Black);
+            kLabel.setOutlineThickness(10.f);
+            sf::FloatRect kb = kLabel.getLocalBounds();
+            kLabel.setOrigin(kb.left + kb.width / 2.f, kb.top + kb.height / 2.f);
+            kLabel.setPosition(k->territoryMinX + width / 2.f, rect.getPosition().y - 1800.f);
+            window.draw(kLabel);
+
+            // Draw Known Armies
+            for (auto aId : k->activeArmies) {
+                sim::ArmyData* army = simulationManager->getRegistry().getArmy(aId);
+                if (army) {
+                    sf::ConvexShape flag(4);
+                    flag.setPoint(0, sf::Vector2f(0.f, 0.f));
+                    flag.setPoint(1, sf::Vector2f(200.f, 100.f));
+                    flag.setPoint(2, sf::Vector2f(0.f, 200.f));
+                    flag.setPoint(3, sf::Vector2f(0.f, 600.f));
+                    flag.setFillColor(k->color);
+                    flag.setOutlineColor(sf::Color::Black);
+                    flag.setOutlineThickness(15.f);
+                    flag.setPosition(army->worldX, worldManager->getTerrainHeight(army->worldX) - 600.f);
+                    window.draw(flag);
+                }
+            }
         }
     }
 
-    // 5. RENDER VILLAGE MARKERS
+    // RENDER VILLAGES & STRUCTURES
     for (auto vId : vKnown) {
         sim::VillageData* v = simulationManager->getRegistry().getVillage(vId);
         if (!v) continue;
-        
         float terrainY = worldManager->getTerrainHeight(v->centerX);
-        bool isCapital = false;
         
-        if (v->kingdomId != 0 && kKnown.count(v->kingdomId)) {
-            sim::KingdomData* k = simulationManager->getRegistry().getKingdom(v->kingdomId);
-            if (k && k->capitalVillageId == v->id) isCapital = true;
+        // Draw Structures (Detail Pass)
+        for (auto sId : v->finishedStructures) {
+            sim::StructureData* s = simulationManager->getRegistry().getStructure(sId);
+            if (s) {
+                sf::RectangleShape sRect(sf::Vector2f(120.f, 180.f));
+                sRect.setOrigin(60.f, 180.f);
+                sRect.setPosition(s->worldX, worldManager->getTerrainHeight(s->worldX));
+                sRect.setFillColor(sf::Color(100, 80, 50));
+                sRect.setOutlineColor(sf::Color(30, 20, 10));
+                sRect.setOutlineThickness(10.f);
+                window.draw(sRect);
+            }
         }
 
-        // Scaled down markers appropriate for a HUD
-        if (isCapital) {
-            sf::RectangleShape marker(sf::Vector2f(350.f, 350.f));
-            marker.setOrigin(175.f, 175.f);
-            marker.setPosition(v->centerX, terrainY);
-            marker.setFillColor(sf::Color(220, 180, 40)); // Gold Square
-            marker.setOutlineColor(sf::Color(20, 20, 20));
-            marker.setOutlineThickness(20.f);
-            window.draw(marker);
-        } else {
-            sf::CircleShape marker(150.f);
-            marker.setOrigin(150.f, 150.f);
-            marker.setPosition(v->centerX, terrainY);
-            marker.setFillColor(sf::Color(140, 150, 160)); // Gray Circle
-            marker.setOutlineColor(sf::Color(20, 20, 20));
-            marker.setOutlineThickness(20.f);
-            window.draw(marker);
-        }
+        // Draw Village Marker
+        bool isCapital = (v->kingdomId != 0 && kKnown.count(v->kingdomId) && simulationManager->getRegistry().getKingdom(v->kingdomId)->capitalVillageId == v->id);
+        
+        sf::CircleShape marker(isCapital ? 200.f : 120.f, isCapital ? 4 : 30);
+        marker.setOrigin(marker.getRadius(), marker.getRadius());
+        marker.setPosition(v->centerX, terrainY - marker.getRadius());
+        marker.setFillColor(isCapital ? sf::Color(220, 180, 40) : sf::Color(140, 150, 160));
+        marker.setOutlineColor(sf::Color(20, 20, 20));
+        marker.setOutlineThickness(20.f);
+        window.draw(marker);
+
+        // Village Label
+        sf::Text vLabel(v->name, cinematicFont, isCapital ? 180 : 130);
+        vLabel.setFillColor(sf::Color(250, 240, 220));
+        vLabel.setOutlineColor(sf::Color(20, 15, 10));
+        vLabel.setOutlineThickness(12.f);
+        sf::FloatRect bounds = vLabel.getLocalBounds();
+        vLabel.setOrigin(bounds.left + bounds.width / 2.f, 0.f);
+        vLabel.setPosition(v->centerX, terrainY + 250.f);
+        window.draw(vLabel);
     }
 
-    // 6. RENDER PLAYER LOCATION
+    // DRAW PLAYER
     if (pData) {
-        sf::CircleShape pMarker(150.f, 3); // White Triangle
+        sf::CircleShape pMarker(150.f, 3);
         pMarker.setOrigin(150.f, 150.f);
         pMarker.setPosition(pData->worldX, pData->worldY);
         pMarker.setFillColor(sf::Color::White);
         pMarker.setOutlineColor(sf::Color::Black);
-        pMarker.setOutlineThickness(20.f);
+        pMarker.setOutlineThickness(25.f);
         window.draw(pMarker);
     }
 
-    // 7. DRAW UI BORDER IN SCREEN SPACE
-    window.setView(window.getDefaultView()); // Switch to HUD space
-    
+    // DRAW UI BORDER & HINTS
+    window.setView(window.getDefaultView());
     sf::Vector2f winSize(window.getSize().x, window.getSize().y);
     sf::FloatRect vp = mapView.getViewport();
     
     sf::RectangleShape border(sf::Vector2f(winSize.x * vp.width, winSize.y * vp.height));
     border.setPosition(winSize.x * vp.left, winSize.y * vp.top);
     border.setFillColor(sf::Color::Transparent);
-    border.setOutlineColor(sf::Color(120, 90, 50)); // Wooden border color
-    border.setOutlineThickness(4.f);
+    border.setOutlineColor(sf::Color(90, 60, 40));
+    border.setOutlineThickness(8.f);
     window.draw(border);
 
-    // 8. RESTORE NORMAL VIEW
+    // If fully expanded or detached, show controls
+    if (mapMode == MapMode::Expanded || isMapDetached) {
+        sf::Text controls("[Mouse Drag] Pan   [Scroll] Zoom   [C] Recenter Player   [Tab] Resize Map", cinematicFont, 16);
+        controls.setFillColor(sf::Color::White);
+        controls.setOutlineColor(sf::Color::Black);
+        controls.setOutlineThickness(2.f);
+        controls.setPosition(border.getPosition().x + 10.f, border.getPosition().y + border.getSize().y - 25.f);
+        window.draw(controls);
+    }
+
     window.setView(originalView);
 }

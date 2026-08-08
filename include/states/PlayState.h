@@ -74,9 +74,19 @@ private:
     int dialogueSelectedIndex = 0;
 
    // --- KNOWN WORLD MAP STATE ---
-    bool isMapActive = false;
-    sf::View mapView; // Used as a top-right minimap viewport
-
+    // --- KNOWN WORLD MAP STATE ---
+    enum class MapMode { Hidden, Mini, Expanded };
+    MapMode mapMode = MapMode::Hidden;
+    sf::FloatRect currentViewport;
+    sf::FloatRect targetViewport;
+    float currentMapZoom = 6.0f;
+    float targetMapZoom = 6.0f;
+    sf::Vector2f mapCenter;
+    bool isDraggingMap = false;
+    sf::Vector2i lastMousePos;
+    bool isMapDetached = false; // True if player pans manually
+    
+    sf::View mapView;
     void drawWorldMap(sf::RenderWindow& window);
     std::string dialogueSpeakerName = "";
     std::string dialogueText = "";

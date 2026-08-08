@@ -52,19 +52,36 @@ void PlayState::init() {
 }
 
 void PlayState::processEvents(const sf::Event& event) {
+    // 1. Intercept input for the new Diegetic Dialogue System
+    if (isDialogueActive) {
+        if (event.type == sf::Event::KeyPressed) {
+            if (event.key.code == sf::Keyboard::Escape) {
+                endDiplomaticDialogue();
+            } else if (event.key.code == sf::Keyboard::W || event.key.code == sf::Keyboard::Up) {
+                if (!dialogueOptions.empty()) {
+                    dialogueSelectedIndex = (dialogueSelectedIndex - 1 + dialogueOptions.size()) % dialogueOptions.size();
+                }
+            } else if (event.key.code == sf::Keyboard::S || event.key.code == sf::Keyboard::Down) {
+                if (!dialogueOptions.empty()) {
+                    dialogueSelectedIndex = (dialogueSelectedIndex + 1) % dialogueOptions.size();
+                }
+            } else if (event.key.code == sf::Keyboard::Enter || event.key.code == sf::Keyboard::E || event.key.code == sf::Keyboard::Space) {
+                if (!dialogueOptions.empty() && dialogueSelectedIndex < static_cast<int>(dialogueOptions.size())) {
+                    dialogueOptions[dialogueSelectedIndex].action();
+                }
+            }
+        }
+        return; // Consume ALL events while locked in dialogue
+    }
+
+    // 2. Safely cancel the WAIT state if ESC is pressed BEFORE they arrive
     if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
-        sim::ApeData* playerWaitCheck = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-        if (playerWaitCheck && playerWaitCheck->isWaitingForAudience) {
-            playerWaitCheck->isWaitingForAudience = false;
-            
-            sim::ApeData* rep = simulationManager->getRegistry().getApe(playerWaitCheck->summonedRepId);
-            if (rep) { rep->hasTravelDestination = true; rep->travelDestinationX = rep->homeX; }
-            playerWaitCheck->summonedRepId = 0;
-            
-            // CRITICAL FIX: Force the Interaction Manager to close INSTANTLY. No 1-frame flash.
+        sim::ApeData* pWaitCheck = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+        if (pWaitCheck && pWaitCheck->isWaitingForAudience) {
+            endDiplomaticDialogue(); // Reuses our clean exit function
             interactionManager.clearTargets();
             refreshInteractionTargets(); 
-            return; // Consume the ESC event completely!
+            return;
         }
     }
 
@@ -225,12 +242,18 @@ void PlayState::update(float dt) {
     bool isCinematicWait = false;
     if (pDataCheck && pDataCheck->isWaitingForAudience) {
         sim::ApeData* repCheck = simulationManager->getRegistry().getApe(pDataCheck->summonedRepId);
-        if (repCheck && std::abs(repCheck->worldX - pDataCheck->meetingX) > 150.f) {
-            isCinematicWait = true;
+        if (repCheck) {
+            float dist = std::abs(pDataCheck->meetingX - repCheck->worldX);
+            if (dist > 150.f) {
+                isCinematicWait = true;
+            } else if (!isDialogueActive) {
+                // REPRESENTATIVE ARRIVED! Instantly hand off to the dialogue state!
+                startDiplomaticDialogue(repCheck->id);
+            }
         }
     }
     
-    if (!interactionManager.isInteracting() && !isCinematicWait) {
+    if (!interactionManager.isInteracting() && !isCinematicWait && !isDialogueActive) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
         else cameraManager->setZoom(1.35f);
@@ -280,7 +303,7 @@ void PlayState::update(float dt) {
         interactionManager.update(dt, playerWrapper->getPosition(), *cameraManager);
         playerWrapper->update(dt);
         
-        if (interactionManager.isInteracting() || isCinematicWait) {
+        if (interactionManager.isInteracting() || isCinematicWait || isDialogueActive) {
             playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
         }
         
@@ -1049,6 +1072,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                 window.draw(waitText);
 
                 // Polished countdown text with descriptive wording
+                // Polished countdown text with descriptive wording
                 std::string timeString = "Arrival in: " + std::to_string(secondsLeft) + " seconds";
                 sf::Text timeText(timeString, cinematicFont, 18);
                 sf::FloatRect timeRect = timeText.getLocalBounds();
@@ -1059,6 +1083,48 @@ void PlayState::draw(sf::RenderWindow& window) {
                 timeText.setOutlineThickness(2.0f);
                 window.draw(timeText);
             }
+        }
+    }
+
+    // --- DIEGETIC DIALOGUE RENDERING ---
+    if (isDialogueActive) {
+        // Speaker Title
+        sf::Text speakerText(dialogueSpeakerName, cinematicFont, 24);
+        speakerText.setFillColor(sf::Color(255, 215, 100)); // Gold
+        speakerText.setOutlineColor(sf::Color::Black);
+        speakerText.setOutlineThickness(2.f);
+        sf::FloatRect sRect = speakerText.getLocalBounds();
+        speakerText.setOrigin(sRect.left + sRect.width / 2.0f, sRect.top + sRect.height / 2.0f);
+        speakerText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f);
+        window.draw(speakerText);
+
+        // Body Text
+        sf::Text bodyText(dialogueText, cinematicFont, 20);
+        bodyText.setFillColor(sf::Color::White);
+        bodyText.setOutlineColor(sf::Color::Black);
+        bodyText.setOutlineThickness(2.f);
+        sf::FloatRect bRect = bodyText.getLocalBounds();
+        bodyText.setOrigin(bRect.left + bRect.width / 2.0f, bRect.top + bRect.height / 2.0f);
+        bodyText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 40.f);
+        window.draw(bodyText);
+
+        // Options Text
+        float optionsStartY = window.getSize().y * 0.12f + 110.f;
+        for (size_t i = 0; i < dialogueOptions.size(); ++i) {
+            sf::Text optText("", cinematicFont, 18);
+            if (static_cast<int>(i) == dialogueSelectedIndex) {
+                optText.setFillColor(sf::Color(255, 255, 150)); // Highlighted yellow
+                optText.setString("> " + dialogueOptions[i].text + " <");
+            } else {
+                optText.setFillColor(sf::Color(180, 180, 180)); // Dimmed
+                optText.setString(dialogueOptions[i].text);
+            }
+            optText.setOutlineColor(sf::Color::Black);
+            optText.setOutlineThickness(1.5f);
+            sf::FloatRect oRect = optText.getLocalBounds();
+            optText.setOrigin(oRect.left + oRect.width / 2.0f, oRect.top + oRect.height / 2.0f);
+            optText.setPosition(window.getSize().x / 2.0f, optionsStartY + (i * 30.f));
+            window.draw(optText);
         }
     }
 
@@ -1166,4 +1232,87 @@ void PlayState::refreshInteractionTargets() {
             }
         }
     }
+}
+
+void PlayState::endDiplomaticDialogue() {
+    isDialogueActive = false;
+    sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    if (pData && pData->isWaitingForAudience) {
+        pData->isWaitingForAudience = false;
+        sim::ApeData* rep = simulationManager->getRegistry().getApe(pData->summonedRepId);
+        if (rep) {
+            rep->hasTravelDestination = true;
+            rep->travelDestinationX = rep->homeX; 
+        }
+        pData->summonedRepId = 0;
+    }
+}
+
+void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
+    isDialogueActive = true;
+    dialogueSelectedIndex = 0;
+    dialogueOptions.clear();
+
+    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    sim::ApeData* rep = simulationManager->getRegistry().getApe(repId);
+    if (!player || !rep) { endDiplomaticDialogue(); return; }
+
+    std::string entityName = "Unknown Land";
+    bool isKing = false;
+    sim::DiplomacyStatus status = sim::DiplomacyStatus::Neutral;
+    
+    sim::KingdomID pKID = player->currentKingdom;
+    sim::KingdomID rKID = rep->currentKingdom;
+
+    // Retrieve backend simulation data to drive the dialogue
+    if (rKID != 0) {
+        sim::KingdomData* rK = simulationManager->getRegistry().getKingdom(rKID);
+        if (rK) {
+            entityName = "Kingdom of " + rK->name;
+            if (rK->currentKingId == rep->id) isKing = true;
+            if (pKID != 0) {
+                sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pKID);
+                if (pK && pK->relations.count(rKID)) {
+                    status = pK->relations[rKID];
+                }
+            }
+        }
+    } else {
+        sim::VillageData* v = simulationManager->getRegistry().getVillage(rep->villageId);
+        if (v) entityName = "Village of " + v->name;
+    }
+
+    dialogueSpeakerName = (isKing ? "King " : "Representative ") + rep->name + " of " + entityName;
+
+    // Data-driven contextual dialogue
+    if (status == sim::DiplomacyStatus::War) {
+        dialogueText = "\"Your armies have crossed our borders.\nThere is little left to discuss.\"";
+        dialogueOptions.push_back({"Demand surrender.", [this]() { endDiplomaticDialogue(); }});
+        dialogueOptions.push_back({"Propose peace.", [this, pKID, rKID]() { 
+            sim::WarfareManager::cancelWar(simulationManager->getRegistry(), pKID, rKID);
+            endDiplomaticDialogue(); 
+        }});
+    } else if (status == sim::DiplomacyStatus::Rival) {
+        dialogueText = "\"Your banners stand too close to mine.\nSpeak quickly.\"";
+        dialogueOptions.push_back({"Declare war.", [this, pKID, rKID]() { 
+            sim::WarfareManager::declareWar(simulationManager->getRegistry(), pKID, rKID, "Diplomatic breakdown.");
+            endDiplomaticDialogue(); 
+        }});
+        dialogueOptions.push_back({"Discuss terms.", [this]() { endDiplomaticDialogue(); }});
+    } else if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance) {
+        dialogueText = "\"Welcome, friend. Our fires are yours.\nWhat news do you bring?\"";
+        dialogueOptions.push_back({"Discuss trade.", [this]() { endDiplomaticDialogue(); }});
+        dialogueOptions.push_back({"Propose joint attack.", [this]() { endDiplomaticDialogue(); }});
+    } else {
+        dialogueText = "\"You have crossed into lands that are not yours.\nWhat business brings you here?\"";
+        if (pKID != 0 && rKID != 0) {
+            dialogueOptions.push_back({"Declare war.", [this, pKID, rKID]() { 
+                sim::WarfareManager::declareWar(simulationManager->getRegistry(), pKID, rKID, "Declared war at a diplomatic meeting.");
+                endDiplomaticDialogue(); 
+            }});
+        }
+        dialogueOptions.push_back({"Discuss trade.", [this]() { endDiplomaticDialogue(); }});
+    }
+
+    dialogueOptions.push_back({"Leave.", [this]() { endDiplomaticDialogue(); }});
 }

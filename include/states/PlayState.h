@@ -18,6 +18,7 @@
 #include "world/NPCManager.h"
 #include "world/StructureManager.h"
 #include "interaction/InteractionManager.h"
+#include <functional>
 
 class Game;
 
@@ -63,6 +64,19 @@ private:
     float cinematicTextTimer = 0.f;
     std::string cinematicText = "";
     sf::Font cinematicFont;
+
+    struct DialogueOption {
+        std::string text;
+        std::function<void()> action;
+    };
+    bool isDialogueActive = false;
+    int dialogueSelectedIndex = 0;
+    std::string dialogueSpeakerName = "";
+    std::string dialogueText = "";
+    std::vector<DialogueOption> dialogueOptions;
+
+    void startDiplomaticDialogue(sim::EntityID repId);
+    void endDiplomaticDialogue();
 
 public:
     PlayState(Game* game);

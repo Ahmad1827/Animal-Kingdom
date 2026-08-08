@@ -174,10 +174,28 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
         ApeData& ape = pair.second;
         if (!ape.alive) continue;
 
+        if (ape.hasTravelDestination) {
+            ape.currentJob = Job::March;
+            float dist = ape.travelDestinationX - ape.worldX;
+            
+            if (std::abs(dist) > 10.0f) {
+                ape.worldX += (dist > 0 ? 1.0f : -1.0f) * 6.0f; 
+            } else {
+                ape.worldX = ape.travelDestinationX;
+                if (std::abs(ape.worldX - ape.homeX) < 50.f) {
+                    ape.hasTravelDestination = false;
+                    ape.currentJob = Job::Idle;
+                }
+            }
+            continue;
+        }
+
         ape.hunger -= 0.05f;
         if (ape.hunger < 0.f) ape.hunger = 0.f;
 
         VillageData* village = registry.getVillage(ape.villageId);
+
+        // Army & Warfare Job Overrides
 
         // Army & Warfare Job Overrides
         if (ape.currentArmyId != 0) {

@@ -45,7 +45,11 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
     float stopDistance = 15.f;
     bool shouldWorkAtTarget = false;
 
-    if (data->currentJob == sim::Job::CarryResource) {
+    if (data->hasTravelDestination) {
+        targetX = data->travelDestinationX;
+        stopDistance = 10.f;
+    } 
+    else if (data->currentJob == sim::Job::CarryResource) {
         if (data->currentTargetStructure != 0) {
             sim::StructureData* s = registry.getStructure(data->currentTargetStructure);
             if (s) targetX = s->worldX;

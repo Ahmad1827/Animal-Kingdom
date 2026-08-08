@@ -73,15 +73,11 @@ private:
     bool isInspectingCharacter = false; 
     int dialogueSelectedIndex = 0;
 
+   // --- KNOWN WORLD MAP STATE ---
     bool isMapActive = false;
-    bool isDraggingMap = false;
-    sf::Vector2i dragStartMousePos;
-    sf::Vector2i lastMousePos;
-    float mapZoom = 4.0f;
-    sf::View mapView;
+    sf::View mapView; // Used as a top-right minimap viewport
 
     void drawWorldMap(sf::RenderWindow& window);
-    void handleMapClick(sf::Vector2f worldPos);
     std::string dialogueSpeakerName = "";
     std::string dialogueText = "";
     std::vector<DialogueOption> dialogueOptions;

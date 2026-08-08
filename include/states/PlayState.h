@@ -75,6 +75,7 @@ private:
 
    // --- KNOWN WORLD MAP STATE ---
     // --- KNOWN WORLD MAP STATE ---
+    // --- KNOWN WORLD MAP STATE ---
     enum class MapMode { Hidden, Mini, Expanded };
     MapMode mapMode = MapMode::Hidden;
     sf::FloatRect currentViewport;
@@ -83,11 +84,16 @@ private:
     float targetMapZoom = 6.0f;
     sf::Vector2f mapCenter;
     bool isDraggingMap = false;
+    sf::Vector2i dragStartMousePos; // Needed to differentiate click vs drag
     sf::Vector2i lastMousePos;
     bool isMapDetached = false; // True if player pans manually
     
+    sim::VillageID selectedVillageId = 0;
+    sim::KingdomID selectedKingdomId = 0;
+    
     sf::View mapView;
     void drawWorldMap(sf::RenderWindow& window);
+    void handleMapClick(sf::Vector2f worldPos);
     std::string dialogueSpeakerName = "";
     std::string dialogueText = "";
     std::vector<DialogueOption> dialogueOptions;

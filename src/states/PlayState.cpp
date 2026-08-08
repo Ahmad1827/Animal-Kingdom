@@ -90,6 +90,7 @@ void PlayState::processEvents(const sf::Event& event) {
                 isDraggingMap = true;
                 isMapDetached = true; // Detach from player auto-tracking
                 lastMousePos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
+                dragStartMousePos = lastMousePos; // Mark start of click
                 return; // Consume event
             }
         }
@@ -103,6 +104,13 @@ void PlayState::processEvents(const sf::Event& event) {
         if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
             if (isDraggingMap) {
                 isDraggingMap = false;
+                sf::Vector2i newPos(event.mouseButton.x, event.mouseButton.y);
+                int dx = newPos.x - dragStartMousePos.x;
+                int dy = newPos.y - dragStartMousePos.y;
+                // Strict threshold: If mouse didn't drag more than 5 pixels, treat it as a selection click
+                if (dx * dx + dy * dy < 25) {
+                    handleMapClick(game->getWindow().mapPixelToCoords(newPos, mapView));
+                }
                 return;
             }
         }
@@ -1649,7 +1657,16 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
             kLabel.setPosition(k->territoryMinX + width / 2.f, rect.getPosition().y - 1800.f);
             window.draw(kLabel);
 
-            // Draw Known Armies
+            if (kId == selectedKingdomId) {
+                sf::RectangleShape highlight(sf::Vector2f(width, 10000.f));
+                highlight.setOrigin(0.f, 5000.f);
+                highlight.setPosition(k->territoryMinX, rect.getPosition().y);
+                highlight.setFillColor(sf::Color(255, 255, 255, 40)); // Bright overlay
+                highlight.setOutlineColor(sf::Color(255, 215, 0)); // Gold border
+                highlight.setOutlineThickness(30.f);
+                window.draw(highlight);
+            }
+
             for (auto aId : k->activeArmies) {
                 sim::ArmyData* army = simulationManager->getRegistry().getArmy(aId);
                 if (army) {
@@ -1689,9 +1706,23 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
         }
 
         // Draw Village Marker
+        // Draw Village Marker
         bool isCapital = (v->kingdomId != 0 && kKnown.count(v->kingdomId) && simulationManager->getRegistry().getKingdom(v->kingdomId)->capitalVillageId == v->id);
         
-        sf::CircleShape marker(isCapital ? 200.f : 120.f, isCapital ? 4 : 30);
+        float radius = isCapital ? 200.f : 120.f;
+        
+        // Selection Highlight for Village
+        if (vId == selectedVillageId) {
+            sf::CircleShape selMarker(radius + 40.f, isCapital ? 4 : 30);
+            selMarker.setOrigin(selMarker.getRadius(), selMarker.getRadius());
+            selMarker.setPosition(v->centerX, terrainY - radius);
+            selMarker.setFillColor(sf::Color::Transparent);
+            selMarker.setOutlineColor(sf::Color(255, 255, 0)); // Bright Yellow/Gold
+            selMarker.setOutlineThickness(25.f);
+            window.draw(selMarker);
+        }
+
+        sf::CircleShape marker(radius, isCapital ? 4 : 30);
         marker.setOrigin(marker.getRadius(), marker.getRadius());
         marker.setPosition(v->centerX, terrainY - marker.getRadius());
         marker.setFillColor(isCapital ? sf::Color(220, 180, 40) : sf::Color(140, 150, 160));
@@ -1744,4 +1775,62 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
     }
 
     window.setView(originalView);
+}
+
+void PlayState::handleMapClick(sf::Vector2f worldPos) {
+    // 1. EXTRACT STRICT FOG OF WAR KNOWLEDGE (Same as rendering)
+    std::unordered_set<sim::KingdomID> kKnown;
+    std::unordered_set<sim::VillageID> vKnown;
+    sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    
+    if (pData) {
+        if (pData->currentKingdom != 0) {
+            kKnown.insert(pData->currentKingdom);
+            sim::KingdomData* k = simulationManager->getRegistry().getKingdom(pData->currentKingdom);
+            if (k) {
+                for (auto id : k->knownKingdoms) kKnown.insert(id);
+                for (auto id : k->controlledVillages) vKnown.insert(id);
+            }
+        } 
+        if (pData->villageId != 0) {
+            vKnown.insert(pData->villageId);
+            sim::VillageData* v = simulationManager->getRegistry().getVillage(pData->villageId);
+            if (v) for (auto id : v->knownVillages) vKnown.insert(id);
+        }
+        for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
+            if (std::abs(pData->worldX - pair.second.centerX) < pair.second.territoryRadius + 800.f) {
+                vKnown.insert(pair.first);
+                if (pair.second.kingdomId != 0) kKnown.insert(pair.second.kingdomId);
+            }
+        }
+    }
+
+    // 2. CHECK SELECTION
+    sim::VillageID hitVillage = 0;
+    sim::KingdomID hitKingdom = 0;
+
+    // Prioritize Villages (Smaller targets)
+    for (auto vId : vKnown) {
+        sim::VillageData* v = simulationManager->getRegistry().getVillage(vId);
+        // 400.f is a generous click radius in world-space for the map markers
+        if (v && std::abs(worldPos.x - v->centerX) < 400.f) {
+            hitVillage = vId;
+            break;
+        }
+    }
+
+    // If no village hit, check Kingdom territories
+    if (hitVillage == 0) {
+        for (auto kId : kKnown) {
+            sim::KingdomData* k = simulationManager->getRegistry().getKingdom(kId);
+            if (k && worldPos.x >= k->territoryMinX && worldPos.x <= k->territoryMaxX) {
+                hitKingdom = kId;
+                break;
+            }
+        }
+    }
+
+    // Apply Selection (Clicking empty space clears selection)
+    selectedVillageId = hitVillage;
+    selectedKingdomId = hitKingdom;
 }

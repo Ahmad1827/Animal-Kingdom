@@ -70,6 +70,7 @@ private:
         std::function<void()> action;
     };
     bool isDialogueActive = false;
+    bool isInspectingCharacter = false; 
     int dialogueSelectedIndex = 0;
     std::string dialogueSpeakerName = "";
     std::string dialogueText = "";

@@ -55,6 +55,14 @@ void PlayState::processEvents(const sf::Event& event) {
     // 1. Intercept input for the new Diegetic Dialogue System
     if (isDialogueActive) {
         if (event.type == sf::Event::KeyPressed) {
+            // If inspecting, ANY interaction key returns to the conversation seamlessly
+            if (isInspectingCharacter) {
+                if (event.key.code == sf::Keyboard::Escape || event.key.code == sf::Keyboard::E || event.key.code == sf::Keyboard::Enter || event.key.code == sf::Keyboard::Space) {
+                    isInspectingCharacter = false;
+                }
+                return; // Consume event so we don't trigger anything else
+            }
+
             if (event.key.code == sf::Keyboard::Escape) {
                 endDiplomaticDialogue();
             } else if (event.key.code == sf::Keyboard::W || event.key.code == sf::Keyboard::Up) {
@@ -257,14 +265,9 @@ void PlayState::update(float dt) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
         else cameraManager->setZoom(1.35f);
-    } else if (isCinematicWait) {
-        cameraManager->setZoom(0.8f); // Soft cinematic zoom on meeting area
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Escape)) {
-            pDataCheck->isWaitingForAudience = false;
-            sim::ApeData* rep = simulationManager->getRegistry().getApe(pDataCheck->summonedRepId);
-            if (rep) { rep->hasTravelDestination = true; rep->travelDestinationX = rep->homeX; }
-            pDataCheck->summonedRepId = 0;
-        }
+    } else if (isCinematicWait || isDialogueActive) {
+        // Enforce cinematic zoom during BOTH the waiting phase AND the active dialogue phase
+        cameraManager->setZoom(0.8f); 
     }
 
     if (!isTransitioning && playerWrapper) {
@@ -1088,50 +1091,64 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     // --- DIEGETIC DIALOGUE RENDERING ---
     // --- DIEGETIC DIALOGUE RENDERING ---
+    // --- DIEGETIC DIALOGUE RENDERING ---
     if (isDialogueActive) {
-        // Draw the Crusader Kings-style Character Profile on the left side of the screen
-        if (pDataHUD && pDataHUD->summonedRepId != 0) {
-            drawCharacterProfile(window, pDataHUD->summonedRepId);
-        }
-
-        // Speaker Title
-        sf::Text speakerText(dialogueSpeakerName, cinematicFont, 24);
-        speakerText.setFillColor(sf::Color(255, 215, 100)); // Gold
-        speakerText.setOutlineColor(sf::Color::Black);
-        speakerText.setOutlineThickness(2.f);
-        sf::FloatRect sRect = speakerText.getLocalBounds();
-        speakerText.setOrigin(sRect.left + sRect.width / 2.0f, sRect.top + sRect.height / 2.0f);
-        speakerText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f);
-        window.draw(speakerText);
-
-        // Body Text
-        sf::Text bodyText(dialogueText, cinematicFont, 20);
-        bodyText.setFillColor(sf::Color::White);
-        bodyText.setOutlineColor(sf::Color::Black);
-        bodyText.setOutlineThickness(2.f);
-        sf::FloatRect bRect = bodyText.getLocalBounds();
-        bodyText.setOrigin(bRect.left + bRect.width / 2.0f, bRect.top + bRect.height / 2.0f);
-        bodyText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 40.f);
-        window.draw(bodyText);
-
-        // Options Text
-        float optionsStartY = window.getSize().y * 0.12f + 110.f;
-        for (size_t i = 0; i < dialogueOptions.size(); ++i) {
-            sf::Text optText("", cinematicFont, 18);
-            if (static_cast<int>(i) == dialogueSelectedIndex) {
-                optText.setFillColor(sf::Color(255, 255, 150)); // Highlighted yellow
-                optText.setString("> " + dialogueOptions[i].text + " <");
-            } else {
-                optText.setFillColor(sf::Color(180, 180, 180)); // Dimmed
-                optText.setString(dialogueOptions[i].text);
+        if (isInspectingCharacter) {
+            // ONLY draw the profile, hiding the dialogue entirely
+            if (pDataHUD && pDataHUD->summonedRepId != 0) {
+                drawCharacterProfile(window, pDataHUD->summonedRepId);
+                
+                // Draw a simple prompt to let the player know how to go back
+                sf::Text returnText("[ESC / E] Return to Conversation", cinematicFont, 16);
+                returnText.setFillColor(sf::Color(200, 200, 200));
+                returnText.setOutlineColor(sf::Color::Black);
+                returnText.setOutlineThickness(1.5f);
+                sf::FloatRect rBounds = returnText.getLocalBounds();
+                returnText.setOrigin(rBounds.left + rBounds.width / 2.f, rBounds.top + rBounds.height / 2.f);
+                returnText.setPosition(window.getSize().x / 2.f, window.getSize().y - 50.f);
+                window.draw(returnText);
             }
-            optText.setOutlineColor(sf::Color::Black);
-            optText.setOutlineThickness(1.5f);
-            sf::FloatRect oRect = optText.getLocalBounds();
-            optText.setOrigin(oRect.left + oRect.width / 2.0f, oRect.top + oRect.height / 2.0f);
-            optText.setPosition(window.getSize().x / 2.0f, optionsStartY + (i * 30.f));
-            window.draw(optText);
-        }
+        } else {
+            // NORMAL DIALOGUE (No Profile)
+            // Speaker Title
+            sf::Text speakerText(dialogueSpeakerName, cinematicFont, 24);
+            speakerText.setFillColor(sf::Color(255, 215, 100)); // Gold
+            speakerText.setOutlineColor(sf::Color::Black);
+            speakerText.setOutlineThickness(2.f);
+            sf::FloatRect sRect = speakerText.getLocalBounds();
+            speakerText.setOrigin(sRect.left + sRect.width / 2.0f, sRect.top + sRect.height / 2.0f);
+            speakerText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f);
+            window.draw(speakerText);
+
+            // Body Text
+            sf::Text bodyText(dialogueText, cinematicFont, 20);
+            bodyText.setFillColor(sf::Color::White);
+            bodyText.setOutlineColor(sf::Color::Black);
+            bodyText.setOutlineThickness(2.f);
+            sf::FloatRect bRect = bodyText.getLocalBounds();
+            bodyText.setOrigin(bRect.left + bRect.width / 2.0f, bRect.top + bRect.height / 2.0f);
+            bodyText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 40.f);
+            window.draw(bodyText);
+
+            // Options Text
+            float optionsStartY = window.getSize().y * 0.12f + 110.f;
+            for (size_t i = 0; i < dialogueOptions.size(); ++i) {
+                sf::Text optText("", cinematicFont, 18);
+                if (static_cast<int>(i) == dialogueSelectedIndex) {
+                    optText.setFillColor(sf::Color(255, 255, 150)); // Highlighted yellow
+                    optText.setString("> " + dialogueOptions[i].text + " <");
+                } else {
+                    optText.setFillColor(sf::Color(180, 180, 180)); // Dimmed
+                    optText.setString(dialogueOptions[i].text);
+                }
+                optText.setOutlineColor(sf::Color::Black);
+                optText.setOutlineThickness(1.5f);
+                sf::FloatRect oRect = optText.getLocalBounds();
+                optText.setOrigin(oRect.left + oRect.width / 2.0f, oRect.top + oRect.height / 2.0f);
+                optText.setPosition(window.getSize().x / 2.0f, optionsStartY + (i * 30.f));
+                window.draw(optText);
+            }
+        } // Close the 'else' block for normal dialogue
     }
 
     if (lightingManager) lightingManager->drawAmbient(window);
@@ -1242,6 +1259,7 @@ void PlayState::refreshInteractionTargets() {
 
 void PlayState::endDiplomaticDialogue() {
     isDialogueActive = false;
+    isInspectingCharacter = false; // Reset inspection state for the next meeting
     sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     if (pData && pData->isWaitingForAudience) {
         pData->isWaitingForAudience = false;
@@ -1320,6 +1338,8 @@ void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
         dialogueOptions.push_back({"Discuss trade.", [this]() { endDiplomaticDialogue(); }});
     }
 
+    // Insert the universal inspection option right before leaving
+    dialogueOptions.push_back({"[ Inspect Character ]", [this]() { isInspectingCharacter = true; }});
     dialogueOptions.push_back({"Leave.", [this]() { endDiplomaticDialogue(); }});
 }
 

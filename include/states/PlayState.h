@@ -73,9 +73,6 @@ private:
     bool isInspectingCharacter = false; 
     int dialogueSelectedIndex = 0;
 
-   // --- KNOWN WORLD MAP STATE ---
-    // --- KNOWN WORLD MAP STATE ---
-    // --- KNOWN WORLD MAP STATE ---
     enum class MapMode { Hidden, Mini, Expanded };
     MapMode mapMode = MapMode::Hidden;
     sf::FloatRect currentViewport;
@@ -91,6 +88,8 @@ private:
     sim::VillageID selectedVillageId = 0;
     sim::KingdomID selectedKingdomId = 0;
     
+    sf::Vector2f profilePanelPos;
+    bool isDraggingProfile = false;
     sf::View mapView;
     void drawWorldMap(sf::RenderWindow& window);
     void handleMapClick(sf::Vector2f worldPos);

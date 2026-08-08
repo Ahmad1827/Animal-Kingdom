@@ -26,8 +26,7 @@ void PlayState::init() {
     worldManager = std::make_unique<WorldManager>(activeSeed, game->getAssetManager().getTexture("decors"));
     cameraManager = std::make_unique<CameraManager>(sf::Vector2f(1280.f, 720.f));
     lightingManager = std::make_unique<LightingManager>();
-    // Initialize the independent minimap view
-    // Initialize the independent minimap view and animation targets
+    profilePanelPos = sf::Vector2f(40.f, 85.f);
     currentMapZoom = 6.0f;
     targetMapZoom = 6.0f;
     currentViewport = sf::FloatRect(0.70f, 0.05f, 0.28f, 0.28f);
@@ -93,55 +92,79 @@ void PlayState::processEvents(const sf::Event& event) {
             }
         }
         
-        if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
-            if (!isInspectingCharacter && (selectedVillageId != 0 || selectedKingdomId != 0)) {
-                // Button is centered horizontally within the panel on the left side
-                float panelCenterX = 40.f + (380.f / 2.f); 
-                float btnLeft = panelCenterX - 100.f;
-                float btnRight = panelCenterX + 100.f;
-                float btnTop = game->getWindow().getSize().y / 2.f + 180.f;
-                float btnBottom = game->getWindow().getSize().y / 2.f + 220.f;
-                
-                if (event.mouseButton.x >= btnLeft && event.mouseButton.x <= btnRight &&
-                    event.mouseButton.y >= btnTop && event.mouseButton.y <= btnBottom) {
-                    isInspectingCharacter = true;
-                    return; // Consume click so we don't accidentally select a new map entity behind the UI
-                }
-            }
-        }
-
-        // Calculate the map's pixel boundaries on the screen so we only drag/zoom when interacting WITH the map
+        // Calculate the map's pixel boundaries
         sf::Vector2f winSize(game->getWindow().getSize().x, game->getWindow().getSize().y);
         sf::FloatRect vpPixels(
             currentViewport.left * winSize.x, currentViewport.top * winSize.y,
             currentViewport.width * winSize.x, currentViewport.height * winSize.y
         );
 
+        // --- PROFILE DRAG & CLICK LOGIC ---
+        sf::FloatRect profileRect(0, 0, 0, 0);
+        bool profileOpen = false;
+        if (isInspectingCharacter) { profileRect = {profilePanelPos.x, profilePanelPos.y, 320.f, 500.f}; profileOpen = true; }
+        else if (selectedKingdomId != 0) { profileRect = {profilePanelPos.x, profilePanelPos.y, 380.f, 550.f}; profileOpen = true; }
+        else if (selectedVillageId != 0) { profileRect = {profilePanelPos.x, profilePanelPos.y, 340.f, 500.f}; profileOpen = true; }
+
         if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+            // Check if clicking inside the floating profile panel
+            if (profileOpen && profileRect.contains(event.mouseButton.x, event.mouseButton.y)) {
+                isDraggingProfile = true;
+                lastMousePos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
+                dragStartMousePos = lastMousePos;
+                return; // Consume
+            }
+            // Check if clicking the map
             if (vpPixels.contains(event.mouseButton.x, event.mouseButton.y)) {
                 isDraggingMap = true;
-                isMapDetached = true; // Detach from player auto-tracking
+                isMapDetached = true;
                 lastMousePos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
-                dragStartMousePos = lastMousePos; // Mark start of click
-                return; // Consume event
+                dragStartMousePos = lastMousePos;
+                return; // Consume
             }
         }
-        if (event.type == sf::Event::MouseMoved && isDraggingMap) {
-            sf::Vector2i newPos(event.mouseMove.x, event.mouseMove.y);
-            sf::Vector2f delta = game->getWindow().mapPixelToCoords(lastMousePos, mapView) - game->getWindow().mapPixelToCoords(newPos, mapView);
-            mapCenter += delta;
-            lastMousePos = newPos;
-            return; // Consume event
+        if (event.type == sf::Event::MouseMoved) {
+            if (isDraggingProfile) {
+                sf::Vector2i newPos(event.mouseMove.x, event.mouseMove.y);
+                profilePanelPos.x += (newPos.x - lastMousePos.x);
+                profilePanelPos.y += (newPos.y - lastMousePos.y);
+                lastMousePos = newPos;
+                return;
+            }
+            if (isDraggingMap) {
+                sf::Vector2i newPos(event.mouseMove.x, event.mouseMove.y);
+                sf::Vector2f delta = game->getWindow().mapPixelToCoords(lastMousePos, mapView) - game->getWindow().mapPixelToCoords(newPos, mapView);
+                mapCenter += delta;
+                lastMousePos = newPos;
+                return;
+            }
         }
         if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
+            if (isDraggingProfile) {
+                isDraggingProfile = false;
+                int dx = event.mouseButton.x - dragStartMousePos.x;
+                int dy = event.mouseButton.y - dragStartMousePos.y;
+                if (dx * dx + dy * dy < 25) {
+                    // Clicked inside the profile (check button bounds dynamically)
+                    float btnTop = profilePanelPos.y + profileRect.height - 80.f;
+                    float btnBottom = profilePanelPos.y + profileRect.height - 40.f;
+                    float btnLeft = profilePanelPos.x + profileRect.width / 2.f - 100.f;
+                    float btnRight = profilePanelPos.x + profileRect.width / 2.f + 100.f;
+                    
+                    if (event.mouseButton.x >= btnLeft && event.mouseButton.x <= btnRight &&
+                        event.mouseButton.y >= btnTop && event.mouseButton.y <= btnBottom) {
+                        if (isInspectingCharacter) isInspectingCharacter = false; // "Back"
+                        else isInspectingCharacter = true; // "View Leader"
+                    }
+                }
+                return;
+            }
             if (isDraggingMap) {
                 isDraggingMap = false;
-                sf::Vector2i newPos(event.mouseButton.x, event.mouseButton.y);
-                int dx = newPos.x - dragStartMousePos.x;
-                int dy = newPos.y - dragStartMousePos.y;
-                // Strict threshold: If mouse didn't drag more than 5 pixels, treat it as a selection click
+                int dx = event.mouseButton.x - dragStartMousePos.x;
+                int dy = event.mouseButton.y - dragStartMousePos.y;
                 if (dx * dx + dy * dy < 25) {
-                    handleMapClick(game->getWindow().mapPixelToCoords(newPos, mapView));
+                    handleMapClick(game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), mapView));
                 }
                 return;
             }
@@ -150,12 +173,12 @@ void PlayState::processEvents(const sf::Event& event) {
             if (vpPixels.contains(event.mouseWheelScroll.x, event.mouseWheelScroll.y)) {
                 targetMapZoom -= event.mouseWheelScroll.delta * 1.5f;
                 targetMapZoom = std::clamp(targetMapZoom, 2.0f, 40.0f);
-                isMapDetached = true; // Zooming also detaches to let the player inspect freely
+                isMapDetached = true;
                 return;
             }
         }
         if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::C) {
-            isMapDetached = false; // Press C to quickly re-center on the player
+            isMapDetached = false;
             return;
         }
     }
@@ -1579,11 +1602,10 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
     if (opinionReasons.empty()) opinionReasons = "Neutral: 0\n";
     std::string opinionStr = "Opinion of You: " + std::to_string(opinion) + "\n\nReasons:\n" + opinionReasons;
 
-    // --- 3. RENDERING ---
     float panelW = 320.f;
     float panelH = 500.f;
-    float startX = 40.f; // Placed neatly on the left side of the screen
-    float startY = window.getSize().y / 2.f - panelH / 2.f;
+    float startX = profilePanelPos.x; 
+    float startY = profilePanelPos.y;
 
     // Panel Background
     sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
@@ -1636,9 +1658,11 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
     window.draw(div);
     curY += 20.f;
 
-    // Relationship/Opinion
     sf::Color opinionColor = (opinion < 0) ? sf::Color(255, 120, 120) : (opinion > 0 ? sf::Color(120, 255, 120) : sf::Color(200, 200, 200));
     drawText(opinionStr, startX + 30.f, curY, 16, opinionColor, false);
+
+    curY = startY + panelH - 60.f;
+    drawText("[ Back ]", startX, curY, 18, sf::Color(255, 255, 150), true);
 }
 
 void PlayState::drawWorldMap(sf::RenderWindow& window) {
@@ -1914,12 +1938,10 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
     std::string activeProjects = std::to_string(v->constructionQueue.size());
     std::string statusStr = v->isMigrating ? "Migrating" : (v->food < v->members.size() ? "Hungry" : "Stable");
 
-    // --- RENDERING ---
-    // --- RENDERING ---
     float panelW = 340.f;
     float panelH = 500.f;
-    float startX = 40.f; // Placed neatly on the left side of the screen
-    float startY = window.getSize().y / 2.f - panelH / 2.f;
+    float startX = profilePanelPos.x; 
+    float startY = profilePanelPos.y;
 
     sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
     panel.setPosition(startX, startY);
@@ -2023,8 +2045,8 @@ void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId)
 
     float panelW = 380.f;
     float panelH = 550.f;
-    float startX = 40.f; // Placed neatly on the left side of the screen
-    float startY = window.getSize().y / 2.f - panelH / 2.f;
+    float startX = profilePanelPos.x; 
+    float startY = profilePanelPos.y;
 
     sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
     panel.setPosition(startX, startY);

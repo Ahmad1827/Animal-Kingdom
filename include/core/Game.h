@@ -14,4 +14,5 @@ public:
     Game();
     void run();
     AssetManager& getAssetManager() { return assetManager; }
+    sf::RenderWindow& getWindow() { return window; }
 };

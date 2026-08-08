@@ -77,7 +77,8 @@ private:
 
     void startDiplomaticDialogue(sim::EntityID repId);
     void endDiplomaticDialogue();
-
+    void drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId);
+    
 public:
     PlayState(Game* game);
     void init() override;

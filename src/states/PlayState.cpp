@@ -1087,7 +1087,13 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     // --- DIEGETIC DIALOGUE RENDERING ---
+    // --- DIEGETIC DIALOGUE RENDERING ---
     if (isDialogueActive) {
+        // Draw the Crusader Kings-style Character Profile on the left side of the screen
+        if (pDataHUD && pDataHUD->summonedRepId != 0) {
+            drawCharacterProfile(window, pDataHUD->summonedRepId);
+        }
+
         // Speaker Title
         sf::Text speakerText(dialogueSpeakerName, cinematicFont, 24);
         speakerText.setFillColor(sf::Color(255, 215, 100)); // Gold
@@ -1315,4 +1321,144 @@ void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
     }
 
     dialogueOptions.push_back({"Leave.", [this]() { endDiplomaticDialogue(); }});
+}
+
+void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId) {
+    sim::ApeData* ape = simulationManager->getRegistry().getApe(apeId);
+    if (!ape) return;
+
+    // --- 1. DATA EXTRACTION ---
+    std::string name = ape->name;
+    std::string ageHealth = "Age: " + std::to_string(static_cast<int>(ape->age)) + "   Health: " + std::to_string(static_cast<int>(ape->health));
+    
+    sim::DynastyData* dyn = simulationManager->getRegistry().getDynasty(ape->dynastyId);
+    std::string dynastyName = dyn ? dyn->name + " Dynasty" : "Unlanded Wanderer";
+
+    std::string title = "Villager";
+    std::string realm = "Unknown Lands";
+    
+    sim::KingdomData* kData = nullptr;
+    if (ape->currentKingdom != 0) {
+        kData = simulationManager->getRegistry().getKingdom(ape->currentKingdom);
+        if (kData) {
+            realm = kData->name;
+            title = (kData->currentKingId == ape->id) ? "King of " + realm : "Noble of " + realm;
+        }
+    } else if (ape->villageId != 0) {
+        sim::VillageData* vData = simulationManager->getRegistry().getVillage(ape->villageId);
+        if (vData) {
+            realm = vData->name;
+            title = (vData->leaderId == ape->id) ? "Chief of " + realm : "Villager of " + realm;
+        }
+    }
+
+    // Process Traits
+    std::string traitsStr = "Traits:\n";
+    for (auto t : ape->traits) {
+        switch(t) {
+            case sim::Trait::Brave: traitsStr += "- Brave\n"; break;
+            case sim::Trait::Coward: traitsStr += "- Coward\n"; break;
+            case sim::Trait::Greedy: traitsStr += "- Greedy\n"; break;
+            case sim::Trait::Honorable: traitsStr += "- Honorable\n"; break;
+            case sim::Trait::Cruel: traitsStr += "- Cruel\n"; break;
+            case sim::Trait::Charismatic: traitsStr += "- Charismatic\n"; break;
+            case sim::Trait::Lazy: traitsStr += "- Lazy\n"; break;
+            case sim::Trait::Strategic: traitsStr += "- Strategic\n"; break;
+            case sim::Trait::Impulsive: traitsStr += "- Impulsive\n"; break;
+            case sim::Trait::Curious: traitsStr += "- Curious\n"; break;
+            case sim::Trait::Energetic: traitsStr += "- Energetic\n"; break;
+        }
+    }
+    if (ape->traits.empty()) traitsStr += "- None\n";
+
+    // --- 2. DYNAMIC OPINION CALCULATION (No backend bloat) ---
+    int opinion = 0;
+    std::string opinionReasons = "";
+    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    
+    if (player && player->currentKingdom != 0 && kData != nullptr) {
+        sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(player->currentKingdom);
+        if (pK) {
+            // Base opinion off Diplomatic Status
+            if (pK->relations.count(kData->id)) {
+                sim::DiplomacyStatus status = pK->relations[kData->id];
+                if (status == sim::DiplomacyStatus::War) { opinion -= 50; opinionReasons += "At War: -50\n"; }
+                else if (status == sim::DiplomacyStatus::Rival) { opinion -= 20; opinionReasons += "Rivalry: -20\n"; }
+                else if (status == sim::DiplomacyStatus::Alliance) { opinion += 40; opinionReasons += "Alliance: +40\n"; }
+                else if (status == sim::DiplomacyStatus::Trade) { opinion += 15; opinionReasons += "Trade Partners: +15\n"; }
+            }
+            // Modify opinion based on active Border Tension
+            if (pK->borderTension.count(kData->id)) {
+                float tension = pK->borderTension[kData->id];
+                if (tension > 0) {
+                    int pen = static_cast<int>(tension / 5.f);
+                    opinion -= pen;
+                    opinionReasons += "Border Tension: -" + std::to_string(pen) + "\n";
+                }
+            }
+        }
+    }
+    if (opinionReasons.empty()) opinionReasons = "Neutral: 0\n";
+    std::string opinionStr = "Opinion of You: " + std::to_string(opinion) + "\n\nReasons:\n" + opinionReasons;
+
+    // --- 3. RENDERING ---
+    float panelW = 320.f;
+    float panelH = 500.f;
+    float startX = 40.f; // Placed neatly on the left side of the screen
+    float startY = window.getSize().y / 2.f - panelH / 2.f;
+
+    // Panel Background
+    sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
+    panel.setPosition(startX, startY);
+    panel.setFillColor(sf::Color(35, 25, 20, 245)); // Dark wood/parchment
+    panel.setOutlineColor(sf::Color(180, 140, 70, 220)); // Dim gold outline
+    panel.setOutlineThickness(2.f);
+    window.draw(panel);
+
+    // Lambda to easily draw aligned text inside the panel
+    auto drawText = [&](const std::string& text, float x, float y, int size, sf::Color col, bool center) {
+        sf::Text t(text, cinematicFont, size);
+        t.setFillColor(col);
+        t.setOutlineColor(sf::Color::Black);
+        t.setOutlineThickness(1.5f);
+        if (center) {
+            sf::FloatRect bounds = t.getLocalBounds();
+            t.setOrigin(bounds.left + bounds.width / 2.f, 0.f);
+            t.setPosition(x + panelW / 2.f, y);
+        } else {
+            t.setPosition(x, y);
+        }
+        window.draw(t);
+    };
+
+    // Header Info
+    float curY = startY + 25.f;
+    drawText(name, startX, curY, 28, sf::Color(255, 215, 100), true); // Gold Name
+    curY += 35.f;
+    drawText(dynastyName, startX, curY, 16, sf::Color(180, 180, 180), true); // Silver Dynasty
+    curY += 40.f;
+    drawText(title, startX, curY, 20, sf::Color(220, 220, 220), true); // White Title
+    curY += 35.f;
+    drawText(ageHealth, startX, curY, 16, sf::Color(150, 200, 150), true); // Soft Green Stats
+    curY += 40.f;
+
+    // Decorative Divider
+    sf::RectangleShape div(sf::Vector2f(panelW - 60.f, 2.f));
+    div.setPosition(startX + 30.f, curY);
+    div.setFillColor(sf::Color(120, 90, 50, 200));
+    window.draw(div);
+    curY += 20.f;
+
+    // Traits
+    drawText(traitsStr, startX + 30.f, curY, 16, sf::Color(200, 200, 200), false);
+    curY += 130.f;
+
+    // Decorative Divider
+    div.setPosition(startX + 30.f, curY);
+    window.draw(div);
+    curY += 20.f;
+
+    // Relationship/Opinion
+    sf::Color opinionColor = (opinion < 0) ? sf::Color(255, 120, 120) : (opinion > 0 ? sf::Color(120, 255, 120) : sf::Color(200, 200, 200));
+    drawText(opinionStr, startX + 30.f, curY, 16, opinionColor, false);
 }

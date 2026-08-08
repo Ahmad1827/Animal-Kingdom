@@ -1026,26 +1026,42 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
     // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
     // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
+    // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
     sim::ApeData* pDataHUD = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     bool isCinematicWait = false;
     
     if (pDataHUD && pDataHUD->isWaitingForAudience) {
         sim::ApeData* rep = simulationManager->getRegistry().getApe(pDataHUD->summonedRepId);
-        if (rep && std::abs(rep->worldX - pDataHUD->meetingX) > 150.0f) {
-            isCinematicWait = true;
+        if (rep) {
+            float dist = std::abs(rep->worldX - pDataHUD->meetingX);
+            isCinematicWait = (dist > 150.0f); 
             
-            // Calculate actual physical ETA based on current distance
-            int timeEst = static_cast<int>(std::abs(rep->worldX - pDataHUD->meetingX) / 180.0f);
-            std::string waitStr = "AWAITING ARRIVAL\nRepresentative is traveling here.\nETA: " + std::to_string(timeEst) + "s";
-            
-            sf::Text waitText(waitStr, cinematicFont, 32);
-            sf::FloatRect textRect = waitText.getLocalBounds();
-            waitText.setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
-            waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.15f);
-            waitText.setFillColor(sf::Color::White);
-            waitText.setOutlineColor(sf::Color::Black);
-            waitText.setOutlineThickness(2.f);
-            window.draw(waitText);
+            // Only draw cinematic text while actively waiting. 
+            // Once they arrive, this draws nothing, letting the InteractionManager seamlessly take over.
+            if (isCinematicWait) {
+                // True physical countdown, capped at a minimum of 0
+                int secondsLeft = std::max(0, static_cast<int>(dist / 180.0f));
+
+                // Minimal, elegant top-center text
+                sf::Text waitText("Awaiting representative...", cinematicFont, 16);
+                sf::FloatRect waitRect = waitText.getLocalBounds();
+                waitText.setOrigin(waitRect.left + waitRect.width / 2.0f, waitRect.top + waitRect.height / 2.0f);
+                waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.10f);
+                waitText.setFillColor(sf::Color(220, 220, 220, 230)); 
+                waitText.setOutlineColor(sf::Color(0, 0, 0, 200));
+                waitText.setOutlineThickness(1.5f);
+                window.draw(waitText);
+
+                // True countdown number centered directly below it
+                sf::Text timeText(std::to_string(secondsLeft), cinematicFont, 16);
+                sf::FloatRect timeRect = timeText.getLocalBounds();
+                timeText.setOrigin(timeRect.left + timeRect.width / 2.0f, timeRect.top + timeRect.height / 2.0f);
+                timeText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.10f + 25.f);
+                timeText.setFillColor(sf::Color(220, 220, 220, 230));
+                timeText.setOutlineColor(sf::Color(0, 0, 0, 200));
+                timeText.setOutlineThickness(1.5f);
+                window.draw(timeText);
+            }
         }
     }
 

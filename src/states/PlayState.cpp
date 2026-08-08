@@ -78,6 +78,38 @@ void PlayState::processEvents(const sf::Event& event) {
     }
 
     if (mapMode != MapMode::Hidden) {
+        // Handle "Close" logic for Map Profiles (Escape key always backs out of the deepest view)
+        if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
+            if (isInspectingCharacter) {
+                isInspectingCharacter = false; // Back to Village/Kingdom Profile
+                return;
+            } else if (selectedVillageId != 0 || selectedKingdomId != 0) {
+                selectedVillageId = 0; // Clear selection to close profile
+                selectedKingdomId = 0;
+                return;
+            } else {
+                mapMode = MapMode::Hidden; // Close map
+                return;
+            }
+        }
+        
+        // Handle Map Profile "View Leader" Button Clicks
+        if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
+            if (!isInspectingCharacter && (selectedVillageId != 0 || selectedKingdomId != 0)) {
+                // Approximate button bounding box (Bottom center of the panel)
+                float btnLeft = game->getWindow().getSize().x / 2.f - 100.f;
+                float btnRight = game->getWindow().getSize().x / 2.f + 100.f;
+                float btnTop = game->getWindow().getSize().y / 2.f + 180.f;
+                float btnBottom = game->getWindow().getSize().y / 2.f + 220.f;
+                
+                if (event.mouseButton.x >= btnLeft && event.mouseButton.x <= btnRight &&
+                    event.mouseButton.y >= btnTop && event.mouseButton.y <= btnBottom) {
+                    isInspectingCharacter = true;
+                    return; // Consume click so we don't accidentally select a new map entity behind the UI
+                }
+            }
+        }
+
         // Calculate the map's pixel boundaries on the screen so we only drag/zoom when interacting WITH the map
         sf::Vector2f winSize(game->getWindow().getSize().x, game->getWindow().getSize().y);
         sf::FloatRect vpPixels(
@@ -1260,6 +1292,24 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     if (mapMode != MapMode::Hidden) {
         drawWorldMap(window);
+        
+        // Render Information Panels on top of the Map
+        if (isInspectingCharacter) {
+            // Reusing the character profile if inspecting a leader from the map
+            sim::EntityID targetApe = 0;
+            if (selectedVillageId != 0) {
+                sim::VillageData* v = simulationManager->getRegistry().getVillage(selectedVillageId);
+                if (v) targetApe = v->leaderId;
+            } else if (selectedKingdomId != 0) {
+                sim::KingdomData* k = simulationManager->getRegistry().getKingdom(selectedKingdomId);
+                if (k) targetApe = k->currentKingId;
+            }
+            if (targetApe != 0) drawCharacterProfile(window, targetApe);
+        } else if (selectedVillageId != 0) {
+            drawVillageProfile(window, selectedVillageId);
+        } else if (selectedKingdomId != 0) {
+            drawKingdomProfile(window, selectedKingdomId);
+        }
     }
 
     if (debugOverlay) debugOverlay->draw(window);
@@ -1833,4 +1883,200 @@ void PlayState::handleMapClick(sf::Vector2f worldPos) {
     // Apply Selection (Clicking empty space clears selection)
     selectedVillageId = hitVillage;
     selectedKingdomId = hitKingdom;
+}
+
+void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId) {
+    sim::VillageData* v = simulationManager->getRegistry().getVillage(vId);
+    if (!v) return;
+
+    // --- DATA EXTRACTION ---
+    std::string leaderName = "Unknown Leader";
+    sim::ApeData* leader = simulationManager->getRegistry().getApe(v->leaderId);
+    if (leader) leaderName = leader->name;
+
+    std::string allegiance = "Independent";
+    if (v->kingdomId != 0) {
+        sim::KingdomData* k = simulationManager->getRegistry().getKingdom(v->kingdomId);
+        if (k) allegiance = "Kingdom of " + k->name;
+    }
+
+    std::string popStr = std::to_string(v->members.size()) + " apes";
+    std::string foodStr = std::to_string(v->food);
+    std::string woodStr = std::to_string(v->wood);
+    std::string stoneStr = std::to_string(v->stone);
+    std::string activeProjects = std::to_string(v->constructionQueue.size());
+    std::string statusStr = v->isMigrating ? "Migrating" : (v->food < v->members.size() ? "Hungry" : "Stable");
+
+    // --- RENDERING ---
+    float panelW = 340.f;
+    float panelH = 500.f;
+    float startX = window.getSize().x / 2.f - panelW / 2.f; 
+    float startY = window.getSize().y / 2.f - panelH / 2.f;
+
+    sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
+    panel.setPosition(startX, startY);
+    panel.setFillColor(sf::Color(35, 25, 20, 245));
+    panel.setOutlineColor(sf::Color(180, 140, 70, 220));
+    panel.setOutlineThickness(2.f);
+    window.draw(panel);
+
+    auto drawText = [&](const std::string& text, float y, int size, sf::Color col, bool bold = false) {
+        sf::Text t(text, cinematicFont, size);
+        t.setFillColor(col);
+        t.setOutlineColor(sf::Color::Black);
+        t.setOutlineThickness(bold ? 2.f : 1.f);
+        sf::FloatRect bounds = t.getLocalBounds();
+        t.setOrigin(bounds.left + bounds.width / 2.f, 0.f);
+        t.setPosition(startX + panelW / 2.f, y);
+        window.draw(t);
+    };
+
+    float curY = startY + 25.f;
+    drawText("VILLAGE OF " + v->name, curY, 26, sf::Color(255, 215, 100), true);
+    
+    curY += 40.f;
+    sf::RectangleShape div(sf::Vector2f(panelW - 60.f, 2.f));
+    div.setPosition(startX + 30.f, curY);
+    div.setFillColor(sf::Color(120, 90, 50, 200));
+    window.draw(div);
+
+    curY += 20.f;
+    drawText("Leader", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(leaderName, curY, 20, sf::Color::White);
+
+    curY += 35.f;
+    drawText("Allegiance", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(allegiance, curY, 18, sf::Color(200, 220, 255));
+
+    curY += 35.f;
+    drawText("Population", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(popStr, curY, 18, sf::Color::White);
+
+    curY += 35.f;
+    drawText("Stores ( Food / Wood / Stone )", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(foodStr + "  /  " + woodStr + "  /  " + stoneStr, curY, 18, sf::Color(150, 200, 150));
+
+    curY += 35.f;
+    drawText("Status: " + statusStr, curY, 18, sf::Color(220, 220, 220));
+
+    // Button
+    curY = startY + panelH - 60.f;
+    drawText("[ View Leader ]", curY, 18, sf::Color(255, 255, 150), true);
+}
+
+void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId) {
+    sim::KingdomData* k = simulationManager->getRegistry().getKingdom(kId);
+    if (!k) return;
+
+    // --- DATA EXTRACTION ---
+    std::string rulerName = "Unknown Ruler";
+    sim::ApeData* ruler = simulationManager->getRegistry().getApe(k->currentKingId);
+    if (ruler) rulerName = ruler->name;
+
+    std::string dynastyName = "Unknown Dynasty";
+    sim::DynastyData* dyn = simulationManager->getRegistry().getDynasty(k->leaderDynastyId);
+    if (dyn) dynastyName = dyn->name;
+
+    std::string capitalName = "Unknown Capital";
+    sim::VillageData* cap = simulationManager->getRegistry().getVillage(k->capitalVillageId);
+    if (cap) capitalName = cap->name;
+
+    std::string popStr = std::to_string(k->population) + " apes";
+    std::string villageStr = std::to_string(k->controlledVillages.size()) + " settlements";
+    std::string milStr = std::to_string(k->militaryStrength) + " strength";
+    std::string foodStr = std::to_string(k->treasuryFood);
+    std::string woodStr = std::to_string(k->treasuryWood);
+    std::string stoneStr = std::to_string(k->treasuryStone);
+
+    // Relationship extraction
+    std::string relStr = "Neutral";
+    sf::Color relCol = sf::Color(200, 200, 200);
+    sim::ApeData* pApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    if (pApe && pApe->currentKingdom != 0 && pApe->currentKingdom != kId) {
+        sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pApe->currentKingdom);
+        if (pK && pK->relations.count(kId)) {
+            switch (pK->relations[kId]) {
+                case sim::DiplomacyStatus::War: relStr = "At War"; relCol = sf::Color(255, 100, 100); break;
+                case sim::DiplomacyStatus::Rival: relStr = "Rival"; relCol = sf::Color(255, 150, 100); break;
+                case sim::DiplomacyStatus::Alliance: relStr = "Alliance"; relCol = sf::Color(100, 200, 255); break;
+                case sim::DiplomacyStatus::Trade: relStr = "Trade Partner"; relCol = sf::Color(150, 255, 150); break;
+                case sim::DiplomacyStatus::Friendly: relStr = "Friendly"; relCol = sf::Color(180, 255, 180); break;
+                default: break;
+            }
+        }
+    } else if (pApe && pApe->currentKingdom == kId) {
+        relStr = "Your Realm";
+        relCol = sf::Color(255, 215, 100);
+    }
+
+    // --- RENDERING ---
+    float panelW = 380.f;
+    float panelH = 550.f;
+    float startX = window.getSize().x / 2.f - panelW / 2.f; 
+    float startY = window.getSize().y / 2.f - panelH / 2.f;
+
+    sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
+    panel.setPosition(startX, startY);
+    panel.setFillColor(sf::Color(35, 25, 20, 245));
+    panel.setOutlineColor(sf::Color(180, 140, 70, 220));
+    panel.setOutlineThickness(2.f);
+    window.draw(panel);
+
+    auto drawText = [&](const std::string& text, float y, int size, sf::Color col, bool bold = false) {
+        sf::Text t(text, cinematicFont, size);
+        t.setFillColor(col);
+        t.setOutlineColor(sf::Color::Black);
+        t.setOutlineThickness(bold ? 2.f : 1.f);
+        sf::FloatRect bounds = t.getLocalBounds();
+        t.setOrigin(bounds.left + bounds.width / 2.f, 0.f);
+        t.setPosition(startX + panelW / 2.f, y);
+        window.draw(t);
+    };
+
+    float curY = startY + 25.f;
+    drawText("KINGDOM OF " + k->name, curY, 28, k->color, true);
+    
+    curY += 40.f;
+    sf::RectangleShape div(sf::Vector2f(panelW - 60.f, 2.f));
+    div.setPosition(startX + 30.f, curY);
+    div.setFillColor(sf::Color(120, 90, 50, 200));
+    window.draw(div);
+
+    curY += 20.f;
+    drawText("Ruler", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(rulerName, curY, 22, sf::Color::White);
+    curY += 24.f;
+    drawText(dynastyName + " Dynasty", curY, 16, sf::Color(150, 150, 150));
+
+    curY += 40.f;
+    drawText("Capital", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(capitalName, curY, 18, sf::Color::White);
+
+    curY += 35.f;
+    drawText("Scale ( Pop / Villages )", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(popStr + "  |  " + villageStr, curY, 18, sf::Color::White);
+
+    curY += 35.f;
+    drawText("Treasury ( Food / Wood / Stone )", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(foodStr + "  /  " + woodStr + "  /  " + stoneStr, curY, 18, sf::Color(150, 200, 150));
+
+    curY += 35.f;
+    drawText("Military Power", curY, 14, sf::Color(180, 180, 180));
+    curY += 18.f;
+    drawText(milStr, curY, 18, sf::Color(255, 180, 180));
+
+    curY += 40.f;
+    drawText("Relationship: " + relStr, curY, 20, relCol, true);
+
+    // Button
+    curY = startY + panelH - 60.f;
+    drawText("[ View Ruler ]", curY, 18, sf::Color(255, 255, 150), true);
 }

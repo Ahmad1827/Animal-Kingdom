@@ -94,6 +94,8 @@ private:
     sf::View mapView;
     void drawWorldMap(sf::RenderWindow& window);
     void handleMapClick(sf::Vector2f worldPos);
+    void drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId);
+    void drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId);
     std::string dialogueSpeakerName = "";
     std::string dialogueText = "";
     std::vector<DialogueOption> dialogueOptions;

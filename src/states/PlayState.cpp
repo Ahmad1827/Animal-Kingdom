@@ -52,6 +52,23 @@ void PlayState::init() {
 }
 
 void PlayState::processEvents(const sf::Event& event) {
+    if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
+        sim::ApeData* playerWaitCheck = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+        if (playerWaitCheck && playerWaitCheck->isWaitingForAudience) {
+            playerWaitCheck->isWaitingForAudience = false;
+            
+            sim::ApeData* rep = simulationManager->getRegistry().getApe(playerWaitCheck->summonedRepId);
+            if (rep) { rep->hasTravelDestination = true; rep->travelDestinationX = rep->homeX; }
+            playerWaitCheck->summonedRepId = 0;
+            
+            // CRITICAL FIX: Force the Interaction Manager to close INSTANTLY. No 1-frame flash.
+            interactionManager.clearTargets();
+            refreshInteractionTargets(); 
+            return; // Consume the ESC event completely!
+        }
+    }
+
+    // Normal interaction manager handling
     interactionManager.handleEvent(event, *cameraManager);
 
     if (event.type == sf::Event::KeyPressed) {
@@ -263,7 +280,7 @@ void PlayState::update(float dt) {
         interactionManager.update(dt, playerWrapper->getPosition(), *cameraManager);
         playerWrapper->update(dt);
         
-        if (interactionManager.isInteracting()) {
+        if (interactionManager.isInteracting() || isCinematicWait) {
             playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
         }
         

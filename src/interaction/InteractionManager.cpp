@@ -109,13 +109,19 @@ void InteractionManager::handleEvent(const sf::Event& event, CameraManager& came
                 activeTarget = currentPromptTarget;
                 activeTarget->onInteract();
                 currentMenuEntries = activeTarget->buildInteractionMenu();
-                selectedMenuIndex = 0;
                 
-                isMenuOpen = true;
-                isClosing = false;
-                interactionTransitionTimer = 0.f;
-                preInteractionZoom = 1.35f; 
-                preInteractionCenter = cameraManager.getView().getCenter();
+                // FIX: If the target returns no menu, it is a purely cinematic state.
+                // Abort opening the UI entirely.
+                if (currentMenuEntries.empty()) {
+                    activeTarget = nullptr;
+                } else {
+                    selectedMenuIndex = 0;
+                    isMenuOpen = true;
+                    isClosing = false;
+                    interactionTransitionTimer = 0.f;
+                    preInteractionZoom = 1.35f; 
+                    preInteractionCenter = cameraManager.getView().getCenter();
+                }
             }
         }
     }

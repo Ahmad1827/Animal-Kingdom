@@ -93,12 +93,12 @@ void PlayState::processEvents(const sf::Event& event) {
             }
         }
         
-        // Handle Map Profile "View Leader" Button Clicks
         if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
             if (!isInspectingCharacter && (selectedVillageId != 0 || selectedKingdomId != 0)) {
-                // Approximate button bounding box (Bottom center of the panel)
-                float btnLeft = game->getWindow().getSize().x / 2.f - 100.f;
-                float btnRight = game->getWindow().getSize().x / 2.f + 100.f;
+                // Button is centered horizontally within the panel on the left side
+                float panelCenterX = 40.f + (380.f / 2.f); 
+                float btnLeft = panelCenterX - 100.f;
+                float btnRight = panelCenterX + 100.f;
                 float btnTop = game->getWindow().getSize().y / 2.f + 180.f;
                 float btnBottom = game->getWindow().getSize().y / 2.f + 220.f;
                 
@@ -1293,6 +1293,10 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (mapMode != MapMode::Hidden) {
         drawWorldMap(window);
         
+        // --- FIX: Switch to screen-space (HUD) view so profiles stay fixed while panning the map ---
+        sf::View prevView = window.getView();
+        window.setView(window.getDefaultView());
+
         // Render Information Panels on top of the Map
         if (isInspectingCharacter) {
             // Reusing the character profile if inspecting a leader from the map
@@ -1310,6 +1314,9 @@ void PlayState::draw(sf::RenderWindow& window) {
         } else if (selectedKingdomId != 0) {
             drawKingdomProfile(window, selectedKingdomId);
         }
+        
+        // Restore previous map view
+        window.setView(prevView);
     }
 
     if (debugOverlay) debugOverlay->draw(window);
@@ -1908,9 +1915,10 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
     std::string statusStr = v->isMigrating ? "Migrating" : (v->food < v->members.size() ? "Hungry" : "Stable");
 
     // --- RENDERING ---
+    // --- RENDERING ---
     float panelW = 340.f;
     float panelH = 500.f;
-    float startX = window.getSize().x / 2.f - panelW / 2.f; 
+    float startX = 40.f; // Placed neatly on the left side of the screen
     float startY = window.getSize().y / 2.f - panelH / 2.f;
 
     sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
@@ -2013,10 +2021,9 @@ void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId)
         relCol = sf::Color(255, 215, 100);
     }
 
-    // --- RENDERING ---
     float panelW = 380.f;
     float panelH = 550.f;
-    float startX = window.getSize().x / 2.f - panelW / 2.f; 
+    float startX = 40.f; // Placed neatly on the left side of the screen
     float startY = window.getSize().y / 2.f - panelH / 2.f;
 
     sf::RectangleShape panel(sf::Vector2f(panelW, panelH));

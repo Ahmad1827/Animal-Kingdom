@@ -1671,91 +1671,117 @@ bool PlayState::loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float te
     return true;
 }
 
-// ====================================================
-// DIALOGUE BRANCH: DISCOVERY & INFO (100 - 199)
-// ====================================================
-// ====================================================
-// DIALOGUE BRANCH: DISCOVERY & INFO (100 - 199)
-// ====================================================
 bool PlayState::loadDiscoveryNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 100 || nodeId >= 200) return false;
 
+    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
-    sim::KingdomData* rK = (rep && rep->currentKingdom != 0) ? simulationManager->getRegistry().getKingdom(rep->currentKingdom) : nullptr;
-    sim::VillageData* rV = (rep && rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
+    if (!player || !rep) return false;
+
+    sim::KingdomData* rK = (rep->currentKingdom != 0) ? simulationManager->getRegistry().getKingdom(rep->currentKingdom) : nullptr;
+    sim::VillageData* rV = (rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
+
+    // Evaluate attitude
+    sim::DiplomacyStatus status = sim::DiplomacyStatus::Neutral;
+    float tension = 0.0f;
+    if (pKID != 0 && rKID != 0) {
+        sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pKID);
+        if (pK && pK->relations.count(rKID)) status = pK->relations[rKID];
+        if (pK && pK->borderTension.count(rKID)) tension = pK->borderTension[rKID];
+    }
+    
+    int opinion = 0;
+    if (rKID == 0 && rV && rV->personalOpinions.count(player->id)) {
+        opinion = rV->personalOpinions[player->id];
+    }
+
+    bool isGuarded = (status == sim::DiplomacyStatus::War || status == sim::DiplomacyStatus::Rival || tension >= 40.0f || (rKID == 0 && opinion <= -10));
 
     switch(nodeId) {
         case 100:
-            dialogueText = "\"There is little reason for hostility between us. Ask what you will.\"";
+            if (isGuarded) {
+                dialogueText = "\"I have no reason to share our secrets with you. Ask quickly, or leave.\"";
+            } else {
+                dialogueText = "\"There is little reason for hostility between us. Ask what you will.\"";
+            }
             dialogueOptions.push_back({"\"Who rules your people?\"", [this]() { loadDialogueNode(101); }});
             dialogueOptions.push_back({"\"How strong are your people?\"", [this]() { loadDialogueNode(102); }});
             dialogueOptions.push_back({"\"I have other matters to discuss.\"", [this]() { loadDialogueNode(10); }});
             break;
 
         case 101:
-            if (rK) {
-                sim::ApeData* king = simulationManager->getRegistry().getApe(rK->currentKingId);
-                std::string kName = king ? king->name : "an unknown ruler";
-                dialogueText = "\"King " + kName + " guides our people. We follow his decrees.\"";
-            } else if (rV) {
-                sim::ApeData* chief = simulationManager->getRegistry().getApe(rV->leaderId);
-                std::string cName = chief ? chief->name : "the village elders";
-                dialogueText = "\"We govern ourselves, guided by Chief " + cName + ".\"";
+            if (isGuarded) {
+                dialogueText = "\"That is not your concern. Focus on your own lands.\"";
             } else {
-                dialogueText = "\"We are wanderers. We govern ourselves.\"";
+                if (rK) {
+                    sim::ApeData* king = simulationManager->getRegistry().getApe(rK->currentKingId);
+                    std::string kName = king ? king->name : "an unknown ruler";
+                    dialogueText = "\"King " + kName + " guides our people. We follow his decrees.\"";
+                } else if (rV) {
+                    sim::ApeData* chief = simulationManager->getRegistry().getApe(rV->leaderId);
+                    std::string cName = chief ? chief->name : "the village elders";
+                    dialogueText = "\"We govern ourselves, guided by Chief " + cName + ".\"";
+                } else {
+                    dialogueText = "\"We are wanderers. We govern ourselves.\"";
+                }
             }
             dialogueOptions.push_back({"\"I have another question.\"", [this]() { loadDialogueNode(100); }});
             dialogueOptions.push_back({"\"Let us change the subject.\"", [this]() { loadDialogueNode(10); }});
             break;
 
         case 102:
-            if (rK) {
-                dialogueText = "\"We control " + std::to_string(rK->controlledVillages.size()) + " villages and our military strength is " + std::to_string(rK->militaryStrength) + ".\"";
-            } else if (rV) {
-                dialogueText = "\"We are an independent village of " + std::to_string(rV->members.size()) + " apes.\nWe survive on our own resources and strength.\"";
+            if (isGuarded) {
+                dialogueText = "\"We are strong enough to defend ourselves against threats. Do not test us.\"";
             } else {
-                dialogueText = "\"We are a modest band, surviving the jungle day by day.\"";
+                if (rK) {
+                    dialogueText = "\"We control " + std::to_string(rK->controlledVillages.size()) + " villages and our military strength is " + std::to_string(rK->militaryStrength) + ".\"";
+                } else if (rV) {
+                    dialogueText = "\"We are an independent village of " + std::to_string(rV->members.size()) + " apes.\nWe survive on our own resources and strength.\"";
+                } else {
+                    dialogueText = "\"We are a modest band, surviving the jungle day by day.\"";
+                }
             }
-            dialogueOptions.push_back({"\"Impressive. I have other questions.\"", [this]() { loadDialogueNode(100); }});
+            dialogueOptions.push_back({"\"I see. I have other questions.\"", [this]() { loadDialogueNode(100); }});
             dialogueOptions.push_back({"\"Let us change the subject.\"", [this]() { loadDialogueNode(10); }});
             break;
     }
     return true;
 }
 
-// ====================================================
-// DIALOGUE BRANCH: NEGOTIATION & DE-ESCALATION (200 - 299)
-// ====================================================
-// ====================================================
-// DIALOGUE BRANCH: NEGOTIATION & DE-ESCALATION (200 - 299)
-// ====================================================
+
 // ====================================================
 // DIALOGUE BRANCH: NEGOTIATION & DE-ESCALATION (200 - 299)
 // ====================================================
 bool PlayState::loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 200 || nodeId >= 300) return false;
 
+    // Upgraded Consequence Lambda: Fully Syncs Simulation State
     auto applyConsequence = [this](sim::KingdomID p, sim::KingdomID r, float tensionAmount, int opinionAmount, const std::string& hist) {
         sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
         sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
         if (!player || !rep) return;
 
-        if (p != 0 && r != 0) {
+        if (p != 0 && r != 0) { // Kingdom Logic
             sim::KingdomData* pkData = simulationManager->getRegistry().getKingdom(p);
             sim::KingdomData* rkData = simulationManager->getRegistry().getKingdom(r);
             if (pkData && rkData) {
                 pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + tensionAmount);
                 rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + tensionAmount);
                 
-                // Rival De-escalation (Only clears Rival, strictly protects War)
-                if (pkData->relations[r] == sim::DiplomacyStatus::Rival && pkData->borderTension[r] < 40.0f) {
-                    pkData->relations[r] = sim::DiplomacyStatus::Neutral;
-                    rkData->relations[p] = sim::DiplomacyStatus::Neutral;
-                    sim::HistoricalRecord rec;
-                    rec.year = simulationManager->getRegistry().getYear();
-                    rec.day = simulationManager->getRegistry().getDay();
-                    rec.description = pkData->name + " and " + rkData->name + " successfully eased their rivalry.";
-                    simulationManager->getRegistry().addHistory(rec);
+                // Dynamic Status Sync
+                if (pkData->relations[r] != sim::DiplomacyStatus::War) {
+                    if (pkData->borderTension[r] >= 50.0f && pkData->relations[r] != sim::DiplomacyStatus::Rival) {
+                        pkData->relations[r] = sim::DiplomacyStatus::Rival;
+                        rkData->relations[p] = sim::DiplomacyStatus::Rival;
+                    } else if (pkData->borderTension[r] < 40.0f && pkData->relations[r] == sim::DiplomacyStatus::Rival) {
+                        pkData->relations[r] = sim::DiplomacyStatus::Neutral;
+                        rkData->relations[p] = sim::DiplomacyStatus::Neutral;
+                        sim::HistoricalRecord rec;
+                        rec.year = simulationManager->getRegistry().getYear();
+                        rec.day = simulationManager->getRegistry().getDay();
+                        rec.description = pkData->name + " and " + rkData->name + " successfully eased their rivalry.";
+                        simulationManager->getRegistry().addHistory(rec);
+                    }
                 }
 
                 if (!hist.empty()) {
@@ -1766,9 +1792,26 @@ bool PlayState::loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::Kingd
                     simulationManager->getRegistry().addHistory(rec);
                 }
             }
-        } else if (rep->villageId != 0) {
+        } else if (rep->villageId != 0) { // Village Logic
             sim::VillageData* vTarget = simulationManager->getRegistry().getVillage(rep->villageId);
-            if (vTarget) vTarget->personalOpinions[player->id] += opinionAmount;
+            if (vTarget) {
+                vTarget->personalOpinions[player->id] += opinionAmount;
+                int op = vTarget->personalOpinions[player->id];
+                
+                // Sync to VillageData::relations
+                sim::VillageID pVidKey = player->villageId;
+                if (player->currentKingdom != 0) {
+                    sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(player->currentKingdom);
+                    if (pK) pVidKey = pK->capitalVillageId;
+                }
+                
+                if (pVidKey != 0) {
+                    if (op >= 30) vTarget->relations[pVidKey] = sim::Reputation::Friendly;
+                    else if (op <= -30) vTarget->relations[pVidKey] = sim::Reputation::Hostile;
+                    else if (op <= -10) vTarget->relations[pVidKey] = sim::Reputation::Suspicious;
+                    else vTarget->relations[pVidKey] = sim::Reputation::Neutral;
+                }
+            }
         }
     };
 
@@ -1817,14 +1860,19 @@ bool PlayState::loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::Kingdom
                 pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + tensionAmount);
                 rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + tensionAmount);
                 
-                if (pkData->relations[r] == sim::DiplomacyStatus::Rival && pkData->borderTension[r] < 40.0f) {
-                    pkData->relations[r] = sim::DiplomacyStatus::Neutral;
-                    rkData->relations[p] = sim::DiplomacyStatus::Neutral;
-                    sim::HistoricalRecord rec;
-                    rec.year = simulationManager->getRegistry().getYear();
-                    rec.day = simulationManager->getRegistry().getDay();
-                    rec.description = pkData->name + " and " + rkData->name + " successfully eased their rivalry.";
-                    simulationManager->getRegistry().addHistory(rec);
+                if (pkData->relations[r] != sim::DiplomacyStatus::War) {
+                    if (pkData->borderTension[r] >= 50.0f && pkData->relations[r] != sim::DiplomacyStatus::Rival) {
+                        pkData->relations[r] = sim::DiplomacyStatus::Rival;
+                        rkData->relations[p] = sim::DiplomacyStatus::Rival;
+                    } else if (pkData->borderTension[r] < 40.0f && pkData->relations[r] == sim::DiplomacyStatus::Rival) {
+                        pkData->relations[r] = sim::DiplomacyStatus::Neutral;
+                        rkData->relations[p] = sim::DiplomacyStatus::Neutral;
+                        sim::HistoricalRecord rec;
+                        rec.year = simulationManager->getRegistry().getYear();
+                        rec.day = simulationManager->getRegistry().getDay();
+                        rec.description = pkData->name + " and " + rkData->name + " successfully eased their rivalry.";
+                        simulationManager->getRegistry().addHistory(rec);
+                    }
                 }
 
                 if (!hist.empty()) {
@@ -1837,7 +1885,21 @@ bool PlayState::loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::Kingdom
             }
         } else if (rep->villageId != 0) {
             sim::VillageData* vTarget = simulationManager->getRegistry().getVillage(rep->villageId);
-            if (vTarget) vTarget->personalOpinions[player->id] += opinionAmount;
+            if (vTarget) {
+                vTarget->personalOpinions[player->id] += opinionAmount;
+                int op = vTarget->personalOpinions[player->id];
+                sim::VillageID pVidKey = player->villageId;
+                if (player->currentKingdom != 0) {
+                    sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(player->currentKingdom);
+                    if (pK) pVidKey = pK->capitalVillageId;
+                }
+                if (pVidKey != 0) {
+                    if (op >= 30) vTarget->relations[pVidKey] = sim::Reputation::Friendly;
+                    else if (op <= -30) vTarget->relations[pVidKey] = sim::Reputation::Hostile;
+                    else if (op <= -10) vTarget->relations[pVidKey] = sim::Reputation::Suspicious;
+                    else vTarget->relations[pVidKey] = sim::Reputation::Neutral;
+                }
+            }
         }
     };
 
@@ -1893,14 +1955,19 @@ bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::Kingdo
                 pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + tensionAmount);
                 rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + tensionAmount);
                 
-                if (pkData->relations[r] == sim::DiplomacyStatus::Rival && pkData->borderTension[r] < 40.0f) {
-                    pkData->relations[r] = sim::DiplomacyStatus::Neutral;
-                    rkData->relations[p] = sim::DiplomacyStatus::Neutral;
-                    sim::HistoricalRecord rec;
-                    rec.year = simulationManager->getRegistry().getYear();
-                    rec.day = simulationManager->getRegistry().getDay();
-                    rec.description = pkData->name + " and " + rkData->name + " successfully eased their rivalry.";
-                    simulationManager->getRegistry().addHistory(rec);
+                if (pkData->relations[r] != sim::DiplomacyStatus::War) {
+                    if (pkData->borderTension[r] >= 50.0f && pkData->relations[r] != sim::DiplomacyStatus::Rival) {
+                        pkData->relations[r] = sim::DiplomacyStatus::Rival;
+                        rkData->relations[p] = sim::DiplomacyStatus::Rival;
+                    } else if (pkData->borderTension[r] < 40.0f && pkData->relations[r] == sim::DiplomacyStatus::Rival) {
+                        pkData->relations[r] = sim::DiplomacyStatus::Neutral;
+                        rkData->relations[p] = sim::DiplomacyStatus::Neutral;
+                        sim::HistoricalRecord rec;
+                        rec.year = simulationManager->getRegistry().getYear();
+                        rec.day = simulationManager->getRegistry().getDay();
+                        rec.description = pkData->name + " and " + rkData->name + " successfully eased their rivalry.";
+                        simulationManager->getRegistry().addHistory(rec);
+                    }
                 }
 
                 if (!hist.empty()) {
@@ -1913,7 +1980,21 @@ bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::Kingdo
             }
         } else if (rep->villageId != 0) {
             sim::VillageData* vTarget = simulationManager->getRegistry().getVillage(rep->villageId);
-            if (vTarget) vTarget->personalOpinions[player->id] += opinionAmount;
+            if (vTarget) {
+                vTarget->personalOpinions[player->id] += opinionAmount;
+                int op = vTarget->personalOpinions[player->id];
+                sim::VillageID pVidKey = player->villageId;
+                if (player->currentKingdom != 0) {
+                    sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(player->currentKingdom);
+                    if (pK) pVidKey = pK->capitalVillageId;
+                }
+                if (pVidKey != 0) {
+                    if (op >= 30) vTarget->relations[pVidKey] = sim::Reputation::Friendly;
+                    else if (op <= -30) vTarget->relations[pVidKey] = sim::Reputation::Hostile;
+                    else if (op <= -10) vTarget->relations[pVidKey] = sim::Reputation::Suspicious;
+                    else vTarget->relations[pVidKey] = sim::Reputation::Neutral;
+                }
+            }
         }
     };
 
@@ -1957,6 +2038,8 @@ bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::Kingdo
     }
     return true;
 }
+
+
 void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId) {
     sim::ApeData* ape = simulationManager->getRegistry().getApe(apeId);
     if (!ape) return;

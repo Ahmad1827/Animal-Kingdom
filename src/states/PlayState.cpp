@@ -1455,8 +1455,8 @@ void PlayState::endDiplomaticDialogue() {
 
 void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
     isDialogueActive = true;
-    dialogueSelectedIndex = 0;
-    dialogueOptions.clear();
+    isInspectingCharacter = false;
+    currentDialogueRepId = repId;
 
     sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     sim::ApeData* rep = simulationManager->getRegistry().getApe(repId);
@@ -1464,23 +1464,13 @@ void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
 
     std::string entityName = "Unknown Land";
     bool isKing = false;
-    sim::DiplomacyStatus status = sim::DiplomacyStatus::Neutral;
     
-    sim::KingdomID pKID = player->currentKingdom;
-    sim::KingdomID rKID = rep->currentKingdom;
-
-    // Retrieve backend simulation data to drive the dialogue
-    if (rKID != 0) {
-        sim::KingdomData* rK = simulationManager->getRegistry().getKingdom(rKID);
+    // Resolve the title exactly once at the start of the meeting
+    if (rep->currentKingdom != 0) {
+        sim::KingdomData* rK = simulationManager->getRegistry().getKingdom(rep->currentKingdom);
         if (rK) {
             entityName = "Kingdom of " + rK->name;
             if (rK->currentKingId == rep->id) isKing = true;
-            if (pKID != 0) {
-                sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pKID);
-                if (pK && pK->relations.count(rKID)) {
-                    status = pK->relations[rKID];
-                }
-            }
         }
     } else {
         sim::VillageData* v = simulationManager->getRegistry().getVillage(rep->villageId);
@@ -1489,39 +1479,78 @@ void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
 
     dialogueSpeakerName = (isKing ? "King " : "Representative ") + rep->name + " of " + entityName;
 
-    // Data-driven contextual dialogue
-    if (status == sim::DiplomacyStatus::War) {
-        dialogueText = "\"Your armies have crossed our borders.\nThere is little left to discuss.\"";
-        dialogueOptions.push_back({"Demand surrender.", [this]() { endDiplomaticDialogue(); }});
-        dialogueOptions.push_back({"Propose peace.", [this, pKID, rKID]() { 
-            sim::WarfareManager::cancelWar(simulationManager->getRegistry(), pKID, rKID);
-            endDiplomaticDialogue(); 
-        }});
-    } else if (status == sim::DiplomacyStatus::Rival) {
-        dialogueText = "\"Your banners stand too close to mine.\nSpeak quickly.\"";
-        dialogueOptions.push_back({"Declare war.", [this, pKID, rKID]() { 
-            sim::WarfareManager::declareWar(simulationManager->getRegistry(), pKID, rKID, "Diplomatic breakdown.");
-            endDiplomaticDialogue(); 
-        }});
-        dialogueOptions.push_back({"Discuss terms.", [this]() { endDiplomaticDialogue(); }});
-    } else if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance) {
-        dialogueText = "\"Welcome, friend. Our fires are yours.\nWhat news do you bring?\"";
-        dialogueOptions.push_back({"Discuss trade.", [this]() { endDiplomaticDialogue(); }});
-        dialogueOptions.push_back({"Propose joint attack.", [this]() { endDiplomaticDialogue(); }});
-    } else {
-        dialogueText = "\"You have crossed into lands that are not yours.\nWhat business brings you here?\"";
-        if (pKID != 0 && rKID != 0) {
-            dialogueOptions.push_back({"Declare war.", [this, pKID, rKID]() { 
-                sim::WarfareManager::declareWar(simulationManager->getRegistry(), pKID, rKID, "Declared war at a diplomatic meeting.");
-                endDiplomaticDialogue(); 
-            }});
+    // Enter the state machine at the Root Node (0)
+    loadDialogueNode(0);
+}
+
+void PlayState::loadDialogueNode(int nodeId) {
+    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+    if (!player || !rep) { endDiplomaticDialogue(); return; }
+
+    // Always fetch the latest diplomacy status just in case
+    sim::DiplomacyStatus status = sim::DiplomacyStatus::Neutral;
+    sim::KingdomID pKID = player->currentKingdom;
+    sim::KingdomID rKID = rep->currentKingdom;
+    if (rKID != 0 && pKID != 0) {
+        sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pKID);
+        if (pK && pK->relations.count(rKID)) {
+            status = pK->relations[rKID];
         }
-        dialogueOptions.push_back({"Discuss trade.", [this]() { endDiplomaticDialogue(); }});
     }
 
-    // Insert the universal inspection option right before leaving
-    dialogueOptions.push_back({"[ Inspect Character ]", [this]() { isInspectingCharacter = true; }});
-    dialogueOptions.push_back({"Leave.", [this]() { endDiplomaticDialogue(); }});
+    currentDialogueNode = nodeId;
+    dialogueSelectedIndex = 0;
+    dialogueOptions.clear();
+
+    // --- CONVERSATION STATE MACHINE ---
+    switch(nodeId) {
+        case 0: // ROOT / INTRO NODE
+            if (status == sim::DiplomacyStatus::War) {
+                dialogueText = "\"Your armies cross our borders, yet you call a meeting.\nSpeak quickly.\"";
+                dialogueOptions.push_back({"\"We should discuss peace.\"", [this]() { loadDialogueNode(4); }});
+            } else if (status == sim::DiplomacyStatus::Rival) {
+                dialogueText = "\"You stand too close to my lands.\nWhat do you want?\"";
+                dialogueOptions.push_back({"\"We seek to improve our relationship.\"", [this]() { loadDialogueNode(1); }});
+                dialogueOptions.push_back({"\"Just observing our neighbors.\"", [this]() { loadDialogueNode(5); }});
+            } else {
+                dialogueText = "\"Welcome to the meeting grounds.\nWhat brings your people here?\"";
+                dialogueOptions.push_back({"\"We seek peaceful relations between our realms.\"", [this]() { loadDialogueNode(1); }});
+                dialogueOptions.push_back({"\"We want to understand your kingdom.\"", [this]() { loadDialogueNode(2); }});
+            }
+            
+            // Universal options from the root node
+            dialogueOptions.push_back({"[ Inspect Character ]", [this]() { isInspectingCharacter = true; }});
+            dialogueOptions.push_back({"[ Leave ]", [this]() { endDiplomaticDialogue(); }});
+            break;
+
+        case 1: // PEACE DISCUSSION
+            dialogueText = "\"Words of peace are easily spoken around a fire.\nTime will tell if your actions match them.\"";
+            dialogueOptions.push_back({"\"We will prove our intent over time.\"", [this]() { loadDialogueNode(3); }});
+            dialogueOptions.push_back({"\"Tell me about your people instead.\"", [this]() { loadDialogueNode(2); }});
+            break;
+
+        case 2: // HISTORY / INFO DISCUSSION
+            dialogueText = "\"We have survived the jungle for generations.\nWe protect what is ours, and respect those who respect us.\"";
+            dialogueOptions.push_back({"\"A wise philosophy.\"", [this]() { loadDialogueNode(3); }});
+            dialogueOptions.push_back({"\"We shall see.\"", [this]() { loadDialogueNode(3); }});
+            break;
+
+        case 3: // GENERIC FAREWELL
+            dialogueText = "\"Until we meet again. Watch your borders.\"";
+            dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
+            break;
+
+        case 4: // WAR REJECTION
+            dialogueText = "\"There is too much blood for peace today.\nPerhaps when your kingdom is broken, we will talk.\"";
+            dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
+            break;
+
+        case 5: // HOSTILE DISMISSAL
+            dialogueText = "\"Your banners offend my sight. Do not test my patience.\"";
+            dialogueOptions.push_back({"\"We will leave.\"", [this]() { endDiplomaticDialogue(); }});
+            break;
+    }
 }
 
 void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId) {

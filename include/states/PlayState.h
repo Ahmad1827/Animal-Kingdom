@@ -99,6 +99,10 @@ private:
     std::string dialogueText = "";
     std::vector<DialogueOption> dialogueOptions;
 
+    sim::EntityID currentDialogueRepId = 0;
+    int currentDialogueNode = 0;
+    void loadDialogueNode(int nodeId);
+
     void startDiplomaticDialogue(sim::EntityID repId);
     void endDiplomaticDialogue();
     void drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId);

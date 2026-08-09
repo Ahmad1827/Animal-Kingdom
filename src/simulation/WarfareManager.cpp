@@ -178,6 +178,7 @@ ArmyID WarfareManager::declareRaid(SimulationRegistry& registry, KingdomID initi
     
     // Validate initiator, target, and ensure target is strictly an independent village
     if (!kd || !vTarget || vTarget->kingdomId != 0) return 0;
+    vTarget->personalOpinions[leaderId] -= 50;
     if (kd->capitalVillageId != 0) {
         vTarget->relations[kd->capitalVillageId] = sim::Reputation::Hostile;
     }

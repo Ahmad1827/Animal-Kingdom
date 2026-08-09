@@ -1609,23 +1609,36 @@ bool PlayState::loadDiscoveryNodes(int nodeId, sim::KingdomID pKID, sim::Kingdom
 // ====================================================
 // DIALOGUE BRANCH: NEGOTIATION & DE-ESCALATION (200 - 299)
 // ====================================================
+// ====================================================
+// DIALOGUE BRANCH: NEGOTIATION & DE-ESCALATION (200 - 299)
+// ====================================================
 bool PlayState::loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 200 || nodeId >= 300) return false;
 
-    // Helper lambda to safely alter tension and record history
-    auto applyTension = [this](sim::KingdomID p, sim::KingdomID r, float amount, const std::string& hist) {
-        if (p == 0 || r == 0) return;
-        sim::KingdomData* pkData = simulationManager->getRegistry().getKingdom(p);
-        sim::KingdomData* rkData = simulationManager->getRegistry().getKingdom(r);
-        if (pkData && rkData) {
-            pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + amount);
-            rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + amount);
-            if (!hist.empty()) {
-                sim::HistoricalRecord rec;
-                rec.year = simulationManager->getRegistry().getYear();
-                rec.day = simulationManager->getRegistry().getDay();
-                rec.description = hist;
-                simulationManager->getRegistry().addHistory(rec);
+    // Upgraded Lambda: Applies tension to Kingdoms AND personal opinion to Villages
+    auto applyConsequence = [this](sim::KingdomID p, sim::KingdomID r, float tensionAmount, int opinionAmount, const std::string& hist) {
+        sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+        sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+        if (!player || !rep) return;
+
+        if (p != 0 && r != 0) {
+            sim::KingdomData* pkData = simulationManager->getRegistry().getKingdom(p);
+            sim::KingdomData* rkData = simulationManager->getRegistry().getKingdom(r);
+            if (pkData && rkData) {
+                pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + tensionAmount);
+                rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + tensionAmount);
+                if (!hist.empty()) {
+                    sim::HistoricalRecord rec;
+                    rec.year = simulationManager->getRegistry().getYear();
+                    rec.day = simulationManager->getRegistry().getDay();
+                    rec.description = hist;
+                    simulationManager->getRegistry().addHistory(rec);
+                }
+            }
+        } else if (rep->villageId != 0) {
+            sim::VillageData* vTarget = simulationManager->getRegistry().getVillage(rep->villageId);
+            if (vTarget) {
+                vTarget->personalOpinions[player->id] += opinionAmount;
             }
         }
     };
@@ -1633,14 +1646,14 @@ bool PlayState::loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::Kingd
     switch(nodeId) {
         case 200:
             dialogueText = "\"Words of peace are easily spoken. What are you offering?\"";
-            dialogueOptions.push_back({"\"I apologize for any past friction between us.\"", [this, applyTension, pKID, rKID]() { 
+            dialogueOptions.push_back({"\"I apologize for any past friction between us.\"", [this, applyConsequence, pKID, rKID]() { 
                 sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pKID);
                 std::string pName = pK ? pK->name : "A realm";
-                applyTension(pKID, rKID, -15.0f, pName + " apologized, easing diplomatic tension.");
+                applyConsequence(pKID, rKID, -15.0f, 15, pName + " apologized, easing diplomatic tension."); // +15 Opinion
                 loadDialogueNode(201); 
             }});
-            dialogueOptions.push_back({"\"We simply want to assure you of our good intentions.\"", [this, applyTension, pKID, rKID]() { 
-                applyTension(pKID, rKID, -5.0f, "");
+            dialogueOptions.push_back({"\"We simply want to assure you of our good intentions.\"", [this, applyConsequence, pKID, rKID]() { 
+                applyConsequence(pKID, rKID, -5.0f, 5, ""); // +5 Opinion
                 loadDialogueNode(202); 
             }});
             dialogueOptions.push_back({"\"Nevermind. Let us return to other topics.\"", [this]() { loadDialogueNode(10); }});
@@ -1662,22 +1675,36 @@ bool PlayState::loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::Kingd
 // ====================================================
 // DIALOGUE BRANCH: GRIEVANCES & TENSION (300 - 399)
 // ====================================================
+// ====================================================
+// DIALOGUE BRANCH: GRIEVANCES & TENSION (300 - 399)
+// ====================================================
 bool PlayState::loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 300 || nodeId >= 400) return false;
 
-    auto applyTension = [this](sim::KingdomID p, sim::KingdomID r, float amount, const std::string& hist) {
-        if (p == 0 || r == 0) return;
-        sim::KingdomData* pkData = simulationManager->getRegistry().getKingdom(p);
-        sim::KingdomData* rkData = simulationManager->getRegistry().getKingdom(r);
-        if (pkData && rkData) {
-            pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + amount);
-            rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + amount);
-            if (!hist.empty()) {
-                sim::HistoricalRecord rec;
-                rec.year = simulationManager->getRegistry().getYear();
-                rec.day = simulationManager->getRegistry().getDay();
-                rec.description = hist;
-                simulationManager->getRegistry().addHistory(rec);
+    // Upgraded Lambda: Applies tension to Kingdoms AND personal opinion to Villages
+    auto applyConsequence = [this](sim::KingdomID p, sim::KingdomID r, float tensionAmount, int opinionAmount, const std::string& hist) {
+        sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+        sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+        if (!player || !rep) return;
+
+        if (p != 0 && r != 0) {
+            sim::KingdomData* pkData = simulationManager->getRegistry().getKingdom(p);
+            sim::KingdomData* rkData = simulationManager->getRegistry().getKingdom(r);
+            if (pkData && rkData) {
+                pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + tensionAmount);
+                rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + tensionAmount);
+                if (!hist.empty()) {
+                    sim::HistoricalRecord rec;
+                    rec.year = simulationManager->getRegistry().getYear();
+                    rec.day = simulationManager->getRegistry().getDay();
+                    rec.description = hist;
+                    simulationManager->getRegistry().addHistory(rec);
+                }
+            }
+        } else if (rep->villageId != 0) {
+            sim::VillageData* vTarget = simulationManager->getRegistry().getVillage(rep->villageId);
+            if (vTarget) {
+                vTarget->personalOpinions[player->id] += opinionAmount;
             }
         }
     };
@@ -1685,25 +1712,31 @@ bool PlayState::loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::Kingdom
     switch(nodeId) {
         case 300:
             dialogueText = "\"You come to our borders and speak of concern?\nYou should explain yourself carefully.\"";
-            dialogueOptions.push_back({"\"Your scouts have been encroaching on our lands.\"", [this, applyTension, pKID, rKID]() { 
-                applyTension(pKID, rKID, 10.0f, "");
+            dialogueOptions.push_back({"\"Your scouts have been encroaching on our lands.\"", [this, applyConsequence, pKID, rKID]() { 
+                applyConsequence(pKID, rKID, 10.0f, -10, ""); // -10 Opinion
                 loadDialogueNode(301); 
             }});
-            dialogueOptions.push_back({"\"Your kingdom is growing too arrogant.\"", [this, applyTension, pKID, rKID]() { 
+            dialogueOptions.push_back({"\"Your kingdom is growing too arrogant.\"", [this, applyConsequence, pKID, rKID]() { 
                 sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pKID);
                 sim::KingdomData* rK = simulationManager->getRegistry().getKingdom(rKID);
                 std::string desc = (pK && rK) ? pK->name + " insulted the realm of " + rK->name + "." : "";
-                applyTension(pKID, rKID, 20.0f, desc);
+                applyConsequence(pKID, rKID, 20.0f, -20, desc); // -20 Opinion
                 loadDialogueNode(400); 
             }});
-            dialogueOptions.push_back({"\"Perhaps I spoke in haste. Let us step back.\"", [this]() { loadDialogueNode(200); }});
+            dialogueOptions.push_back({"\"Perhaps I spoke in haste. Let us step back.\"", [this, applyConsequence, pKID, rKID]() { 
+                applyConsequence(pKID, rKID, -5.0f, 5, ""); // +5 Opinion for backing off
+                loadDialogueNode(200); 
+            }});
             break;
 
         case 301:
             dialogueText = "\"The jungle belongs to no one. Our scouts go where they please.\nDo not mistake our curiosity for weakness.\"";
-            dialogueOptions.push_back({"\"Then we must formally agree on where our borders lie.\"", [this]() { loadDialogueNode(200); }});
-            dialogueOptions.push_back({"\"You will withdraw them immediately, or else.\"", [this, applyTension, pKID, rKID]() { 
-                applyTension(pKID, rKID, 15.0f, "");
+            dialogueOptions.push_back({"\"Then we must formally agree on where our borders lie.\"", [this, applyConsequence, pKID, rKID]() { 
+                applyConsequence(pKID, rKID, -5.0f, 5, ""); // +5 Opinion for diplomacy
+                loadDialogueNode(200); 
+            }});
+            dialogueOptions.push_back({"\"You will withdraw them immediately, or else.\"", [this, applyConsequence, pKID, rKID]() { 
+                applyConsequence(pKID, rKID, 15.0f, -15, ""); // -15 Opinion for aggression
                 loadDialogueNode(400); 
             }});
             break;
@@ -1714,22 +1747,34 @@ bool PlayState::loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::Kingdom
 // ====================================================
 // DIALOGUE BRANCH: ESCALATION & WAR (400 - 499)
 // ====================================================
+
 bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 400 || nodeId >= 500) return false;
 
-    auto applyTension = [this](sim::KingdomID p, sim::KingdomID r, float amount, const std::string& hist) {
-        if (p == 0 || r == 0) return;
-        sim::KingdomData* pkData = simulationManager->getRegistry().getKingdom(p);
-        sim::KingdomData* rkData = simulationManager->getRegistry().getKingdom(r);
-        if (pkData && rkData) {
-            pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + amount);
-            rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + amount);
-            if (!hist.empty()) {
-                sim::HistoricalRecord rec;
-                rec.year = simulationManager->getRegistry().getYear();
-                rec.day = simulationManager->getRegistry().getDay();
-                rec.description = hist;
-                simulationManager->getRegistry().addHistory(rec);
+    // Upgraded lambda: Handles BOTH Kingdom Tension and Village Opinion
+    auto applyConsequence = [this](sim::KingdomID p, sim::KingdomID r, float tensionAmount, int opinionAmount, const std::string& hist) {
+        sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+        sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+        if (!player || !rep) return;
+
+        if (p != 0 && r != 0) { // Kingdom vs Kingdom
+            sim::KingdomData* pkData = simulationManager->getRegistry().getKingdom(p);
+            sim::KingdomData* rkData = simulationManager->getRegistry().getKingdom(r);
+            if (pkData && rkData) {
+                pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + tensionAmount);
+                rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + tensionAmount);
+                if (!hist.empty()) {
+                    sim::HistoricalRecord rec;
+                    rec.year = simulationManager->getRegistry().getYear();
+                    rec.day = simulationManager->getRegistry().getDay();
+                    rec.description = hist;
+                    simulationManager->getRegistry().addHistory(rec);
+                }
+            }
+        } else if (rep->villageId != 0) { // Vs Independent Village
+            sim::VillageData* vTarget = simulationManager->getRegistry().getVillage(rep->villageId);
+            if (vTarget) {
+                vTarget->personalOpinions[player->id] += opinionAmount;
             }
         }
     };
@@ -1737,15 +1782,15 @@ bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::Kingdo
     switch(nodeId) {
         case 400:
             dialogueText = "\"Are you threatening us? That is a very dangerous path.\nWatch your next words carefully.\"";
-            dialogueOptions.push_back({"\"I spoke in anger. Let us return to reason.\"", [this, applyTension, pKID, rKID]() { 
-                applyTension(pKID, rKID, -10.0f, "");
+            dialogueOptions.push_back({"\"I spoke in anger. Let us return to reason.\"", [this, applyConsequence, pKID, rKID]() { 
+                applyConsequence(pKID, rKID, -10.0f, 15, ""); // +15 Opinion for backing down
                 loadDialogueNode(200); 
             }});
-            dialogueOptions.push_back({"\"It is a warning. Withdraw, or face the consequences.\"", [this, applyTension, pKID, rKID]() { 
+            dialogueOptions.push_back({"\"It is a warning. Withdraw, or face the consequences.\"", [this, applyConsequence, pKID, rKID]() { 
                 sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pKID);
                 sim::KingdomData* rK = simulationManager->getRegistry().getKingdom(rKID);
                 std::string desc = (pK && rK) ? pK->name + " issued an ultimatum to " + rK->name + "." : "";
-                applyTension(pKID, rKID, 25.0f, desc);
+                applyConsequence(pKID, rKID, 25.0f, -25, desc); // -25 Opinion for threatening
                 loadDialogueNode(401); 
             }});
             break;
@@ -1753,13 +1798,19 @@ bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::Kingdo
         case 401:
             dialogueText = "\"We do not bow to threats. If it is blood you want, you shall have it.\nIs this what you desire?\"";
             dialogueOptions.push_back({"\"Then there is nothing left to say. It is war.\"", [this, pKID, rKID]() { 
+                sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+                sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+                
+                // Route to the correct backend simulation action!
                 if (pKID != 0 && rKID != 0) {
                     sim::WarfareManager::declareWar(simulationManager->getRegistry(), pKID, rKID, "Diplomatic breakdown following an ultimatum.");
+                } else if (pKID != 0 && rep && rep->villageId != 0 && player) {
+                    sim::WarfareManager::declareRaid(simulationManager->getRegistry(), pKID, rep->villageId, player->id, "Diplomatic breakdown following an ultimatum.");
                 }
                 loadDialogueNode(402); 
             }});
-            dialogueOptions.push_back({"\"Wait... let us not rush to war over this.\"", [this, applyTension, pKID, rKID]() { 
-                applyTension(pKID, rKID, -5.0f, "");
+            dialogueOptions.push_back({"\"Wait... let us not rush to war over this.\"", [this, applyConsequence, pKID, rKID]() { 
+                applyConsequence(pKID, rKID, -5.0f, 10, ""); // +10 Opinion for hesitating
                 loadDialogueNode(200); 
             }});
             break;
@@ -1777,7 +1828,7 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
 
     // --- 1. DATA EXTRACTION ---
     std::string name = ape->name;
-    std::string ageHealth = "Age: " + std::to_string(static_cast<int>(ape->age)) + "   Health: " + std::to_string(static_cast<int>(ape->health));
+    std::string ageHealth = "Age: " + std::to_string(static_cast<int>(ape->age));
     
     sim::DynastyData* dyn = simulationManager->getRegistry().getDynasty(ape->dynastyId);
     std::string dynastyName = dyn ? dyn->name + " Dynasty" : "Unlanded Wanderer";
@@ -1870,35 +1921,31 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
             }
         }
     } else if (vData != nullptr) {
-        // Target is an Independent Village. 
-        // Key convention: Village relations map uses VillageID. If player is in a kingdom, use the capital's ID as the proxy.
-        sim::VillageID playerVidKey = 0;
-        if (player && player->currentKingdom != 0) {
-            sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(player->currentKingdom);
-            if (pK) playerVidKey = pK->capitalVillageId;
-        } else if (player) {
-            playerVidKey = player->villageId;
-        }
+        sim::EntityID pId = player ? player->id : 0;
 
-        if (playerVidKey != 0 && playerVidKey == vData->id) {
+        if (player && vData->id == player->villageId) {
             relDisplay = "Member of your Village";
             relColor = sf::Color(255, 215, 100);
         } else {
-            std::string repStr = "Neutral / Unknown";
+            int opinion = 0;
+            if (pId != 0 && vData->personalOpinions.count(pId)) {
+                opinion = vData->personalOpinions[pId];
+            }
+
+            std::string repStr = "Neutral";
             relColor = sf::Color(200, 200, 200);
 
-            // Read the single source of truth: VillageData::relations
-            if (playerVidKey != 0 && vData->relations.count(playerVidKey)) {
-                switch(vData->relations[playerVidKey]) {
-                    case sim::Reputation::Friendly: repStr = "Friendly"; relColor = sf::Color(120, 255, 120); break;
-                    case sim::Reputation::Neutral: repStr = "Neutral"; relColor = sf::Color(200, 200, 200); break;
-                    case sim::Reputation::Suspicious: repStr = "Suspicious"; relColor = sf::Color(255, 180, 100); break;
-                    case sim::Reputation::Hostile: repStr = "Hostile"; relColor = sf::Color(255, 100, 100); break;
-                    default: break;
-                }
+            if (opinion >= 30) {
+                repStr = "Friendly";
+                relColor = sf::Color(120, 255, 120);
+            } else if (opinion <= -30) {
+                repStr = "Hostile";
+                relColor = sf::Color(255, 100, 100);
+            } else if (opinion <= -10) {
+                repStr = "Suspicious";
+                relColor = sf::Color(255, 180, 100);
             }
-            
-            // Check if an actual conflict/raid is currently active against them
+
             bool underAttack = false;
             for (const auto& aPair : simulationManager->getRegistry().getAllArmies()) {
                 if (aPair.second.targetVillage == vData->id && aPair.second.homeKingdom != 0 && player && aPair.second.homeKingdom == player->currentKingdom) {
@@ -1907,9 +1954,11 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
                 }
             }
 
-            relDisplay = "Reputation: " + repStr;
+            relDisplay = "Opinion of You: " + std::to_string(opinion) + "\n\n";
+            relDisplay += "Reputation: " + repStr;
+            
             if (underAttack) {
-                relDisplay += "\nActive Conflict: Army approaching!";
+                relDisplay += "\n\nActive Conflict: Army approaching!";
                 relColor = sf::Color(255, 50, 50);
             }
         }

@@ -10,6 +10,7 @@ struct ArmyData {
     ArmyID id;
     KingdomID homeKingdom = 0;
     KingdomID targetKingdom = 0;
+    VillageID targetVillage = 0;
     EntityID leaderId = 0;
     std::vector<EntityID> members;
     

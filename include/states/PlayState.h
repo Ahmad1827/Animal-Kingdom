@@ -102,10 +102,11 @@ private:
     sim::EntityID currentDialogueRepId = 0;
     int currentDialogueNode = 0;
     void loadDialogueNode(int nodeId);
-    bool loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float tension);
-    bool loadDiscoveryNodes(int nodeId);
-    bool loadNegotiationNodes(int nodeId);
-    bool loadGrievanceNodes(int nodeId);
+    bool loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float tension, sim::KingdomID pKID, sim::KingdomID rKID);
+    bool loadDiscoveryNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
+    bool loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
+    bool loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
+    bool loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
 
     void startDiplomaticDialogue(sim::EntityID repId);
     void endDiplomaticDialogue();

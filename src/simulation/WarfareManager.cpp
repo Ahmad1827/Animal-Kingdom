@@ -150,10 +150,17 @@ void WarfareManager::processArmies(SimulationRegistry& registry) {
             }
             if (allArrived && !army.members.empty()) {
                 army.objective = ArmyObjective::March;
-                KingdomData* target = registry.getKingdom(army.targetKingdom);
-                if (target) {
-                    VillageData* targetCap = registry.getVillage(target->capitalVillageId);
-                    if (targetCap) army.targetX = targetCap->centerX;
+                
+                // Target Resolution Fork
+                if (army.targetKingdom != 0) {
+                    KingdomData* target = registry.getKingdom(army.targetKingdom);
+                    if (target) {
+                        VillageData* targetCap = registry.getVillage(target->capitalVillageId);
+                        if (targetCap) army.targetX = targetCap->centerX;
+                    }
+                } else if (army.targetVillage != 0) {
+                    VillageData* targetV = registry.getVillage(army.targetVillage);
+                    if (targetV) army.targetX = targetV->centerX;
                 }
             }
         } else if (army.objective == ArmyObjective::March) {
@@ -163,6 +170,66 @@ void WarfareManager::processArmies(SimulationRegistry& registry) {
             }
         }
     }
+}
+
+ArmyID WarfareManager::declareRaid(SimulationRegistry& registry, KingdomID initiator, VillageID targetVillage, EntityID leaderId, const std::string& reason) {
+    KingdomData* kd = registry.getKingdom(initiator);
+    VillageData* vTarget = registry.getVillage(targetVillage);
+    
+    // Validate initiator, target, and ensure target is strictly an independent village
+    if (!kd || !vTarget || vTarget->kingdomId != 0) return 0;
+    if (kd->capitalVillageId != 0) {
+        vTarget->relations[kd->capitalVillageId] = sim::Reputation::Hostile;
+    }
+    ArmyData army;
+    army.id = IDGenerator::generateStructureID();
+    army.homeKingdom = initiator;
+    army.targetKingdom = 0;          // Explicitly clear kingdom target
+    army.targetVillage = targetVillage; // Assign village target
+    army.leaderId = leaderId;
+    army.objective = ArmyObjective::Muster;
+    
+    VillageData* capital = registry.getVillage(kd->capitalVillageId);
+    if (capital) {
+        army.worldX = capital->centerX;
+    }
+    
+    // Resource cost for raising an army
+    if (kd->treasuryFood >= 50) {
+        kd->treasuryFood -= 50;
+        army.supplies = 50;
+    }
+    
+    // Draft members exactly as issueMusterOrder does
+    for (VillageID vid : kd->controlledVillages) {
+        VillageData* v = registry.getVillage(vid);
+        if (v) {
+            int drafted = 0;
+            for (EntityID memberId : v->members) {
+                if (drafted >= 3) break;
+                ApeData* ape = registry.getApe(memberId);
+                if (ape && ape->alive && ape->equippedTool == ToolType::WoodenSpear && ape->currentArmyId == 0) {
+                    ape->currentArmyId = army.id;
+                    ape->currentJob = Job::Muster;
+                    army.members.push_back(ape->id);
+                    drafted++;
+                }
+            }
+        }
+    }
+    
+    if (army.members.empty()) return 0;
+    
+    kd->activeArmies.push_back(army.id);
+    registry.registerArmy(army);
+    
+    HistoricalRecord rec;
+    rec.year = registry.getYear();
+    rec.day = registry.getDay();
+    rec.description = kd->name + " initiated a raid against the independent village of " + vTarget->name + ". Reason: " + reason;
+    registry.addHistory(rec);
+    
+    return army.id;
 }
 
 }

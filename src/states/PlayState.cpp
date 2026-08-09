@@ -1488,14 +1488,23 @@ void PlayState::loadDialogueNode(int nodeId) {
     sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
     if (!player || !rep) { endDiplomaticDialogue(); return; }
 
-    // Always fetch the latest diplomacy status just in case
+    // Fetch the latest diplomacy status and border tension
     sim::DiplomacyStatus status = sim::DiplomacyStatus::Neutral;
+    float tension = 0.0f;
     sim::KingdomID pKID = player->currentKingdom;
     sim::KingdomID rKID = rep->currentKingdom;
+    
+    std::string pName = "An independent village";
+    std::string rName = "An independent village";
+
     if (rKID != 0 && pKID != 0) {
         sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pKID);
-        if (pK && pK->relations.count(rKID)) {
-            status = pK->relations[rKID];
+        sim::KingdomData* rK = simulationManager->getRegistry().getKingdom(rKID);
+        if (pK && rK) {
+            pName = pK->name;
+            rName = rK->name;
+            if (pK->relations.count(rKID)) status = pK->relations[rKID];
+            if (pK->borderTension.count(rKID)) tension = pK->borderTension[rKID];
         }
     }
 
@@ -1505,18 +1514,86 @@ void PlayState::loadDialogueNode(int nodeId) {
 
     // --- CONVERSATION STATE MACHINE ---
     switch(nodeId) {
-        case 0: // ROOT / INTRO NODE
+        case 0: // ROOT NODE - Opening tone based on relationship and tension
             if (status == sim::DiplomacyStatus::War) {
-                dialogueText = "\"Your armies cross our borders, yet you call a meeting.\nSpeak quickly.\"";
-                dialogueOptions.push_back({"\"We should discuss peace.\"", [this]() { loadDialogueNode(4); }});
-            } else if (status == sim::DiplomacyStatus::Rival) {
-                dialogueText = "\"You stand too close to my lands.\nWhat do you want?\"";
-                dialogueOptions.push_back({"\"We seek to improve our relationship.\"", [this]() { loadDialogueNode(1); }});
-                dialogueOptions.push_back({"\"Just observing our neighbors.\"", [this]() { loadDialogueNode(5); }});
-            } else {
-                dialogueText = "\"Welcome to the meeting grounds.\nWhat brings your people here?\"";
-                dialogueOptions.push_back({"\"We seek peaceful relations between our realms.\"", [this]() { loadDialogueNode(1); }});
-                dialogueOptions.push_back({"\"We want to understand your kingdom.\"", [this]() { loadDialogueNode(2); }});
+                dialogueText = "\"Why are you here? Our armies are already fighting.\nSpeak quickly or leave.\"";
+                dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
+            } 
+            else if (status == sim::DiplomacyStatus::Rival || tension > 40.0f) {
+                dialogueText = "\"You have some nerve showing your face here.\nWhat do you want?\"";
+                dialogueOptions.push_back({"\"We wish to ease the tension between us.\"", [this, pKID, rKID, pName, rName]() { 
+                    if (pKID != 0 && rKID != 0) {
+                        sim::KingdomData* pk = simulationManager->getRegistry().getKingdom(pKID);
+                        sim::KingdomData* rk = simulationManager->getRegistry().getKingdom(rKID);
+                        if (pk && rk) {
+                            pk->borderTension[rKID] = std::max(0.0f, pk->borderTension[rKID] - 15.0f);
+                            rk->borderTension[pKID] = std::max(0.0f, rk->borderTension[pKID] - 15.0f);
+                            sim::HistoricalRecord rec;
+                            rec.year = simulationManager->getRegistry().getYear();
+                            rec.day = simulationManager->getRegistry().getDay();
+                            rec.description = pName + " sought to de-escalate tensions with " + rName + ".";
+                            simulationManager->getRegistry().addHistory(rec);
+                        }
+                    }
+                    loadDialogueNode(13); 
+                }});
+                dialogueOptions.push_back({"\"We are not afraid of you.\"", [this, pKID, rKID, pName, rName]() { 
+                    if (pKID != 0 && rKID != 0) {
+                        sim::KingdomData* pk = simulationManager->getRegistry().getKingdom(pKID);
+                        sim::KingdomData* rk = simulationManager->getRegistry().getKingdom(rKID);
+                        if (pk && rk) {
+                            pk->borderTension[rKID] += 20.0f;
+                            rk->borderTension[pKID] += 20.0f;
+                            sim::HistoricalRecord rec;
+                            rec.year = simulationManager->getRegistry().getYear();
+                            rec.day = simulationManager->getRegistry().getDay();
+                            rec.description = pName + " threatened " + rName + " during a meeting.";
+                            simulationManager->getRegistry().addHistory(rec);
+                        }
+                    }
+                    loadDialogueNode(14); 
+                }});
+            } 
+            else if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || status == sim::DiplomacyStatus::Trade) {
+                dialogueText = "\"It is good to see you again. Your people have been good neighbors.\nWhat news do you bring?\"";
+                dialogueOptions.push_back({"\"We want to learn more about your realm.\"", [this]() { loadDialogueNode(12); }});
+                dialogueOptions.push_back({"\"Just passing through to offer greetings.\"", [this]() { loadDialogueNode(15); }});
+            } 
+            else { // NEUTRAL
+                dialogueText = "\"We have heard of your people. What brings you to our border?\"";
+                dialogueOptions.push_back({"\"We come peacefully.\"", [this, pKID, rKID, pName, rName]() { 
+                    if (pKID != 0 && rKID != 0) {
+                        sim::KingdomData* pk = simulationManager->getRegistry().getKingdom(pKID);
+                        sim::KingdomData* rk = simulationManager->getRegistry().getKingdom(rKID);
+                        if (pk && rk) {
+                            pk->borderTension[rKID] = std::max(0.0f, pk->borderTension[rKID] - 10.0f);
+                            rk->borderTension[pKID] = std::max(0.0f, rk->borderTension[pKID] - 10.0f);
+                            sim::HistoricalRecord rec;
+                            rec.year = simulationManager->getRegistry().getYear();
+                            rec.day = simulationManager->getRegistry().getDay();
+                            rec.description = pName + " offered peaceful relations to " + rName + ".";
+                            simulationManager->getRegistry().addHistory(rec);
+                        }
+                    }
+                    loadDialogueNode(10); 
+                }});
+                dialogueOptions.push_back({"\"We wish to learn about your kingdom.\"", [this]() { loadDialogueNode(12); }});
+                dialogueOptions.push_back({"\"Your expansion concerns us.\"", [this, pKID, rKID, pName, rName]() { 
+                    if (pKID != 0 && rKID != 0) {
+                        sim::KingdomData* pk = simulationManager->getRegistry().getKingdom(pKID);
+                        sim::KingdomData* rk = simulationManager->getRegistry().getKingdom(rKID);
+                        if (pk && rk) {
+                            pk->borderTension[rKID] += 15.0f;
+                            rk->borderTension[pKID] += 15.0f;
+                            sim::HistoricalRecord rec;
+                            rec.year = simulationManager->getRegistry().getYear();
+                            rec.day = simulationManager->getRegistry().getDay();
+                            rec.description = "Relations between " + pName + " and " + rName + " deteriorated.";
+                            simulationManager->getRegistry().addHistory(rec);
+                        }
+                    }
+                    loadDialogueNode(11); 
+                }});
             }
             
             // Universal options from the root node
@@ -1524,31 +1601,61 @@ void PlayState::loadDialogueNode(int nodeId) {
             dialogueOptions.push_back({"[ Leave ]", [this]() { endDiplomaticDialogue(); }});
             break;
 
-        case 1: // PEACE DISCUSSION
-            dialogueText = "\"Words of peace are easily spoken around a fire.\nTime will tell if your actions match them.\"";
-            dialogueOptions.push_back({"\"We will prove our intent over time.\"", [this]() { loadDialogueNode(3); }});
-            dialogueOptions.push_back({"\"Tell me about your people instead.\"", [this]() { loadDialogueNode(2); }});
+        case 10: // Peaceful response from Neutral
+            dialogueText = "\"Then perhaps we have no reason to distrust one another.\nWhat is on your mind?\"";
+            dialogueOptions.push_back({"\"Tell me about your kingdom.\"", [this]() { loadDialogueNode(12); }});
+            dialogueOptions.push_back({"\"That is all for now.\"", [this]() { loadDialogueNode(15); }});
             break;
 
-        case 2: // HISTORY / INFO DISCUSSION
-            dialogueText = "\"We have survived the jungle for generations.\nWe protect what is ours, and respect those who respect us.\"";
-            dialogueOptions.push_back({"\"A wise philosophy.\"", [this]() { loadDialogueNode(3); }});
-            dialogueOptions.push_back({"\"We shall see.\"", [this]() { loadDialogueNode(3); }});
+        case 11: // Provoked response from Neutral
+            dialogueText = "\"You come to our borders and speak of concern?\nYou should explain yourself carefully.\"";
+            dialogueOptions.push_back({"\"I apologize, I spoke out of turn.\"", [this, pKID, rKID]() { 
+                if (pKID != 0 && rKID != 0) {
+                    sim::KingdomData* pk = simulationManager->getRegistry().getKingdom(pKID);
+                    sim::KingdomData* rk = simulationManager->getRegistry().getKingdom(rKID);
+                    if (pk && rk) {
+                        pk->borderTension[rKID] = std::max(0.0f, pk->borderTension[rKID] - 15.0f);
+                        rk->borderTension[pKID] = std::max(0.0f, rk->borderTension[pKID] - 15.0f);
+                    }
+                }
+                loadDialogueNode(13); 
+            }});
+            dialogueOptions.push_back({"\"I stand by my words. Be warned.\"", [this, pKID, rKID, pName, rName]() { 
+                if (pKID != 0 && rKID != 0) {
+                    sim::KingdomData* pk = simulationManager->getRegistry().getKingdom(pKID);
+                    sim::KingdomData* rk = simulationManager->getRegistry().getKingdom(rKID);
+                    if (pk && rk) {
+                        pk->borderTension[rKID] += 20.0f;
+                        rk->borderTension[pKID] += 20.0f;
+                        sim::HistoricalRecord rec;
+                        rec.year = simulationManager->getRegistry().getYear();
+                        rec.day = simulationManager->getRegistry().getDay();
+                        rec.description = pName + " threatened " + rName + " during a meeting.";
+                        simulationManager->getRegistry().addHistory(rec);
+                    }
+                }
+                loadDialogueNode(14); 
+            }});
             break;
 
-        case 3: // GENERIC FAREWELL
-            dialogueText = "\"Until we meet again. Watch your borders.\"";
+        case 12: // Information / Discovery
+            dialogueText = "\"We are a proud people. We have survived the jungle for generations,\nand we protect what is ours.\"";
+            dialogueOptions.push_back({"\"Thank you for speaking with us.\"", [this]() { loadDialogueNode(15); }});
+            break;
+
+        case 13: // De-escalated
+            dialogueText = "\"A wise choice of words. Let us not find unnecessary conflict today.\"";
             dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
             break;
 
-        case 4: // WAR REJECTION
-            dialogueText = "\"There is too much blood for peace today.\nPerhaps when your kingdom is broken, we will talk.\"";
-            dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
+        case 14: // Breakdown / Hostile Escaping
+            dialogueText = "\"You insult my people! There is nothing more to discuss.\nLeave before I lose my temper.\"";
+            dialogueOptions.push_back({"[ Leave ]", [this]() { endDiplomaticDialogue(); }});
             break;
 
-        case 5: // HOSTILE DISMISSAL
-            dialogueText = "\"Your banners offend my sight. Do not test my patience.\"";
-            dialogueOptions.push_back({"\"We will leave.\"", [this]() { endDiplomaticDialogue(); }});
+        case 15: // Farewell
+            dialogueText = "\"Until we meet again. Safe travels.\"";
+            dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
             break;
     }
 }

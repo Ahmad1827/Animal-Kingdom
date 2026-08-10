@@ -37,7 +37,7 @@ struct KingdomData {
     std::unordered_set<KingdomID> knownKingdoms;
     std::unordered_map<KingdomID, DiplomacyStatus> relations;
     std::unordered_map<KingdomID, float> borderTension;
-    
+    std::unordered_set<sim::EntityID> permittedApes;
     std::vector<ArmyID> activeArmies;
 };
 

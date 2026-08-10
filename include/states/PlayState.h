@@ -107,7 +107,8 @@ private:
     bool loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
     bool loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
     bool loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
-
+    bool loadVisitNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
+    
     void startDiplomaticDialogue(sim::EntityID repId);
     void endDiplomaticDialogue();
     void drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId);

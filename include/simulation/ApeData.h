@@ -77,6 +77,7 @@ struct ApeData {
     bool isWaitingForAudience = false;
     EntityID summonedRepId = 0;
     float meetingX = 0.0f;
+    EntityID scheduledAudienceHost = 0;
 };
 
 }

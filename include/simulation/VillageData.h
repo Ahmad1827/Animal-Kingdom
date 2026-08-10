@@ -57,6 +57,7 @@ struct VillageData {
     std::vector<TradeMission> activeTrades;
     std::vector<std::string> villageMemory;
     std::unordered_map<sim::EntityID, int> personalOpinions;
+    std::unordered_set<sim::EntityID> permittedApes;
 };
 
 }

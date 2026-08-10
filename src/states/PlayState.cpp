@@ -718,27 +718,86 @@ void PlayState::update(float dt) {
         }
 
         float playerX = playerWrapper->getPosition().x;
+        float playerVelX = playerWrapper->getVelocity().x;
         int foundKingdomId = -1;
         std::string foundKingdomName = "Wilderness";
+        bool blocked = false;
+        
+        sim::ApeData* controlledApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
 
-        for (auto& pair : simulationManager->getRegistry().getAllVillages()) {
-            sim::VillageData& v = pair.second;
-            // CHECK AGAINST STATIC BOUNDARIES
-            if (playerX >= v.borderMinX && playerX <= v.borderMaxX) {
-                foundKingdomId = v.kingdomId;
-                foundKingdomName = v.name; 
-                break;
+        if (controlledApe) {
+            for (auto& pair : simulationManager->getRegistry().getAllVillages()) {
+                sim::VillageData& v = pair.second;
+                
+                float minX = v.borderMinX;
+                float maxX = v.borderMaxX;
+                bool isKingdomTerritory = false;
+                sim::KingdomData* kData = nullptr;
+
+                // Expand borders to the Kingdom level if applicable
+                if (v.kingdomId != 0) {
+                    kData = simulationManager->getRegistry().getKingdom(v.kingdomId);
+                    if (kData && kData->territoryMaxX > kData->territoryMinX) {
+                        minX = kData->territoryMinX;
+                        maxX = kData->territoryMaxX;
+                        isKingdomTerritory = true;
+                    }
+                }
+
+                // CHECK BOUNDARIES
+                if (playerX >= minX && playerX <= maxX) {
+                    bool allowed = false;
+                    
+                    // 1. Own territory?
+                    if (controlledApe->villageId == v.id || (controlledApe->currentKingdom != 0 && controlledApe->currentKingdom == v.kingdomId)) {
+                        allowed = true;
+                    } 
+                    // 2. Explicit permission?
+                    else if (isKingdomTerritory && kData && kData->permittedApes.count(controlledApe->id)) {
+                        allowed = true;
+                    } else if (!isKingdomTerritory && v.permittedApes.count(controlledApe->id)) {
+                        allowed = true;
+                    } 
+                    // 3. War exception?
+                    else if (isKingdomTerritory && kData && controlledApe->currentKingdom != 0) {
+                        sim::KingdomData* myK = simulationManager->getRegistry().getKingdom(controlledApe->currentKingdom);
+                        if (myK && myK->relations.count(kData->id) && myK->relations[kData->id] == sim::DiplomacyStatus::War) {
+                            allowed = true;
+                        }
+                    }
+
+                    if (!allowed) {
+                        blocked = true;
+                        // Clamp position and halt velocity
+                        if (playerVelX > 0.f || (playerVelX == 0.f && playerX - minX < maxX - playerX)) {
+                            playerWrapper->setPosition(minX - playerWrapper->getBounds().width - 1.f, playerWrapper->getPosition().y);
+                        } else {
+                            playerWrapper->setPosition(maxX + 1.f, playerWrapper->getPosition().y);
+                        }
+                        playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
+                        
+                        // Show warning safely without spamming
+                        if (cinematicTextTimer <= 0.f || cinematicText.find("not permitted") == std::string::npos) {
+                            cinematicText = "You are not permitted to enter the lands of " + (isKingdomTerritory ? kData->name : v.name) + ".";
+                            cinematicTextTimer = 3.0f;
+                        }
+                    } else {
+                        foundKingdomId = v.kingdomId;
+                        foundKingdomName = isKingdomTerritory ? kData->name : v.name;
+                    }
+                    break; // Handle one enclosing territory at a time
+                }
             }
         }
 
-        if (foundKingdomId != currentPlayerKingdomId) {
+        if (!blocked && foundKingdomId != currentPlayerKingdomId) {
             if (foundKingdomId != -1) {
-                cinematicText = "Entering Kingdom of " + foundKingdomName;
+                cinematicText = "Entering Lands of " + foundKingdomName;
             } else {
-                cinematicText = "Leaving Kingdom Boundaries";
+                cinematicText = "Leaving Territory";
             }
             currentPlayerKingdomId = foundKingdomId;
-            cinematicTextTimer = 4.0f; 
+            cinematicTextTimer = 4.0f;  
         }
     }
 
@@ -1512,7 +1571,7 @@ void PlayState::loadDialogueNode(int nodeId) {
     if (loadNegotiationNodes(nodeId, pKID, rKID)) return;
     if (loadGrievanceNodes(nodeId, pKID, rKID)) return;
     if (loadEscalationNodes(nodeId, pKID, rKID)) return;
-
+    if (loadVisitNodes(nodeId, pKID, rKID)) return;
     // Fallback
     dialogueText = "\"We have nothing more to say.\"";
     dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
@@ -1636,11 +1695,13 @@ bool PlayState::loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float te
 
         case 10: // MAIN HUB
             if (isKingdomTarget) {
+                
                 dialogueText = "\"What else would you discuss?\"";
                 dialogueOptions.push_back({"\"I have questions about your realm.\"", [this]() { loadDialogueNode(100); }});
                 if (pKID != 0) {
                     dialogueOptions.push_back({"\"Let us speak of peace and relations.\"", [this]() { loadDialogueNode(200); }});
                     dialogueOptions.push_back({"\"We have concerns regarding your actions.\"", [this]() { loadDialogueNode(300); }});
+                    dialogueOptions.push_back({"\"I wish to discuss travel and access to your lands.\"", [this]() { loadDialogueNode(500); }});
                 }
             } else {
                 if (opinion >= 30) {
@@ -1663,7 +1724,7 @@ bool PlayState::loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float te
                     dialogueOptions.push_back({"\"We have concerns regarding your actions.\"", [this]() { loadDialogueNode(300); }});
                 }
             }
-
+            dialogueOptions.push_back({"\"I wish to discuss travel and access to your lands.\"", [this]() { loadDialogueNode(500); }});
             dialogueOptions.push_back({"[ Inspect Character ]", [this]() { isInspectingCharacter = true; }});
             dialogueOptions.push_back({"\"That is all for now. Farewell.\"", [this]() { endDiplomaticDialogue(); }});
             break;
@@ -2693,4 +2754,96 @@ void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId)
     // Button
     curY = startY + panelH - 60.f;
     drawText("[ View Ruler ]", curY, 18, sf::Color(255, 255, 150), true);
+}
+
+// ====================================================
+// DIALOGUE BRANCH: VISITS & AUDIENCES (500 - 599)
+// ====================================================
+bool PlayState::loadVisitNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
+    if (nodeId < 500 || nodeId >= 600) return false;
+
+    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+    if (!player || !rep) return false;
+
+    sim::KingdomData* rKData = (rKID != 0) ? simulationManager->getRegistry().getKingdom(rKID) : nullptr;
+    sim::VillageData* rVData = (rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
+
+    bool hasPermission = false;
+    if (rKData && rKData->permittedApes.count(player->id)) hasPermission = true;
+    else if (rVData && rKID == 0 && rVData->permittedApes.count(player->id)) hasPermission = true;
+
+    bool isFriendly = false;
+    if (rKData && pKID != 0) {
+        sim::KingdomData* pKData = simulationManager->getRegistry().getKingdom(pKID);
+        if (pKData && pKData->relations.count(rKID)) {
+            auto status = pKData->relations[rKID];
+            if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || status == sim::DiplomacyStatus::Trade) isFriendly = true;
+        }
+    } else if (rVData && rKID == 0) {
+        int op = rVData->personalOpinions.count(player->id) ? rVData->personalOpinions[player->id] : 0;
+        if (op >= 30) isFriendly = true;
+    }
+
+    switch(nodeId) {
+        case 500:
+            if (hasPermission) {
+                dialogueText = "\"You already have permission to enter our lands. You are welcome among us.\"";
+                if (player->scheduledAudienceHost == 0) {
+                    dialogueOptions.push_back({"\"I would like to speak with you in your homeland.\"", [this]() { loadDialogueNode(510); }});
+                }
+                dialogueOptions.push_back({"\"Thank you. Let us discuss other matters.\"", [this]() { loadDialogueNode(10); }});
+            } else {
+                dialogueText = "\"You wish to enter our territory? That is not a request we grant lightly.\"";
+                dialogueOptions.push_back({"\"May I visit your homeland?\"", [this, isFriendly]() { 
+                    if (isFriendly) loadDialogueNode(501); 
+                    else loadDialogueNode(502); 
+                }});
+                dialogueOptions.push_back({"\"Nevermind. Let us return to other topics.\"", [this]() { loadDialogueNode(10); }});
+            }
+            break;
+
+        case 501: // Granted
+            dialogueText = "\"You have proven yourself trustworthy. You may enter our lands in peace.\"";
+            dialogueOptions.push_back({"\"I appreciate this honor.\"", [this, rKData, rVData, player]() {
+                if (rKData) rKData->permittedApes.insert(player->id);
+                else if (rVData) rVData->permittedApes.insert(player->id);
+
+                sim::HistoricalRecord rec;
+                rec.year = simulationManager->getRegistry().getYear();
+                rec.day = simulationManager->getRegistry().getDay();
+                rec.description = player->name + " was granted permission to enter " + (rKData ? rKData->name : rVData->name) + ".";
+                simulationManager->getRegistry().addHistory(rec);
+                
+                loadDialogueNode(500); // Route back to check if they want an audience now
+            }});
+            break;
+
+        case 502: // Denied
+            dialogueText = "\"We are not yet comfortable opening our borders to you. Prove your intentions first.\"";
+            dialogueOptions.push_back({"\"I understand. I will earn your trust.\"", [this]() { loadDialogueNode(10); }});
+            dialogueOptions.push_back({"\"This is an insult!\"", [this]() { loadDialogueNode(400); }}); // Route to escalation
+            break;
+
+        case 510: // Audience Request
+            if (isFriendly) {
+                dialogueText = "\"We would be honored to host you in our halls. Come to our homeland. I will receive you there.\"";
+                dialogueOptions.push_back({"\"I will see you there.\"", [this, player, rep]() {
+                    player->scheduledAudienceHost = rep->id; // Persistently tracks the appointment
+                    
+                    sim::HistoricalRecord rec;
+                    rec.year = simulationManager->getRegistry().getYear();
+                    rec.day = simulationManager->getRegistry().getDay();
+                    rec.description = player->name + " was granted an audience with " + rep->name + ".";
+                    simulationManager->getRegistry().addHistory(rec);
+                    
+                    loadDialogueNode(10);
+                }});
+            } else {
+                dialogueText = "\"You may travel our lands, but I have no time for a formal audience right now.\"";
+                dialogueOptions.push_back({"\"Very well.\"", [this]() { loadDialogueNode(10); }});
+            }
+            break;
+    }
+    return true;
 }

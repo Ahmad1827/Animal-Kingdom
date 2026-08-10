@@ -32,13 +32,26 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
     else if (data->carriedType == sim::ResourceType::Stone) physicalApe.setCarriedItem(3);
     else physicalApe.setCarriedItem(0);
 
-    // --- DIPLOMATIC BEHAVIOR INTERCEPT ---
     if (playerId != 0 && playerId != data->id) {
         sim::ApeData* player = registry.getApe(playerId);
-        // ... (the rest of the intercept logic remains exactly the same!)
         if (player && player->alive) {
             float playerX = player->worldX;
             float myX = physicalApe.getPosition().x;
+
+            if (player->scheduledAudienceHost == data->id) {
+                float targetX = v ? v->centerX : data->worldX;
+                float distToThrone = std::abs(myX - targetX);
+                
+                if (distToThrone > 20.f) {
+                    intendedMoveX = (myX < targetX) ? 1.f : -1.f;
+                } else {
+                    intendedMoveX = (myX < playerX) ? 0.001f : -0.001f; 
+                }
+                physicalApe.setState(ApeState::Grounded);
+                pauseTimer = 0.5f; 
+                return;
+            }
+
             float dist = std::abs(playerX - myX);
 
             // Proximity Check: Only react when player is local

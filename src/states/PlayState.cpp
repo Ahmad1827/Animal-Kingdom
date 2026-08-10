@@ -378,6 +378,92 @@ void PlayState::update(float dt) {
 
     sim::ApeData* pDataCheck = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     bool isCinematicWait = false;
+    // --- AUDIENCE ARRIVAL TRIGGER & PRESENTATION ---
+    if (pDataCheck && pDataCheck->scheduledAudienceHost != 0 && !isDialogueActive && !isTransitioning) {
+        sim::ApeData* host = simulationManager->getRegistry().getApe(pDataCheck->scheduledAudienceHost);
+        if (host && host->alive) {
+            float dist = std::abs(pDataCheck->worldX - host->worldX);
+            
+            // Check if player has actively entered the host's territory
+            bool insideTerritory = false;
+            sim::VillageData* hv = simulationManager->getRegistry().getVillage(host->villageId);
+            sim::KingdomData* hk = (host->currentKingdom != 0) ? simulationManager->getRegistry().getKingdom(host->currentKingdom) : nullptr;
+            
+            if (hk && hk->territoryMaxX > hk->territoryMinX) {
+                if (pDataCheck->worldX >= hk->territoryMinX && pDataCheck->worldX <= hk->territoryMaxX) insideTerritory = true;
+            } else if (hv) {
+                if (pDataCheck->worldX >= hv->borderMinX && pDataCheck->worldX <= hv->borderMaxX) insideTerritory = true;
+            }
+
+            if (insideTerritory && dist < 150.f) {
+                // Halt player movement and begin the scene
+                playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
+                startDiplomaticDialogue(host->id, 600); // 600 = Audience Root
+            }
+        } else if (host && !host->alive) {
+            // Cancel appointment if the host died before arrival
+            pDataCheck->scheduledAudienceHost = 0;
+        }
+    }
+
+    // --- CROWD REACTION PRESENTATION ---
+    if (isDialogueActive && currentDialogueNode >= 600 && currentDialogueNode < 700) {
+        crowdSpawnTimer -= dt;
+        sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+        int op = 0;
+        sim::DiplomacyStatus status = sim::DiplomacyStatus::Neutral;
+        
+        if (rep) {
+            sim::VillageData* rV = simulationManager->getRegistry().getVillage(rep->villageId);
+            sim::KingdomData* rK = (rep->currentKingdom != 0) ? simulationManager->getRegistry().getKingdom(rep->currentKingdom) : nullptr;
+            
+            if (pDataCheck) {
+                if (rK && pDataCheck->currentKingdom != 0) {
+                    sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(pDataCheck->currentKingdom);
+                    if (pK && pK->relations.count(rK->id)) status = pK->relations[rK->id];
+                } else if (rV && rV->personalOpinions.count(pDataCheck->id)) {
+                    op = rV->personalOpinions[pDataCheck->id];
+                }
+            }
+        }
+
+        bool isFriendly = (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || op >= 30);
+        bool isHostile = (status == sim::DiplomacyStatus::War || status == sim::DiplomacyStatus::Rival || op <= -30);
+
+        // Controlled spawn via timer, not per-frame randomness
+        if ((isFriendly || isHostile) && crowdSpawnTimer <= 0.f) {
+            crowdSpawnTimer = 0.8f + (std::rand() % 15) / 10.f; // Random 0.8s to 2.3s cooldown
+            
+            CrowdProjectile p;
+            p.pos = cameraManager->getView().getCenter();
+            p.pos.x += (std::rand() % 2 == 0 ? -600.f : 600.f); 
+            p.pos.y -= (std::rand() % 200 + 100);
+            
+            p.vel = sf::Vector2f((cameraManager->getView().getCenter().x - p.pos.x) * 0.5f, -200.f - (std::rand() % 200));
+            p.life = 2.0f;
+            
+            if (isFriendly) {
+                p.color = (std::rand() % 2 == 0) ? sf::Color(255, 100, 150) : sf::Color(255, 255, 100); // Flowers
+            } else {
+                p.color = sf::Color(220, 40, 40); // Tomatoes
+            }
+            crowdProjectiles.push_back(p);
+        }
+    } else {
+        crowdSpawnTimer = 0.f; // Ensure clean state upon exit
+    }
+
+    // Process Projectile Physics
+    for (auto it = crowdProjectiles.begin(); it != crowdProjectiles.end(); ) {
+        it->vel.y += 600.f * dt; 
+        it->pos += it->vel * dt;
+        it->life -= dt;
+        if (it->life <= 0.f || it->pos.y > worldManager->getTerrainHeight(it->pos.x)) {
+            it = crowdProjectiles.erase(it);
+        } else {
+            ++it;
+        }
+    }
     if (pDataCheck && pDataCheck->isWaitingForAudience) {
         sim::ApeData* repCheck = simulationManager->getRegistry().getApe(pDataCheck->summonedRepId);
         if (repCheck) {
@@ -1499,20 +1585,28 @@ void PlayState::refreshInteractionTargets() {
 
 void PlayState::endDiplomaticDialogue() {
     isDialogueActive = false;
-    isInspectingCharacter = false; // Reset inspection state for the next meeting
+    isInspectingCharacter = false; 
     sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-    if (pData && pData->isWaitingForAudience) {
-        pData->isWaitingForAudience = false;
-        sim::ApeData* rep = simulationManager->getRegistry().getApe(pData->summonedRepId);
-        if (rep) {
-            rep->hasTravelDestination = true;
-            rep->travelDestinationX = rep->homeX; 
+    
+    if (pData) {
+        // Prevent repeated audience triggers if exiting an active audience manually
+        if (currentDialogueNode >= 600 && currentDialogueNode < 700) {
+            pData->scheduledAudienceHost = 0;
         }
-        pData->summonedRepId = 0;
+
+        if (pData->isWaitingForAudience) {
+            pData->isWaitingForAudience = false;
+            sim::ApeData* rep = simulationManager->getRegistry().getApe(pData->summonedRepId);
+            if (rep) {
+                rep->hasTravelDestination = true;
+                rep->travelDestinationX = rep->homeX; 
+            }
+            pData->summonedRepId = 0;
+        }
     }
 }
 
-void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
+void PlayState::startDiplomaticDialogue(sim::EntityID repId, int startNode) {
     isDialogueActive = true;
     isInspectingCharacter = false;
     currentDialogueRepId = repId;
@@ -1524,7 +1618,6 @@ void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
     std::string entityName = "Unknown Land";
     bool isKing = false;
     
-    // Resolve the title exactly once at the start of the meeting
     if (rep->currentKingdom != 0) {
         sim::KingdomData* rK = simulationManager->getRegistry().getKingdom(rep->currentKingdom);
         if (rK) {
@@ -1536,10 +1629,9 @@ void PlayState::startDiplomaticDialogue(sim::EntityID repId) {
         if (v) entityName = "Village of " + v->name;
     }
 
-    dialogueSpeakerName = (isKing ? "King " : "Representative ") + rep->name + " of " + entityName;
+    dialogueSpeakerName = (isKing ? "King " : "Chief ") + rep->name + " of " + entityName;
 
-    // Enter the state machine at the Root Node (0)
-    loadDialogueNode(0);
+    loadDialogueNode(startNode);
 }
 
 void PlayState::loadDialogueNode(int nodeId) {
@@ -1565,27 +1657,17 @@ void PlayState::loadDialogueNode(int nodeId) {
     dialogueSelectedIndex = 0;
     dialogueOptions.clear();
 
-    // --- NODE DISPATCHER ---
     if (loadIntroNodes(nodeId, status, tension, pKID, rKID)) return;
     if (loadDiscoveryNodes(nodeId, pKID, rKID)) return;
     if (loadNegotiationNodes(nodeId, pKID, rKID)) return;
     if (loadGrievanceNodes(nodeId, pKID, rKID)) return;
     if (loadEscalationNodes(nodeId, pKID, rKID)) return;
     if (loadVisitNodes(nodeId, pKID, rKID)) return;
-    // Fallback
+    if (loadAudienceNodes(nodeId, pKID, rKID)) return;
     dialogueText = "\"We have nothing more to say.\"";
     dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
 }
 
-// ====================================================
-// DIALOGUE BRANCH: INTRODUCTIONS & MAIN HUB (0 - 99)
-// ====================================================
-// ====================================================
-// DIALOGUE BRANCH: INTRODUCTIONS & MAIN HUB (0 - 99)
-// ====================================================
-// ====================================================
-// DIALOGUE BRANCH: INTRODUCTIONS & MAIN HUB (0 - 99)
-// ====================================================
 bool PlayState::loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float tension, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 0 || nodeId >= 100) return false;
 
@@ -2843,6 +2925,97 @@ bool PlayState::loadVisitNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID r
                 dialogueText = "\"You may travel our lands, but I have no time for a formal audience right now.\"";
                 dialogueOptions.push_back({"\"Very well.\"", [this]() { loadDialogueNode(10); }});
             }
+            break;
+    }
+    return true;
+}
+
+// ====================================================
+// DIALOGUE BRANCH: AUDIENCE & POLITICS (600 - 699)
+// ====================================================
+bool PlayState::loadAudienceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
+    if (nodeId < 600 || nodeId >= 700) return false;
+
+    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+    if (!player || !rep) return false;
+
+    sim::KingdomData* rKData = (rKID != 0) ? simulationManager->getRegistry().getKingdom(rKID) : nullptr;
+    sim::VillageData* rVData = (rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
+
+    bool isFriendly = false;
+    bool isHostile = false;
+
+    if (rKData && pKID != 0) {
+        sim::KingdomData* pKData = simulationManager->getRegistry().getKingdom(pKID);
+        if (pKData && pKData->relations.count(rKID)) {
+            auto status = pKData->relations[rKID];
+            if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || status == sim::DiplomacyStatus::Trade) isFriendly = true;
+            if (status == sim::DiplomacyStatus::War || status == sim::DiplomacyStatus::Rival) isHostile = true;
+        }
+    } else if (rVData && rKID == 0) {
+        int op = rVData->personalOpinions.count(player->id) ? rVData->personalOpinions[player->id] : 0;
+        if (op >= 30) isFriendly = true;
+        if (op <= -30) isHostile = true;
+    }
+
+    switch(nodeId) {
+        case 600: // AUDIENCE ROOT
+            if (isHostile) {
+                dialogueText = "\"You have nerve showing your face in my hall. Speak quickly before my guards remove you.\"";
+            } else if (isFriendly) {
+                dialogueText = "\"Welcome to our lands, friend! We honor the agreements made at the meeting grounds. What would you discuss?\"";
+            } else {
+                dialogueText = "\"You have made the journey. I am listening. What political matters bring you to my seat?\"";
+            }
+
+            dialogueOptions.push_back({"\"I would like to propose an alliance.\"", [this]() { loadDialogueNode(610); }});
+            dialogueOptions.push_back({"\"Can we strengthen trade between our peoples?\"", [this]() { loadDialogueNode(620); }});
+            dialogueOptions.push_back({"\"There are matters concerning our borders.\"", [this]() { loadDialogueNode(630); }});
+            dialogueOptions.push_back({"\"That is all. Thank you for receiving me.\"", [this]() { loadDialogueNode(699); }});
+            break;
+
+        case 610: // ALLIANCE PROPOSAL
+            if (isHostile) {
+                dialogueText = "\"An alliance with you? Don't make me laugh. We are closer to war than friendship.\"";
+                dialogueOptions.push_back({"\"I see. I have another matter to discuss.\"", [this]() { loadDialogueNode(600); }});
+            } else if (isFriendly) {
+                dialogueText = "\"Our peoples already stand close. An alliance is the natural next step.\n(Alliance functionality to be implemented in a future phase).\"";
+                dialogueOptions.push_back({"\"Excellent. Let us discuss other things.\"", [this]() { loadDialogueNode(600); }});
+            } else {
+                dialogueText = "\"An alliance is a heavy commitment. You have not yet earned that level of trust.\"";
+                dialogueOptions.push_back({"\"I understand. Perhaps another time.\"", [this]() { loadDialogueNode(600); }});
+            }
+            break;
+
+        case 620: // TRADE PROPOSAL
+            if (isHostile) {
+                dialogueText = "\"We do not share our resources with enemies.\"";
+            } else {
+                dialogueText = "\"Trade benefits us all.\n(Economy & Caravan logistics to be expanded in future phase).\"";
+            }
+            dialogueOptions.push_back({"\"Let us return to other matters.\"", [this]() { loadDialogueNode(600); }});
+            break;
+
+        case 630: // BORDER MATTERS
+            dialogueText = "\"If you wish to dispute borders or file grievances, you must do so at the neutral meeting ground. My hall is for internal affairs and high treaties.\"";
+            dialogueOptions.push_back({"\"Understood.\"", [this]() { loadDialogueNode(600); }});
+            break;
+
+        case 699: // AUDIENCE COMPLETION
+            dialogueText = "\"Safe travels back to your own lands.\"";
+            dialogueOptions.push_back({"[ End Audience ]", [this, player, rep, rKData, rVData]() { 
+                player->scheduledAudienceHost = 0; // Clear the appointment safely
+                
+                sim::HistoricalRecord rec;
+                rec.year = simulationManager->getRegistry().getYear();
+                rec.day = simulationManager->getRegistry().getDay();
+                std::string pName = rKData ? rKData->name : (rVData ? rVData->name : "Unknown");
+                rec.description = player->name + " completed a formal audience with " + rep->name + " of " + pName + ".";
+                simulationManager->getRegistry().addHistory(rec);
+
+                endDiplomaticDialogue(); 
+            }});
             break;
     }
     return true;

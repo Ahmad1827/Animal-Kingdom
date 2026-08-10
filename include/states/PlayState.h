@@ -108,11 +108,21 @@ private:
     bool loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
     bool loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
     bool loadVisitNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
-    
-    void startDiplomaticDialogue(sim::EntityID repId);
+
+    void startDiplomaticDialogue(sim::EntityID repId, int startNode = 0);
+    bool loadAudienceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID);
     void endDiplomaticDialogue();
     void drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId);
     
+    struct CrowdProjectile {
+        sf::Vector2f pos;
+        sf::Vector2f vel;
+        sf::Color color;
+        float life;
+    };
+    std::vector<CrowdProjectile> crowdProjectiles;
+    float crowdSpawnTimer = 0.f;
+
 public:
     PlayState(Game* game);
     void init() override;

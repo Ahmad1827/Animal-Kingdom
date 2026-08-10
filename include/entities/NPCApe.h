@@ -24,14 +24,14 @@ private:
     float personalOffset;
     float workTimer;
 
-    void determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry);
+    void determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId);
     void applyPhysics(float dt, WorldManager* worldManager);
     bool hasTrait(sim::ApeData* data, sim::Trait trait);
     void fireAudioHook(const std::string& soundEvent);
 
 public:
     NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture);
-    void update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay, sim::SimulationRegistry& registry);
+    void update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId);
     void draw(sf::RenderTarget& target);
     
     sim::EntityID getId() const { return simId; }

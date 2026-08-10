@@ -24,7 +24,7 @@ void NPCApe::fireAudioHook(const std::string& soundEvent) {
     std::cout << "AUDIO_HOOK: " << soundEvent << "\n";
 }
 
-void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry) {
+void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId) {
     sim::VillageData* v = registry.getVillage(data->villageId);
 
     if (data->carriedType == sim::ResourceType::Food) physicalApe.setCarriedItem(1);
@@ -32,6 +32,80 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
     else if (data->carriedType == sim::ResourceType::Stone) physicalApe.setCarriedItem(3);
     else physicalApe.setCarriedItem(0);
 
+    // --- DIPLOMATIC BEHAVIOR INTERCEPT ---
+    if (playerId != 0 && playerId != data->id) {
+        sim::ApeData* player = registry.getApe(playerId);
+        // ... (the rest of the intercept logic remains exactly the same!)
+        if (player && player->alive) {
+            float playerX = player->worldX;
+            float myX = physicalApe.getPosition().x;
+            float dist = std::abs(playerX - myX);
+
+            // Proximity Check: Only react when player is local
+            if (dist < 500.0f) { 
+                bool isVillageLeader = (v && v->leaderId == data->id);
+                sim::KingdomData* kData = (data->currentKingdom != 0) ? registry.getKingdom(data->currentKingdom) : nullptr;
+                bool isKing = (kData && kData->currentKingId == data->id);
+
+                if (isVillageLeader || isKing) {
+                    bool isFriendly = false, isSuspicious = false, isHostile = false;
+                    
+                    // Single Source of Truth Resolution
+                    if (isKing) {
+                        sim::KingdomData* pK = (player->currentKingdom != 0) ? registry.getKingdom(player->currentKingdom) : nullptr;
+                        if (pK && kData->relations.count(pK->id)) {
+                            sim::DiplomacyStatus status = kData->relations[pK->id];
+                            if (status == sim::DiplomacyStatus::War) isHostile = true;
+                            else if (status == sim::DiplomacyStatus::Rival) isSuspicious = true;
+                            else if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance) isFriendly = true;
+                        } else if (pK && kData->borderTension.count(pK->id)) {
+                            // Fallback for tension without formal status
+                            if (kData->borderTension[pK->id] >= 50.f) isSuspicious = true; 
+                        }
+                    } else if (isVillageLeader) {
+                        if (v->personalOpinions.count(playerId)) {
+                            int op = v->personalOpinions[playerId];
+                            if (op >= 30) isFriendly = true;
+                            else if (op <= -30) isHostile = true;
+                            else if (op <= -10) isSuspicious = true;
+                        }
+                    }
+
+                    // Apply the physical behavior override
+                    // Apply the physical behavior override
+                    if (isFriendly || isSuspicious || isHostile) {
+                        float hostileSafeDist = 300.f;
+                        float suspiciousSafeDist = 180.f;
+                        float friendlyGreetDist = 150.f;
+                        
+                        if (isFriendly) {
+                            if (dist < friendlyGreetDist) {
+                                // Polite Acknowledgement: Stop working/walking and face the player
+                                intendedMoveX = (myX < playerX) ? 0.001f : -0.001f;
+                                physicalApe.setState(ApeState::Grounded);
+                                return; // Bypass normal AI
+                            }
+                            // If friendly but far away, do nothing (continue normal village jobs)
+                        } 
+                        else {
+                            float preferredDist = isHostile ? hostileSafeDist : suspiciousSafeDist;
+                            
+                            if (dist < preferredDist) {
+                                // Cautious/Hostile: Actively back away to maintain safe distance
+                                intendedMoveX = (myX < playerX) ? -1.f : 1.f;
+                            } else {
+                                // Reached safe distance: Stop and keep a close eye on the player
+                                intendedMoveX = (myX < playerX) ? 0.001f : -0.001f; 
+                            }
+                            physicalApe.setState(ApeState::Grounded);
+                            return; // Bypass normal AI
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // --- END DIPLOMATIC BEHAVIOR ---
     if (std::rand() % 100 < 5 && pauseTimer <= 0.f) {
         pauseTimer = 0.5f + (std::rand() % 15) / 10.f;
         intendedMoveX = 0.f;
@@ -170,14 +244,14 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
     }
 }
 
-void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay, sim::SimulationRegistry& registry) {
+void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId) {
     if (pauseTimer > 0.f) {
         pauseTimer -= dt;
         intendedMoveX = 0.f; 
     } else {
         stateTimer -= dt;
         if (stateTimer <= 0.f) {
-            determineNextAction(data, timeOfDay, registry);
+            determineNextAction(data, timeOfDay, registry, playerId);
             stateTimer = 0.2f + (std::rand() % 10) / 100.f; 
         }
     }

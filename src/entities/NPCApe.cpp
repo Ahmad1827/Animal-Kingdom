@@ -38,18 +38,21 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
             float playerX = player->worldX;
             float myX = physicalApe.getPosition().x;
 
+            // --- AUDIENCE HOST OVERRIDE ---
             if (player->scheduledAudienceHost == data->id) {
                 float targetX = v ? v->centerX : data->worldX;
                 float distToThrone = std::abs(myX - targetX);
                 
                 if (distToThrone > 20.f) {
+                    // March to the audience seat smoothly (NO pauseTimer!)
                     intendedMoveX = (myX < targetX) ? 1.f : -1.f;
+                    physicalApe.setState(ApeState::Grounded);
                 } else {
+                    // Arrived at seat. Stop and face the player.
                     intendedMoveX = (myX < playerX) ? 0.001f : -0.001f; 
+                    physicalApe.setState(ApeState::Grounded);
                 }
-                physicalApe.setState(ApeState::Grounded);
-                pauseTimer = 0.5f; 
-                return;
+                return; // Completely bypass normal AI, stand at the throne
             }
 
             float dist = std::abs(playerX - myX);

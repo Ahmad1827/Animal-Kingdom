@@ -431,15 +431,38 @@ void PlayState::update(float dt) {
         bool isHostile = (status == sim::DiplomacyStatus::War || status == sim::DiplomacyStatus::Rival || op <= -30);
 
         // Controlled spawn via timer, not per-frame randomness
+        // Controlled spawn via timer
         if ((isFriendly || isHostile) && crowdSpawnTimer <= 0.f) {
             crowdSpawnTimer = 0.8f + (std::rand() % 15) / 10.f; // Random 0.8s to 2.3s cooldown
             
-            CrowdProjectile p;
-            p.pos = cameraManager->getView().getCenter();
-            p.pos.x += (std::rand() % 2 == 0 ? -600.f : 600.f); 
-            p.pos.y -= (std::rand() % 200 + 100);
+            sim::EntityID throwerId = 0;
+            sf::Vector2f throwerPos;
+            std::vector<sim::ApeData*> potentialThrowers;
             
-            p.vel = sf::Vector2f((cameraManager->getView().getCenter().x - p.pos.x) * 0.5f, -200.f - (std::rand() % 200));
+            // Find an actual NPC standing in the aisle to throw it
+            for(auto& pair : simulationManager->getRegistry().getAllApes()) {
+                if(pair.second.villageId == rep->villageId && pair.first != rep->id && pair.second.alive) {
+                    if (std::abs(pair.second.worldX - pDataCheck->worldX) < 900.f) {
+                        potentialThrowers.push_back(&pair.second);
+                    }
+                }
+            }
+            
+            if (!potentialThrowers.empty()) {
+                int rIdx = std::rand() % potentialThrowers.size();
+                throwerPos = sf::Vector2f(potentialThrowers[rIdx]->worldX, potentialThrowers[rIdx]->worldY - 60.f); // Above their head
+            } else {
+                // Fallback if no villagers are near
+                throwerPos = cameraManager->getView().getCenter();
+                throwerPos.x += (std::rand() % 2 == 0 ? -400.f : 400.f);
+                throwerPos.y -= 100.f;
+            }
+            
+            CrowdProjectile p;
+            p.pos = throwerPos;
+            // Throw in an arc exactly towards the player
+            float distX = pDataCheck->worldX - p.pos.x;
+            p.vel = sf::Vector2f(distX * 0.8f, -250.f - (std::rand() % 150));
             p.life = 2.0f;
             
             if (isFriendly) {

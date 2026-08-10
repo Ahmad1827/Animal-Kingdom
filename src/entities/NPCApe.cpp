@@ -39,21 +39,60 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
             float myX = physicalApe.getPosition().x;
 
             // --- AUDIENCE HOST OVERRIDE ---
-            if (player->scheduledAudienceHost == data->id) {
-                float targetX = v ? v->centerX : data->worldX;
-                float distToThrone = std::abs(myX - targetX);
+            // --- AUDIENCE HOST & CROWD OVERRIDE ---
+        sim::EntityID hostId = player->scheduledAudienceHost;
+        // Ensure we don't trigger if they are currently summoned to a meeting ground!
+        if (hostId != 0 && player->summonedRepId != hostId) {
+            sim::ApeData* hostApe = registry.getApe(hostId);
+            if (hostApe) {
+                float throneX = hostApe->worldX; 
+                bool isHostVillage = false;
                 
-                if (distToThrone > 20.f) {
-                    // March to the audience seat smoothly (NO pauseTimer!)
-                    intendedMoveX = (myX < targetX) ? 1.f : -1.f;
-                    physicalApe.setState(ApeState::Grounded);
-                } else {
-                    // Arrived at seat. Stop and face the player.
-                    intendedMoveX = (myX < playerX) ? 0.001f : -0.001f; 
-                    physicalApe.setState(ApeState::Grounded);
+                // Determine Throne Location
+                sim::VillageData* hostV = registry.getVillage(hostApe->villageId);
+                sim::KingdomData* hostK = (hostApe->currentKingdom != 0) ? registry.getKingdom(hostApe->currentKingdom) : nullptr;
+                
+                if (hostK && hostK->currentKingId == hostId) {
+                    sim::VillageData* capV = registry.getVillage(hostK->capitalVillageId);
+                    if (capV) { throneX = capV->centerX; isHostVillage = (data->villageId == capV->id); }
+                } else if (hostV && hostV->leaderId == hostId) {
+                    throneX = hostV->centerX;
+                    isHostVillage = (data->villageId == hostV->id);
                 }
-                return; // Completely bypass normal AI, stand at the throne
+
+                // If player is entering the homeland bounds (within 1500 units)
+                if (std::abs(playerX - throneX) < 1500.f) {
+                    if (data->id == hostId) {
+                        // 1. RULER LOGIC: Stand exactly at the throne
+                        if (std::abs(myX - throneX) > 20.f) {
+                            intendedMoveX = (myX < throneX) ? 1.f : -1.f;
+                            physicalApe.setState(ApeState::Grounded);
+                        } else {
+                            intendedMoveX = (myX < playerX) ? 0.001f : -0.001f; 
+                            physicalApe.setState(ApeState::Grounded);
+                        }
+                        return; // Bypass normal AI
+                    } 
+                    else if (isHostVillage) {
+                        // 2. CROWD LOGIC: Form an aisle leading up to the throne!
+                        bool isLeft = (data->id % 2 == 0);
+                        int posIdx = (data->id % 20); // Distribute up to 20 apes per side
+                        float offset = 180.f + (posIdx * 45.f); // Leave 360 units of empty space in the middle
+                        float targetX = throneX + (isLeft ? -offset : offset);
+                        
+                        if (std::abs(myX - targetX) > 20.f) {
+                            intendedMoveX = (myX < targetX) ? 1.f : -1.f;
+                            physicalApe.setState(ApeState::Grounded);
+                        } else {
+                            // Stop and face the center of the aisle to watch the player
+                            intendedMoveX = (myX < throneX) ? 0.001f : -0.001f;
+                            physicalApe.setState(ApeState::Grounded);
+                        }
+                        return; // Bypass normal AI
+                    }
+                }
             }
+        }
 
             float dist = std::abs(playerX - myX);
 

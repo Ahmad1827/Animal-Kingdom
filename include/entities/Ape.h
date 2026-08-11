@@ -5,7 +5,8 @@
 #include "simulation/ApeData.h"
 
 enum class ApeState { Grounded, Airborne, ClimbingTrunk, HangingBranch, ClimbingVine, Working };
-enum class AnimState { OldSystem, Idle, Walk, Jump };
+// explicitly numbered so array lookups for the new sprite sheet match perfectly
+enum class AnimState { Idle = 0, Walk = 1, Jump = 2, Climb = 3, OldSystem = 4 };
 
 class Ape {
 public:
@@ -57,8 +58,10 @@ private:
     int currentFrame;
     bool facingRight;
 
-    static sf::Texture texIdle;
-    static sf::Texture texWalkRight;
-    static sf::Texture texJump;
+    // Master Sprite Sheet Configuration
+    const int FRAMES_PER_STATE[4] = {8, 8, 8, 5}; 
+    const float DURATION_PER_STATE[4] = {0.15f, 0.08f, 0.10f, 0.12f};
+
+    static sf::Texture masterSpriteSheet;
     static bool newTexturesLoaded;
 };

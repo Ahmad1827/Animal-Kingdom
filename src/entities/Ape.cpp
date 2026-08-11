@@ -3,9 +3,7 @@
 #include <iostream>
 #include <memory>
 
-sf::Texture Ape::texIdle;
-sf::Texture Ape::texWalkRight;
-sf::Texture Ape::texJump;
+sf::Texture Ape::masterSpriteSheet;
 bool Ape::newTexturesLoaded = false;
 
 Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer) 
@@ -24,10 +22,8 @@ Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer)
       currentFrame(0),
       facingRight(true) {
     
-    if (!newTexturesLoaded) {
-        texIdle.loadFromFile("assets/sprites/idle.png");
-        texWalkRight.loadFromFile("assets/sprites/walkright.png");
-        texJump.loadFromFile("assets/sprites/jump.png");
+    if (isPlayer && !newTexturesLoaded) {
+        masterSpriteSheet.loadFromFile("assets/sprites/spritesheet.png");
         newTexturesLoaded = true;
     }
 
@@ -199,9 +195,11 @@ void Ape::update(float dt) {
             nextState = AnimState::OldSystem;
             nextOldAnim = "Run";
         } else if (isMovingHorizontally) {
-            nextState = AnimState::Walk;
+            nextState = isPlayer ? AnimState::Walk : AnimState::OldSystem;
+            nextOldAnim = "Walk";
         } else {
-            nextState = AnimState::Idle;
+            nextState = isPlayer ? AnimState::Idle : AnimState::OldSystem;
+            nextOldAnim = "Idle";
         }
     } 
     else if (state == ApeState::Working) {
@@ -209,10 +207,13 @@ void Ape::update(float dt) {
         nextOldAnim = "Work";
     }
     else if (state == ApeState::Airborne) {
-        nextState = AnimState::Jump; // Use Jump visual until Fall is added
+        nextState = isPlayer ? AnimState::Jump : AnimState::OldSystem; 
+        if (velocity.y < -150.f) nextOldAnim = "Jump";
+        else if (velocity.y > 150.f) nextOldAnim = "Fall";
+        else nextOldAnim = isMovingHorizontally ? "Walk" : "Idle";
     } 
     else if (state == ApeState::ClimbingTrunk) {
-        nextState = AnimState::OldSystem;
+        nextState = isPlayer ? AnimState::Climb : AnimState::OldSystem;
         nextOldAnim = "Climb";
         if (std::abs(velocity.y) < 5.f) animator.pause();
         else animator.resume();
@@ -240,7 +241,7 @@ void Ape::update(float dt) {
         currentFrame = 0;
         animTimer = 0.f;
         if (currentAnimState == AnimState::OldSystem) {
-            sprite.setTexture(texture);
+            sprite.setTexture(texture); // reset to original texture for NPCs/old states
             int frameW = texture.getSize().x > 0 ? texture.getSize().x / 11 : 240;
             int frameH = texture.getSize().y > 0 ? texture.getSize().y / 6 : 174;
             sprite.setOrigin(frameW / 2.f, static_cast<float>(frameH));
@@ -263,13 +264,16 @@ void Ape::update(float dt) {
         
         sprite.setScale(baseScale * landingDetector.squashScaleX, baseScale * landingDetector.squashScaleY);
     } else {
-        // 4. Update the New Sprite Sheet Frame Loop 
+        // 4. Update the Master Sprite Sheet Frame Loop 
         animTimer += dt;
-        const float FRAME_DURATION = 0.12f;
-        int maxFrames = (currentAnimState == AnimState::Walk) ? 8 : 6;
+        int stateIdx = static_cast<int>(currentAnimState);
+        int maxFrames = FRAMES_PER_STATE[stateIdx];
+        float frameDur = DURATION_PER_STATE[stateIdx];
         
-        if (animTimer >= FRAME_DURATION) {
-            animTimer -= FRAME_DURATION;
+        bool isClimbingAndStill = (currentAnimState == AnimState::Climb && std::abs(velocity.y) < 5.f);
+        
+        if (animTimer >= frameDur && !isClimbingAndStill) {
+            animTimer -= frameDur;
             currentFrame++;
             
             if (currentAnimState == AnimState::Jump && currentFrame >= maxFrames) {
@@ -279,15 +283,15 @@ void Ape::update(float dt) {
             }
         }
         
-        if (currentAnimState == AnimState::Idle) sprite.setTexture(texIdle);
-        else if (currentAnimState == AnimState::Walk) sprite.setTexture(texWalkRight); // Using horizontal flip
-        else if (currentAnimState == AnimState::Jump) sprite.setTexture(texJump);
+        sprite.setTexture(masterSpriteSheet);
         
-        // 5. Calculate rect bounds and bottom-center origin for perfectly smooth transitions
-        int fw = sprite.getTexture()->getSize().x / maxFrames;
-        int fh = sprite.getTexture()->getSize().y;
+        // 5. Calculate rect bounds mapping to the 8x4 Grid Layout
+        int sheetColumns = 8;
+        int sheetRows = 4;
+        int fw = sprite.getTexture()->getSize().x / sheetColumns;
+        int fh = sprite.getTexture()->getSize().y / sheetRows;
         
-        sprite.setTextureRect(sf::IntRect(currentFrame * fw, 0, fw, fh));
+        sprite.setTextureRect(sf::IntRect(currentFrame * fw, stateIdx * fh, fw, fh));
         sprite.setOrigin(fw / 2.f, static_cast<float>(fh));
         
         float flipScale = facingRight ? 1.f : -1.f;

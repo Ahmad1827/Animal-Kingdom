@@ -5,6 +5,7 @@
 #include "simulation/ApeData.h"
 
 enum class ApeState { Grounded, Airborne, ClimbingTrunk, HangingBranch, ClimbingVine, Working };
+enum class AnimState { OldSystem, Idle, Walk, Jump };
 
 class Ape {
 public:
@@ -49,4 +50,15 @@ private:
     sim::ResourceType currentResource;
     int resourceAmount;
     bool isKing;
+
+    // New Animation State Tracking
+    AnimState currentAnimState;
+    float animTimer;
+    int currentFrame;
+    bool facingRight;
+
+    static sf::Texture texIdle;
+    static sf::Texture texWalkRight;
+    static sf::Texture texJump;
+    static bool newTexturesLoaded;
 };

@@ -38,7 +38,6 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
             float playerX = player->worldX;
             float myX = physicalApe.getPosition().x;
 
-            // --- AUDIENCE HOST OVERRIDE ---
             // --- AUDIENCE HOST & CROWD OVERRIDE ---
         sim::EntityID hostId = player->scheduledAudienceHost;
         // Ensure we don't trigger if they are currently summoned to a meeting ground!
@@ -126,7 +125,6 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
                         }
                     }
 
-                    // Apply the physical behavior override
                     // Apply the physical behavior override
                     if (isFriendly || isSuspicious || isHostile) {
                         float hostileSafeDist = 300.f;

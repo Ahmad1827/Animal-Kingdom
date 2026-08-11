@@ -3,6 +3,11 @@
 #include <iostream>
 #include <memory>
 
+sf::Texture Ape::texIdle;
+sf::Texture Ape::texWalkRight;
+sf::Texture Ape::texJump;
+bool Ape::newTexturesLoaded = false;
+
 Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer) 
     : texture(texture), 
       animator(&sprite),
@@ -13,8 +18,19 @@ Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer)
       currentTool(sim::ToolType::None), 
       currentResource(sim::ResourceType::None), 
       resourceAmount(0), 
-      isKing(false) {
+      isKing(false),
+      currentAnimState(AnimState::OldSystem),
+      animTimer(0.f),
+      currentFrame(0),
+      facingRight(true) {
     
+    if (!newTexturesLoaded) {
+        texIdle.loadFromFile("assets/sprites/idle.png");
+        texWalkRight.loadFromFile("assets/sprites/walkright.png");
+        texJump.loadFromFile("assets/sprites/jump.png");
+        newTexturesLoaded = true;
+    }
+
     bounds = sf::FloatRect(x, y, 32.f, 32.f);
     velocity = sf::Vector2f(0.f, 0.f);
 
@@ -157,80 +173,129 @@ void Ape::update(float dt) {
     bounds.left += velocity.x * dt;
     bounds.top += velocity.y * dt;
 
+    // Track intended facing direction natively for crisp visual flips
     if (state == ApeState::ClimbingVine) {
         if (isPlayer) {
-            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) {
-                animator.setFacingRight(false);
-            } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) {
-                animator.setFacingRight(true);
-            }
+            if (sf::Keyboard::isKeyPressed(sf::Keyboard::A) || sf::Keyboard::isKeyPressed(sf::Keyboard::Left)) facingRight = false;
+            else if (sf::Keyboard::isKeyPressed(sf::Keyboard::D) || sf::Keyboard::isKeyPressed(sf::Keyboard::Right)) facingRight = true;
         } else {
-            if (velocity.x > 5.f) animator.setFacingRight(true);
-            else if (velocity.x < -5.f) animator.setFacingRight(false);
+            if (velocity.x > 5.f) facingRight = true;
+            else if (velocity.x < -5.f) facingRight = false;
         }
     } else {
-        if (velocity.x > 5.f) animator.setFacingRight(true);
-        else if (velocity.x < -5.f) animator.setFacingRight(false);
+        if (velocity.x > 5.f) facingRight = true;
+        else if (velocity.x < -5.f) facingRight = false;
     }
-
-    animator.resume();
 
     bool isMovingHorizontally = (std::abs(velocity.x) > 10.f);
     bool isRunning = (std::abs(velocity.x) >= moveSpeed * 1.2f); 
 
+    AnimState nextState = AnimState::OldSystem;
+    std::string nextOldAnim = "Idle";
+
+    // 1. Determine the appropriate State logic
     if (state == ApeState::Grounded) {
         if (isRunning) {
-            animator.play("Run");
+            nextState = AnimState::OldSystem;
+            nextOldAnim = "Run";
         } else if (isMovingHorizontally) {
-            animator.play("Walk");
+            nextState = AnimState::Walk;
         } else {
-            animator.play("Idle");
+            nextState = AnimState::Idle;
         }
     } 
     else if (state == ApeState::Working) {
-        animator.play("Work");
+        nextState = AnimState::OldSystem;
+        nextOldAnim = "Work";
     }
     else if (state == ApeState::Airborne) {
-        if (velocity.y < -150.f) {
-            animator.play("Jump");
-        } else if (velocity.y > 150.f) {
-            animator.play("Fall");
-        } else {
-            if (isRunning) animator.play("Run");
-            else if (isMovingHorizontally) animator.play("Walk");
-            else animator.play("Idle");
-        }
+        nextState = AnimState::Jump; // Use Jump visual until Fall is added
     } 
     else if (state == ApeState::ClimbingTrunk) {
-        animator.play("Climb");
-        if (std::abs(velocity.y) < 5.f) {
-            animator.pause();
-        }
+        nextState = AnimState::OldSystem;
+        nextOldAnim = "Climb";
+        if (std::abs(velocity.y) < 5.f) animator.pause();
+        else animator.resume();
     }
     else if (state == ApeState::ClimbingVine) {
+        nextState = AnimState::OldSystem;
         if (std::abs(velocity.x) > 50.f) {
-            animator.play("Swing");
+            nextOldAnim = "Swing";
+            animator.resume();
         } else {
-            animator.play("Climb");
-            if (std::abs(velocity.y) < 5.f && std::abs(velocity.x) < 5.f) {
-                animator.pause();
-            }
+            nextOldAnim = "Climb";
+            if (std::abs(velocity.y) < 5.f && std::abs(velocity.x) < 5.f) animator.pause();
+            else animator.resume();
         }
     }
     else if (state == ApeState::HangingBranch) {
-        animator.play("Hang");
+        nextState = AnimState::OldSystem;
+        nextOldAnim = "Hang";
+        animator.resume();
     }
 
-    animator.update(dt);
-    landingDetector.updateSquash(dt);
-
-    sf::Vector2f renderOffset = animator.getCurrentOffset();
-    if (!animator.isFacingRight()) {
-        renderOffset.x = -renderOffset.x; 
+    // 2. Handle State Transitions Safely
+    if (nextState != currentAnimState) {
+        currentAnimState = nextState;
+        currentFrame = 0;
+        animTimer = 0.f;
+        if (currentAnimState == AnimState::OldSystem) {
+            sprite.setTexture(texture);
+            int frameW = texture.getSize().x > 0 ? texture.getSize().x / 11 : 240;
+            int frameH = texture.getSize().y > 0 ? texture.getSize().y / 6 : 174;
+            sprite.setOrigin(frameW / 2.f, static_cast<float>(frameH));
+        }
     }
 
+    // 3. Render Setup
     float baseScale = 1.20f;
-    sprite.setScale(baseScale * landingDetector.squashScaleX, baseScale * landingDetector.squashScaleY);
+    sf::Vector2f renderOffset(0.f, 0.f);
+
+    if (currentAnimState == AnimState::OldSystem) {
+        animator.setFacingRight(facingRight);
+        animator.play(nextOldAnim);
+        animator.update(dt);
+        
+        renderOffset = animator.getCurrentOffset();
+        if (!facingRight) {
+            renderOffset.x = -renderOffset.x; 
+        }
+        
+        sprite.setScale(baseScale * landingDetector.squashScaleX, baseScale * landingDetector.squashScaleY);
+    } else {
+        // 4. Update the New Sprite Sheet Frame Loop 
+        animTimer += dt;
+        const float FRAME_DURATION = 0.12f;
+        int maxFrames = (currentAnimState == AnimState::Walk) ? 8 : 6;
+        
+        if (animTimer >= FRAME_DURATION) {
+            animTimer -= FRAME_DURATION;
+            currentFrame++;
+            
+            if (currentAnimState == AnimState::Jump && currentFrame >= maxFrames) {
+                currentFrame = maxFrames - 1; // Clamp at apex for jump
+            } else {
+                currentFrame %= maxFrames; // Normal loop
+            }
+        }
+        
+        if (currentAnimState == AnimState::Idle) sprite.setTexture(texIdle);
+        else if (currentAnimState == AnimState::Walk) sprite.setTexture(texWalkRight); // Using horizontal flip
+        else if (currentAnimState == AnimState::Jump) sprite.setTexture(texJump);
+        
+        // 5. Calculate rect bounds and bottom-center origin for perfectly smooth transitions
+        int fw = sprite.getTexture()->getSize().x / maxFrames;
+        int fh = sprite.getTexture()->getSize().y;
+        
+        sprite.setTextureRect(sf::IntRect(currentFrame * fw, 0, fw, fh));
+        sprite.setOrigin(fw / 2.f, static_cast<float>(fh));
+        
+        float flipScale = facingRight ? 1.f : -1.f;
+        sprite.setScale(baseScale * flipScale * landingDetector.squashScaleX, baseScale * landingDetector.squashScaleY);
+    }
+
+    landingDetector.updateSquash(dt);
+    // Bind position to bottom-center of the physics collision bounds
     sprite.setPosition(bounds.left + bounds.width / 2.f + renderOffset.x, bounds.top + bounds.height + renderOffset.y);
 }
 
@@ -240,7 +305,8 @@ void Ape::draw(sf::RenderTarget& target) {
     sf::Vector2f center = sprite.getPosition();
     center.y -= sprite.getGlobalBounds().height / 2.f;
     
-    float facingDir = (sprite.getScale().x > 0) ? 1.f : -1.f;
+    // Explicitly use the native facing direction to fix the visual accessories bug 
+    float facingDir = facingRight ? 1.f : -1.f;
 
     if (isKing) {
         sf::ConvexShape crown(3);

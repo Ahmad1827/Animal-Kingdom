@@ -16,6 +16,8 @@
 #include <cmath>
 #include <iostream>
 #include <algorithm>
+#include "world/DayNightCycle.h"
+
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -38,7 +40,9 @@ void PlayState::init() {
     particleSystem = std::make_unique<ParticleSystem>();
     audioManager = std::make_unique<AudioManager>();
     worldClock = std::make_unique<WorldClock>();
+    dayNightCycle = std::make_unique<DayNightCycle>(sf::Vector2f(1280.f, 720.f));
     debugOverlay = std::make_unique<DebugOverlay>();
+    
     
     simulationManager = std::make_unique<sim::SimulationManager>();
     structureManager = std::make_unique<StructureManager>();
@@ -821,7 +825,12 @@ void PlayState::update(float dt) {
         sf::Clock cameraClock; 
         cameraManager->update(dt, playerWrapper->getPosition(), playerWrapper->getVelocity(), playerWrapper->getState());
         profiler.cameraTime = cameraClock.getElapsedTime().asSeconds();
-
+        if (dayNightCycle) {
+            dayNightCycle->update(worldClock->getTimeOfDay(), cameraManager->getView().getCenter());
+        }
+        
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::T)) worldClock->setMultiplier(600.f);
+        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Y)) worldClock->setMultiplier(30.f);
         if (cinematicTextTimer > 0.f) {
             cinematicTextTimer -= dt;
         }
@@ -1138,6 +1147,10 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     window.setView(cameraManager->getView());
     window.clear();
+
+    if (dayNightCycle) {
+        dayNightCycle->draw(window);
+    }
 
     background->draw(window);
     

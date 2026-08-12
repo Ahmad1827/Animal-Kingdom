@@ -19,6 +19,8 @@
 #include "world/StructureManager.h"
 #include "interaction/InteractionManager.h"
 #include <functional>
+#include "world/DayNightCycle.h"
+
 
 class Game;
 
@@ -35,6 +37,7 @@ private:
     std::unique_ptr<AudioManager> audioManager;
     std::unique_ptr<WorldClock> worldClock;
     std::unique_ptr<DebugOverlay> debugOverlay;
+    std::unique_ptr<DayNightCycle> dayNightCycle;
     
     std::unique_ptr<sim::SimulationManager> simulationManager;
     std::unique_ptr<NPCManager> npcManager;
@@ -48,7 +51,7 @@ private:
     bool isTransitioning;
     float transitionTimer;
     sf::Vector2f transitionTarget;
-    size_t lastKingdomCount = 99999; // Set high to force a refresh on frame 1
+    size_t lastKingdomCount = 99999;
     void refreshInteractionTargets();
     bool f3PressedLastFrame;
     bool f4PressedLastFrame;

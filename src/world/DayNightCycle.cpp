@@ -1,38 +1,78 @@
 #include "world/DayNightCycle.h"
 #include <cmath>
 #include <cstdlib>
+#include <iostream>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
 
-DayNightCycle::DayNightCycle(const sf::Vector2f& screenSize) : screenSize(screenSize) {
-    skyRect.setSize(screenSize);
-    
-    sun.setRadius(40.f);
-    sun.setOrigin(40.f, 40.f);
-    sun.setFillColor(sf::Color(255, 255, 180));
+DayNightCycle::DayNightCycle() {
+    // Sun
+    sun.setFillColor(sf::Color(255, 255, 200, 255));
+    sun.setOutlineThickness(4.f);
+    sun.setOutlineColor(sf::Color(255, 200, 50, 100));
 
-    moon.setRadius(30.f);
-    moon.setOrigin(30.f, 30.f);
-    moon.setFillColor(sf::Color(200, 200, 255));
+    // Moon
+    moon.setFillColor(sf::Color(220, 220, 255, 255));
+    moon.setOutlineThickness(4.f);
+    moon.setOutlineColor(sf::Color(150, 180, 255, 100));
 
     colorNight = sf::Color(10, 15, 35);
     colorSunrise = sf::Color(255, 120, 80);
-    colorDay = sf::Color(100, 180, 255);
+    colorDay = sf::Color(80, 160, 255);
     colorSunset = sf::Color(200, 80, 100);
 
-    generateStars();
+    generateStars(250);
 }
 
-void DayNightCycle::generateStars() {
+void DayNightCycle::generateStars(int count) {
     stars.setPrimitiveType(sf::Points);
-    int numStars = 150;
-    for (int i = 0; i < numStars; ++i) {
-        float x = static_cast<float>(std::rand() % static_cast<int>(screenSize.x));
-        float y = static_cast<float>(std::rand() % static_cast<int>(screenSize.y * 0.7f));
-        stars.append(sf::Vertex(sf::Vector2f(x, y), sf::Color::Transparent));
+    normalizedStars.clear();
+    for (int i = 0; i < count; ++i) {
+        float nx = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+        float ny = static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+        normalizedStars.push_back(sf::Vector2f(nx, ny));
+        stars.append(sf::Vertex(sf::Vector2f(0.f, 0.f), sf::Color::Transparent));
     }
+}
+
+// ---------------------------------------------------------
+// THE SINGLE CALCULATION FOR DAY/NIGHT SYNCHRONIZATION
+// ---------------------------------------------------------
+DayNightState DayNightCycle::calculateState(float normalizedTime) const {
+    DayNightState state;
+    state.normalizedTime = normalizedTime;
+    state.time24h = normalizedTime * 24.0f;
+    
+    // Strict cutoff: Day is strictly 06:00 to 18:00
+    state.isDay = (state.time24h >= 6.0f && state.time24h < 18.0f);
+
+    if (state.isDay) {
+        state.sunProgress = (state.time24h - 6.0f) / 12.0f; // 0.0 at 6AM, 1.0 at 6PM
+        state.moonProgress = 0.0f;
+    } else {
+        state.sunProgress = 0.0f;
+        if (state.time24h >= 18.0f) {
+            state.moonProgress = (state.time24h - 18.0f) / 12.0f; // 0.0 at 6PM, 0.5 at Midnight
+        } else {
+            state.moonProgress = (state.time24h + 6.0f) / 12.0f;  // 0.5 at Midnight, 1.0 at 6AM
+        }
+    }
+
+    // Mirroring typical Darkness Filter values mathematically
+    if (state.time24h >= 5.0f && state.time24h < 7.0f) {
+        state.darknessAlpha = 0.8f - 0.8f * ((state.time24h - 5.0f) / 2.0f); // Fade out for morning
+    } else if (state.time24h >= 7.0f && state.time24h < 17.0f) {
+        state.darknessAlpha = 0.0f; // Clear day
+    } else if (state.time24h >= 17.0f && state.time24h < 19.0f) {
+        state.darknessAlpha = 0.8f * ((state.time24h - 17.0f) / 2.0f); // Fade in for night
+    } else {
+        state.darknessAlpha = 0.8f; // Pitch black
+    }
+
+    state.starsAlpha = state.darknessAlpha;
+    return state;
 }
 
 sf::Color DayNightCycle::interpolateColor(const sf::Color& c1, const sf::Color& c2, float t) {
@@ -45,91 +85,93 @@ sf::Color DayNightCycle::interpolateColor(const sf::Color& c1, const sf::Color& 
     );
 }
 
-void DayNightCycle::updateSkyColor(float time) {
+void DayNightCycle::updateSkyColor() {
     sf::Color currentSky;
+    float t24 = currentState.time24h;
 
-    if (time >= 0.0f && time < 0.2f) { 
-        currentSky = colorNight; 
-    } else if (time >= 0.2f && time < 0.3f) { 
-        currentSky = interpolateColor(colorNight, colorSunrise, (time - 0.2f) / 0.1f); 
-    } else if (time >= 0.3f && time < 0.4f) { 
-        currentSky = interpolateColor(colorSunrise, colorDay, (time - 0.3f) / 0.1f); 
-    } else if (time >= 0.4f && time < 0.6f) { 
-        currentSky = colorDay; 
-    } else if (time >= 0.6f && time < 0.7f) { 
-        currentSky = interpolateColor(colorDay, colorSunset, (time - 0.6f) / 0.1f); 
-    } else if (time >= 0.7f && time < 0.8f) { 
-        currentSky = interpolateColor(colorSunset, colorNight, (time - 0.7f) / 0.1f); 
-    } else { 
-        currentSky = colorNight; 
-    }
+    // Synchronized strictly to the 24 hour boundaries
+    if (t24 >= 0.0f && t24 < 4.0f) currentSky = colorNight;
+    else if (t24 >= 4.0f && t24 < 6.0f) currentSky = interpolateColor(colorNight, colorSunrise, (t24 - 4.0f) / 2.0f);
+    else if (t24 >= 6.0f && t24 < 8.0f) currentSky = interpolateColor(colorSunrise, colorDay, (t24 - 6.0f) / 2.0f);
+    else if (t24 >= 8.0f && t24 < 16.0f) currentSky = colorDay;
+    else if (t24 >= 16.0f && t24 < 18.0f) currentSky = interpolateColor(colorDay, colorSunset, (t24 - 16.0f) / 2.0f);
+    else if (t24 >= 18.0f && t24 < 20.0f) currentSky = interpolateColor(colorSunset, colorNight, (t24 - 18.0f) / 2.0f);
+    else currentSky = colorNight;
 
     skyRect.setFillColor(currentSky);
 }
 
-void DayNightCycle::updateCelestialBodies(float time, const sf::Vector2f& cameraCenter) {
-    float arcRadius = screenSize.x * 0.45f;
-    float horizonY = cameraCenter.y + (screenSize.y * 0.2f);
-    
-    if (time >= 0.15f && time <= 0.85f) {
-        float p = (time - 0.15f) / 0.7f;
-        float angle = M_PI - (p * M_PI);
-        
-        float sunX = cameraCenter.x + arcRadius * std::cos(angle);
-        float sunY = horizonY - arcRadius * std::sin(angle);
-        sun.setPosition(sunX, sunY);
+void DayNightCycle::updateCelestialBodies(const sf::View& cameraView) {
+    sf::Vector2f viewSize = cameraView.getSize();
+    sf::Vector2f cameraCenter = cameraView.getCenter();
+
+    float sunRadius = std::max(60.f, viewSize.y * 0.06f);
+    sun.setRadius(sunRadius);
+    sun.setOrigin(sunRadius, sunRadius);
+
+    float moonRadius = std::max(45.f, viewSize.y * 0.045f);
+    moon.setRadius(moonRadius);
+    moon.setOrigin(moonRadius, moonRadius);
+
+    float arcRadiusX = viewSize.x * 0.45f;
+    float arcRadiusY = viewSize.y * 0.40f; 
+    float horizonY = cameraCenter.y + (viewSize.y * 0.15f);
+
+    // SUN (Only updated/visible if it is Day)
+    if (currentState.isDay) {
+        float angle = M_PI - (currentState.sunProgress * M_PI);
+        sun.setPosition(cameraCenter.x + arcRadiusX * std::cos(angle), horizonY - arcRadiusY * std::sin(angle));
     } else {
-        sun.setPosition(-9999.f, -9999.f);
+        sun.setPosition(cameraCenter.x + 99999.f, cameraCenter.y + 99999.f); // Park offscreen
     }
 
-    float moonTime = time;
-    if (moonTime < 0.15f) moonTime += 1.0f;
-
-    if (moonTime >= 0.65f && moonTime <= 1.35f) {
-        float p = (moonTime - 0.65f) / 0.7f;
-        float angle = M_PI - (p * M_PI);
-        
-        float moonX = cameraCenter.x + arcRadius * std::cos(angle);
-        float moonY = horizonY - arcRadius * std::sin(angle);
-        moon.setPosition(moonX, moonY);
+    // MOON (Only updated/visible if it is Night)
+    if (!currentState.isDay) {
+        float angle = M_PI - (currentState.moonProgress * M_PI);
+        moon.setPosition(cameraCenter.x + arcRadiusX * std::cos(angle), horizonY - arcRadiusY * std::sin(angle));
     } else {
-        moon.setPosition(-9999.f, -9999.f);
+        moon.setPosition(cameraCenter.x + 99999.f, cameraCenter.y + 99999.f); // Park offscreen
     }
 }
 
-void DayNightCycle::updateStars(float time, const sf::Vector2f& cameraCenter) {
-    float alpha = 0.f;
-    
-    if (time >= 0.75f) {
-        alpha = std::min(255.f, (time - 0.75f) / 0.1f * 255.f);
-    } else if (time <= 0.25f) {
-        alpha = std::max(0.f, 255.f - (time / 0.1f * 255.f));
-    }
+void DayNightCycle::updateStars(const sf::View& cameraView) {
+    sf::Vector2f viewSize = cameraView.getSize();
+    sf::Vector2f cameraCenter = cameraView.getCenter();
 
+    // Tie star alpha directly to the unified darkness state
+    float alpha = currentState.starsAlpha * 255.f;
     sf::Color starColor(255, 255, 255, static_cast<sf::Uint8>(alpha));
     
-    for (size_t i = 0; i < stars.getVertexCount(); ++i) {
+    float viewLeft = cameraCenter.x - viewSize.x / 2.f;
+    float viewTop = cameraCenter.y - viewSize.y / 2.f;
+    
+    for (size_t i = 0; i < normalizedStars.size(); ++i) {
         stars[i].color = starColor;
-        stars[i].position.x = cameraCenter.x - (screenSize.x / 2.f) + std::fmod(stars[i].position.x, screenSize.x);
-        stars[i].position.y = cameraCenter.y - (screenSize.y / 2.f) + std::fmod(stars[i].position.y, screenSize.y);
+        stars[i].position.x = viewLeft + (normalizedStars[i].x * viewSize.x);
+        stars[i].position.y = viewTop + (normalizedStars[i].y * (viewSize.y * 0.7f));
     }
 }
 
-void DayNightCycle::update(float normalizedTime, const sf::Vector2f& cameraCenter) {
-    skyRect.setPosition(cameraCenter.x - screenSize.x / 2.f, cameraCenter.y - screenSize.y / 2.f);
+void DayNightCycle::update(float normalizedTime, const sf::View& cameraView) {
+    // ONE calculation sets the values for everything
+    currentState = calculateState(normalizedTime);
+
+    sf::Vector2f viewSize = cameraView.getSize();
+    sf::Vector2f cameraCenter = cameraView.getCenter();
+
+    skyRect.setSize(viewSize);
+    skyRect.setPosition(cameraCenter.x - viewSize.x / 2.f, cameraCenter.y - viewSize.y / 2.f);
     
-    updateSkyColor(normalizedTime);
-    updateCelestialBodies(normalizedTime, cameraCenter);
-    updateStars(normalizedTime, cameraCenter);
+    updateSkyColor();
+    updateCelestialBodies(cameraView);
+    updateStars(cameraView);
 }
 
 void DayNightCycle::draw(sf::RenderTarget& target) {
     target.draw(skyRect);
+    if (stars[0].color.a > 0) target.draw(stars);
     
-    if (stars[0].color.a > 0) {
-        target.draw(stars);
-    }
-
-    target.draw(sun);
-    target.draw(moon);
+    // Draw based on the unified state
+    if (currentState.isDay) target.draw(sun);
+    if (!currentState.isDay) target.draw(moon);
 }

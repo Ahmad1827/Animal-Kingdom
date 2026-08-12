@@ -40,7 +40,7 @@ void PlayState::init() {
     particleSystem = std::make_unique<ParticleSystem>();
     audioManager = std::make_unique<AudioManager>();
     worldClock = std::make_unique<WorldClock>();
-    dayNightCycle = std::make_unique<DayNightCycle>(sf::Vector2f(1280.f, 720.f));
+    dayNightCycle = std::make_unique<DayNightCycle>();
     debugOverlay = std::make_unique<DebugOverlay>();
     
     
@@ -288,10 +288,21 @@ void PlayState::update(float dt) {
     profiler.frameTime = dt * 1000.f;
     
     sf::Clock updateClock;
+    
+    // --- SINGLE SOURCE OF TRUTH: TIME SPEED ---
+    float currentSimSpeed = 30.f;
+    if (sf::Keyboard::isKeyPressed(sf::Keyboard::T)) {
+        currentSimSpeed = 6000.f; // Fast-forward
+    } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Y)) {
+        currentSimSpeed = 30.f;   // Normal speed
+    }
+    
+    worldClock->setMultiplier(currentSimSpeed);
     worldClock->update(dt);
 
     if (simulationManager) {
-        simulationManager->update(dt * 30.f);
+        // Apply the exact same speed multiplier to the simulation
+        simulationManager->update(dt * currentSimSpeed);
     }
 
     bool f3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::O);
@@ -435,7 +446,6 @@ void PlayState::update(float dt) {
         bool isHostile = (status == sim::DiplomacyStatus::War || status == sim::DiplomacyStatus::Rival || op <= -30);
 
         // Controlled spawn via timer, not per-frame randomness
-        // Controlled spawn via timer
         if ((isFriendly || isHostile) && crowdSpawnTimer <= 0.f) {
             crowdSpawnTimer = 0.8f + (std::rand() % 15) / 10.f; // Random 0.8s to 2.3s cooldown
             
@@ -825,12 +835,12 @@ void PlayState::update(float dt) {
         sf::Clock cameraClock; 
         cameraManager->update(dt, playerWrapper->getPosition(), playerWrapper->getVelocity(), playerWrapper->getState());
         profiler.cameraTime = cameraClock.getElapsedTime().asSeconds();
-        if (dayNightCycle) {
-            dayNightCycle->update(worldClock->getTimeOfDay(), cameraManager->getView().getCenter());
-        }
         
-        if (sf::Keyboard::isKeyPressed(sf::Keyboard::T)) worldClock->setMultiplier(600.f);
-        else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Y)) worldClock->setMultiplier(30.f);
+        if (dayNightCycle) {
+            // SYNC TO SIMULATION CLOCK: Guarantees sun/moon exactly matches the Darkness filter and UI
+            dayNightCycle->update(simulationManager->getClock().getTimeOfDay(), cameraManager->getView());
+        }
+
         if (cinematicTextTimer > 0.f) {
             cinematicTextTimer -= dt;
         }
@@ -934,7 +944,8 @@ void PlayState::update(float dt) {
     }
 
     if (npcManager) {
-        npcManager->update(dt, preloadBounds, unloadBounds, *simulationManager, worldManager.get(), worldClock->getTimeOfDay());
+        // SYNC TO SIMULATION CLOCK
+        npcManager->update(dt, preloadBounds, unloadBounds, *simulationManager, worldManager.get(), simulationManager->getClock().getTimeOfDay());
     }
 
     if (playerWrapper) {
@@ -976,10 +987,13 @@ void PlayState::update(float dt) {
 
     sf::Clock pClock;
     weatherManager->update(dt);
+    
     particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), simulationManager->getClock().getTimeOfDay());
     profiler.particleTime = pClock.getElapsedTime().asSeconds();
     
-    if (audioManager) audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), worldClock->getTimeOfDay());
+    // SYNC TO SIMULATION CLOCK
+    if (audioManager) audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), simulationManager->getClock().getTimeOfDay());
+    
     lightingManager->update(dt, cameraManager->getView(), simulationManager->getClock().getTimeOfDay(), weatherManager->getFogDensity());
 
     background->update(
@@ -1410,7 +1424,6 @@ void PlayState::draw(sf::RenderWindow& window) {
                 window.draw(waitText);
 
                 // Polished countdown text with descriptive wording
-                // Polished countdown text with descriptive wording
                 std::string timeString = "Arrival in: " + std::to_string(secondsLeft) + " seconds";
                 sf::Text timeText(timeString, cinematicFont, 18);
                 sf::FloatRect timeRect = timeText.getLocalBounds();
@@ -1424,8 +1437,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
     }
 
-    // --- DIEGETIC DIALOGUE RENDERING ---
-    // --- DIEGETIC DIALOGUE RENDERING ---
     // --- DIEGETIC DIALOGUE RENDERING ---
     if (isDialogueActive) {
         if (isInspectingCharacter) {

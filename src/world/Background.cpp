@@ -43,7 +43,7 @@ void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, flo
 }
 
 void Background::draw(sf::RenderTarget& target) const {
-    target.draw(bg1);
+   // target.draw(bg1);
     target.draw(bg2);
     target.draw(bg3);
 }

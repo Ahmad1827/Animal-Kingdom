@@ -5,8 +5,8 @@
 #include "simulation/ApeData.h"
 
 enum class ApeState { Grounded, Airborne, ClimbingTrunk, HangingBranch, ClimbingVine, Working };
-// explicitly numbered so array lookups for the new sprite sheet match perfectly
-enum class AnimState { Idle = 0, Walk = 1, Jump = 2, Climb = 3, OldSystem = 4 };
+// Simplified to only use the new Sprite Sheet for ALL apes
+enum class AnimState { Idle = 0, Walk = 1, Jump = 2, Climb = 3 };
 
 class Ape {
 public:

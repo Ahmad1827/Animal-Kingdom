@@ -273,7 +273,22 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
     float groundHeight = worldManager->getTerrainHeight(playerBounds.left + playerBounds.width / 2.f);
     float bottomY = playerBounds.top + playerBounds.height;
     
+    // --- THIS IS THE MISSING FIX: Calculate distance to terrain for slope snapping ---
+    float distanceToGround = groundHeight - bottomY;
+    
+    // Check if flat against the ground
     if (physicalApe.getVelocity().y >= 0.f && bottomY >= groundHeight) {
+        physicalApe.setPosition(physicalApe.getPosition().x, groundHeight - playerBounds.height);
+        physicalApe.setVelocity(physicalApe.getVelocity().x, 0.f);
+        if (physicalApe.getState() != ApeState::Working) {
+            physicalApe.setState(ApeState::Grounded);
+        }
+        physicalApe.setDroppingThrough(false);
+        isDroppingToHang = false;
+    }
+    // --- SLOPE SNAPPING LOGIC ---
+    // If the NPC was previously grounded and walks down a hill, glue them to the slope so they don't flicker into Airborne/Jump!
+    else if (wasGrounded && physicalApe.getVelocity().y >= 0.f && distanceToGround > 0.f && distanceToGround < 25.f) {
         physicalApe.setPosition(physicalApe.getPosition().x, groundHeight - playerBounds.height);
         physicalApe.setVelocity(physicalApe.getVelocity().x, 0.f);
         if (physicalApe.getState() != ApeState::Working) {

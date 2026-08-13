@@ -24,6 +24,9 @@ public:
     void draw(sf::RenderTarget& target);
 
     DayNightState getCurrentState() const { return currentState; }
+    
+    // --- NEW: Expose dynamic sky color to tint Layer 1 ---
+    sf::Color getSkyColor() const { return skyRect.getFillColor(); }
 
 private:
     sf::RectangleShape skyRect;

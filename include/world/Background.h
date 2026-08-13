@@ -2,13 +2,27 @@
 #include <SFML/Graphics.hpp>
 
 class Background {
-private:
-    sf::Sprite bg1, bg2, bg3;
-    float smoothedX = 0.f;
-    bool initialized = false;
-
 public:
     Background(class AssetManager& assets);
     void update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt);
-    void draw(sf::RenderTarget& target) const;
+    
+    void drawSky(sf::RenderTarget& target, sf::Color skyTint);
+    void drawParallax(sf::RenderTarget& target);
+
+private:
+    sf::Sprite layer1; 
+    sf::Sprite layer2; 
+    sf::Sprite layer3; 
+    sf::Sprite layer4; 
+
+    float parallax1;
+    float parallax2;
+    float parallax3;
+    float parallax4;
+
+    float camX;
+    float camY;
+    sf::Vector2f vSize;
+
+    void drawLayer(sf::RenderTarget& target, sf::Sprite& spr, float pFactor, bool anchorBottom, float yOffset);
 };

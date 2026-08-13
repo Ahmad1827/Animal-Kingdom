@@ -20,7 +20,7 @@ DayNightCycle::DayNightCycle() {
 
     colorNight = sf::Color(10, 15, 35);
     colorSunrise = sf::Color(255, 120, 80);
-    colorDay = sf::Color(80, 160, 255);
+    colorDay = sf::Color(255, 255, 255); // Use pure white for mid-day so the PNG's natural blue is preserved
     colorSunset = sf::Color(200, 80, 100);
 
     generateStars(250);
@@ -168,8 +168,10 @@ void DayNightCycle::update(float normalizedTime, const sf::View& cameraView) {
 }
 
 void DayNightCycle::draw(sf::RenderTarget& target) {
-    target.draw(skyRect);
-    if (stars[0].color.a > 0) target.draw(stars);
+    // We NO LONGER draw the skyRect here. Layer 1 (Sky PNG) handles the backdrop.
+    
+    // Draw stars behind celestial bodies
+    if (stars.getVertexCount() > 0 && stars[0].color.a > 0) target.draw(stars);
     
     // Draw based on the unified state
     if (currentState.isDay) target.draw(sun);

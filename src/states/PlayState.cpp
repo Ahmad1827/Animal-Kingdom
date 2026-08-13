@@ -1162,12 +1162,18 @@ void PlayState::draw(sf::RenderWindow& window) {
     window.setView(cameraManager->getView());
     window.clear();
 
-    if (dayNightCycle) {
+    if (background && dayNightCycle) {
+        background->drawSky(window, dayNightCycle->getSkyColor());
         dayNightCycle->draw(window);
+        background->drawParallax(window);
+    } else {
+        if (dayNightCycle) dayNightCycle->draw(window);
+        if (background) {
+            background->drawSky(window, sf::Color::White);
+            background->drawParallax(window);
+        }
     }
 
-    background->draw(window);
-    
     if (lightingManager) lightingManager->drawFog(window);
 
     if (worldManager) {
@@ -1215,12 +1221,10 @@ void PlayState::draw(sf::RenderWindow& window) {
             window.draw(rightTotem);
         }
 
-        // --- DRAW UNIFIED DIPLOMATIC MEETING GROUNDS ---
         struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; };
         std::vector<Polity> polities;
         for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
             if (pair.second.kingdomId == 0) {
-                // MEETING POINT NOW RELIES EXCLUSIVELY ON STATIC BORDERS
                 polities.push_back({pair.first, false, pair.second.borderMinX, pair.second.borderMaxX});
             }
         }
@@ -1253,19 +1257,18 @@ void PlayState::draw(sf::RenderWindow& window) {
                 if (gap >= 0.f && gap <= 4000.f) {
                     float midY = worldManager->getTerrainHeight(midX);
                     
-                    sf::Color color1 = sf::Color(40, 140, 40); // Default Tribal Green
+                    sf::Color color1 = sf::Color(40, 140, 40); 
                     if (p1.isKingdom) {
                         sim::KingdomData* k1 = simulationManager->getRegistry().getKingdom(p1.id);
                         if (k1) color1 = k1->color;
                     }
                     
-                    sf::Color color2 = sf::Color(40, 140, 40); // Default Tribal Green
+                    sf::Color color2 = sf::Color(40, 140, 40); 
                     if (p2.isKingdom) {
                         sim::KingdomData* k2 = simulationManager->getRegistry().getKingdom(p2.id);
                         if (k2) color2 = k2->color;
                     }
                     
-                    // Central Stone Fire Pit
                     sf::RectangleShape firePit(sf::Vector2f(60.f, 15.f));
                     firePit.setOrigin(30.f, 15.f);
                     firePit.setPosition(midX, midY);
@@ -1274,7 +1277,6 @@ void PlayState::draw(sf::RenderWindow& window) {
                     firePit.setOutlineThickness(2.f);
                     window.draw(firePit);
                     
-                    // Fire (Primitive triangles)
                     sf::ConvexShape flameOuter(3);
                     flameOuter.setPoint(0, sf::Vector2f(0.f, -30.f));
                     flameOuter.setPoint(1, sf::Vector2f(15.f, 0.f));
@@ -1291,7 +1293,6 @@ void PlayState::draw(sf::RenderWindow& window) {
                     flameInner.setFillColor(sf::Color(240, 200, 40));
                     window.draw(flameInner);
 
-                    // Left Banner (Entity 1)
                     sf::RectangleShape leftPole(sf::Vector2f(4.f, 80.f));
                     leftPole.setOrigin(2.f, 80.f);
                     leftPole.setPosition(midX - 60.f, midY);
@@ -1299,14 +1300,13 @@ void PlayState::draw(sf::RenderWindow& window) {
                     window.draw(leftPole);
                     
                     sf::RectangleShape leftFlag(sf::Vector2f(30.f, 40.f));
-                    leftFlag.setOrigin(30.f, 0.f); // Hangs towards the fire
+                    leftFlag.setOrigin(30.f, 0.f); 
                     leftFlag.setPosition(midX - 60.f, midY - 75.f);
                     leftFlag.setFillColor(color1);
                     leftFlag.setOutlineColor(sf::Color::Black);
                     leftFlag.setOutlineThickness(1.f);
                     window.draw(leftFlag);
 
-                    // Right Banner (Entity 2)
                     sf::RectangleShape rightPole(sf::Vector2f(4.f, 80.f));
                     rightPole.setOrigin(2.f, 80.f);
                     rightPole.setPosition(midX + 60.f, midY);
@@ -1314,7 +1314,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                     window.draw(rightPole);
 
                     sf::RectangleShape rightFlag(sf::Vector2f(30.f, 40.f));
-                    rightFlag.setOrigin(0.f, 0.f); // Hangs towards the fire
+                    rightFlag.setOrigin(0.f, 0.f); 
                     rightFlag.setPosition(midX + 60.f, midY - 75.f);
                     rightFlag.setFillColor(color2);
                     rightFlag.setOutlineColor(sf::Color::Black);
@@ -1340,11 +1340,9 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     if (debugOverlay && debugOverlay->getShowVillageDebug()) {
         for(auto& p : simulationManager->getRegistry().getAllVillages()) {
-            // Read strictly from the fixed physical bounds
             float minX = p.second.borderMinX;
             float maxX = p.second.borderMaxX;
             
-            // If it belongs to a kingdom, map tightly to the kingdom's frozen borders
             if (p.second.kingdomId != 0) {
                 sim::KingdomData* kData = simulationManager->getRegistry().getKingdom(p.second.kingdomId);
                 if (kData && kData->territoryMaxX > kData->territoryMinX) {
@@ -1355,7 +1353,6 @@ void PlayState::draw(sf::RenderWindow& window) {
             
             float width = maxX - minX;
             if (width > 0.f) {
-                // Static visual matching the authoritative borders exactly
                 sf::RectangleShape terr(sf::Vector2f(width, 4000.f));
                 terr.setFillColor(sf::Color(0, 255, 0, 30));
                 terr.setOrigin(0.f, 2000.f);
@@ -1399,7 +1396,7 @@ void PlayState::draw(sf::RenderWindow& window) {
 
         window.draw(transitionText);
     }
-    // --- CINEMATIC DIPLOMATIC ARRIVAL UI ---
+    
     sim::ApeData* pDataHUD = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     bool isCinematicWait = false;
     
@@ -1410,26 +1407,23 @@ void PlayState::draw(sf::RenderWindow& window) {
             isCinematicWait = (dist > 150.0f); 
             
             if (isCinematicWait) {
-                // True physical countdown, capped at a minimum of 0
                 int secondsLeft = std::max(0, static_cast<int>(dist / 180.0f));
 
-                // A bit more writing, bigger size, and prettier elegant gold formatting
                 sf::Text waitText("Awaiting Diplomatic Representative...", cinematicFont, 24);
                 sf::FloatRect waitRect = waitText.getLocalBounds();
                 waitText.setOrigin(waitRect.left + waitRect.width / 2.0f, waitRect.top + waitRect.height / 2.0f);
                 waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f);
-                waitText.setFillColor(sf::Color(255, 215, 100, 255)); // Strong, warm gold
-                waitText.setOutlineColor(sf::Color(0, 0, 0, 255)); // Solid black outline for readability
+                waitText.setFillColor(sf::Color(255, 215, 100, 255)); 
+                waitText.setOutlineColor(sf::Color(0, 0, 0, 255)); 
                 waitText.setOutlineThickness(2.0f);
                 window.draw(waitText);
 
-                // Polished countdown text with descriptive wording
                 std::string timeString = "Arrival in: " + std::to_string(secondsLeft) + " seconds";
                 sf::Text timeText(timeString, cinematicFont, 18);
                 sf::FloatRect timeRect = timeText.getLocalBounds();
                 timeText.setOrigin(timeRect.left + timeRect.width / 2.0f, timeRect.top + timeRect.height / 2.0f);
                 timeText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 32.f);
-                timeText.setFillColor(sf::Color(220, 230, 240, 255)); // Crisp off-white
+                timeText.setFillColor(sf::Color(220, 230, 240, 255)); 
                 timeText.setOutlineColor(sf::Color(0, 0, 0, 255));
                 timeText.setOutlineThickness(2.0f);
                 window.draw(timeText);
@@ -1437,14 +1431,11 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
     }
 
-    // --- DIEGETIC DIALOGUE RENDERING ---
     if (isDialogueActive) {
         if (isInspectingCharacter) {
-            // ONLY draw the profile, hiding the dialogue entirely
             if (pDataHUD && pDataHUD->summonedRepId != 0) {
                 drawCharacterProfile(window, pDataHUD->summonedRepId);
                 
-                // Draw a simple prompt to let the player know how to go back
                 sf::Text returnText("[ESC / E] Return to Conversation", cinematicFont, 16);
                 returnText.setFillColor(sf::Color(200, 200, 200));
                 returnText.setOutlineColor(sf::Color::Black);
@@ -1455,10 +1446,8 @@ void PlayState::draw(sf::RenderWindow& window) {
                 window.draw(returnText);
             }
         } else {
-            // NORMAL DIALOGUE (No Profile)
-            // Speaker Title
             sf::Text speakerText(dialogueSpeakerName, cinematicFont, 24);
-            speakerText.setFillColor(sf::Color(255, 215, 100)); // Gold
+            speakerText.setFillColor(sf::Color(255, 215, 100)); 
             speakerText.setOutlineColor(sf::Color::Black);
             speakerText.setOutlineThickness(2.f);
             sf::FloatRect sRect = speakerText.getLocalBounds();
@@ -1466,7 +1455,6 @@ void PlayState::draw(sf::RenderWindow& window) {
             speakerText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f);
             window.draw(speakerText);
 
-            // Body Text
             sf::Text bodyText(dialogueText, cinematicFont, 20);
             bodyText.setFillColor(sf::Color::White);
             bodyText.setOutlineColor(sf::Color::Black);
@@ -1476,15 +1464,14 @@ void PlayState::draw(sf::RenderWindow& window) {
             bodyText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 40.f);
             window.draw(bodyText);
 
-            // Options Text
             float optionsStartY = window.getSize().y * 0.12f + 110.f;
             for (size_t i = 0; i < dialogueOptions.size(); ++i) {
                 sf::Text optText("", cinematicFont, 18);
                 if (static_cast<int>(i) == dialogueSelectedIndex) {
-                    optText.setFillColor(sf::Color(255, 255, 150)); // Highlighted yellow
+                    optText.setFillColor(sf::Color(255, 255, 150)); 
                     optText.setString("> " + dialogueOptions[i].text + " <");
                 } else {
-                    optText.setFillColor(sf::Color(180, 180, 180)); // Dimmed
+                    optText.setFillColor(sf::Color(180, 180, 180)); 
                     optText.setString(dialogueOptions[i].text);
                 }
                 optText.setOutlineColor(sf::Color::Black);
@@ -1494,7 +1481,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                 optText.setPosition(window.getSize().x / 2.0f, optionsStartY + (i * 30.f));
                 window.draw(optText);
             }
-        } // Close the 'else' block for normal dialogue
+        } 
     }
 
     if (lightingManager) lightingManager->drawAmbient(window);
@@ -1508,13 +1495,10 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (mapMode != MapMode::Hidden) {
         drawWorldMap(window);
         
-        // --- FIX: Switch to screen-space (HUD) view so profiles stay fixed while panning the map ---
         sf::View prevView = window.getView();
         window.setView(window.getDefaultView());
 
-        // Render Information Panels on top of the Map
         if (isInspectingCharacter) {
-            // Reusing the character profile if inspecting a leader from the map
             sim::EntityID targetApe = 0;
             if (selectedVillageId != 0) {
                 sim::VillageData* v = simulationManager->getRegistry().getVillage(selectedVillageId);
@@ -1530,7 +1514,6 @@ void PlayState::draw(sf::RenderWindow& window) {
             drawKingdomProfile(window, selectedKingdomId);
         }
         
-        // Restore previous map view
         window.setView(prevView);
     }
 

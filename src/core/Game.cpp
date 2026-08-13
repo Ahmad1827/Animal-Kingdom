@@ -5,6 +5,10 @@ Game::Game() : window(sf::VideoMode(1280, 720), "Ape Dynasty") {
     assetManager.loadTexture("bg1", "assets/sprites/BG1.png", true);
     assetManager.loadTexture("bg2", "assets/sprites/BG2.png", true);
     assetManager.loadTexture("bg3", "assets/sprites/BG3.png", true);
+    assetManager.loadTexture("LAYER1FIX", "assets/sprites/LAYER1FIX.png", true);
+    assetManager.loadTexture("LAYER2FIX", "assets/sprites/LAYER2FIX.png", true);
+    assetManager.loadTexture("LAYER3FIX", "assets/sprites/LAYER3FIX.png", true);
+    assetManager.loadTexture("LAYER4FIX", "assets/sprites/LAYER4FIX.png", true);
     assetManager.loadTexture("tileset", "assets/sprites/Tileset.png", true);
     assetManager.loadTexture("decors", "assets/sprites/Decors.png", false);
     assetManager.loadTexture("playerTex", "assets/sprites/ApeSpriteSheet.png");

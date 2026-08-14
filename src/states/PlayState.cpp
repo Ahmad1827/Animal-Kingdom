@@ -1162,15 +1162,20 @@ void PlayState::draw(sf::RenderWindow& window) {
     window.setView(cameraManager->getView());
     window.clear();
 
+    float groundY = 0.f;
+    if (worldManager) {
+        groundY = worldManager->getTerrainHeight(cameraManager->getView().getCenter().x);
+    }
+
     if (background && dayNightCycle) {
         background->drawSky(window, dayNightCycle->getSkyColor());
         dayNightCycle->draw(window);
-        background->drawDistant(window);
+        background->drawDistant(window, groundY);
     } else {
         if (dayNightCycle) dayNightCycle->draw(window);
         if (background) {
             background->drawSky(window, sf::Color::White);
-            background->drawDistant(window);
+            background->drawDistant(window, groundY);
         }
     }
 
@@ -1336,7 +1341,7 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (background) {
-        background->drawForeground(window);
+        background->drawForeground(window, groundY);
     }
     
     if (npcManager) npcManager->draw(window);

@@ -2,6 +2,10 @@
 #include "world/TerrainGenerator.h"
 #include "world/WorldGenerator.h"
 #include "world/SeedManager.h"
+#include <cmath>
+
+static constexpr float FLAT_GROUND_Y = 500.0f;
+static constexpr float DIRT_DEPTH = 2000.0f;
 
 Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Texture& decorTex) : pos(pos) {
     sf::Clock totalClock;
@@ -13,28 +17,53 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
     BiomeProperties props = Biome::getProperties(regionType);
     
     sf::Clock stepClock;
-    terrainMesh = TerrainGenerator::generateSurfaceMesh(bounds, 50.f, worldSeed);
-    undergroundMesh = TerrainGenerator::generateUndergroundMesh(bounds, 50.f, worldSeed, props.undergroundColor);
+
+    float step = 50.f;
+    int segments = static_cast<int>(std::ceil(bounds.width / step));
+
+    terrainMesh.setPrimitiveType(sf::Triangles);
+    terrainMesh.clear();
+
+    undergroundMesh.setPrimitiveType(sf::Triangles);
+    undergroundMesh.clear();
+
+    for (int i = 0; i < segments; ++i) {
+        float x1 = bounds.left + (i * step);
+        float x2 = std::min(x1 + step, bounds.left + bounds.width);
+
+        float yTop = FLAT_GROUND_Y;
+        float yBottom = FLAT_GROUND_Y + DIRT_DEPTH;
+
+        sf::Color dirtColor = props.undergroundColor;
+        sf::Color deepDirtColor(
+            static_cast<sf::Uint8>(props.undergroundColor.r * 0.6f),
+            static_cast<sf::Uint8>(props.undergroundColor.g * 0.6f),
+            static_cast<sf::Uint8>(props.undergroundColor.b * 0.6f)
+        );
+
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, yTop), dirtColor));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, yTop), dirtColor));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, yBottom), deepDirtColor));
+
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, yTop), dirtColor));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, yBottom), deepDirtColor));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, yBottom), deepDirtColor));
+
+        float grassHeight = 16.0f;
+        sf::Color grassTopColor(85, 160, 45);
+        sf::Color grassBottomColor(50, 110, 25);
+
+        terrainMesh.append(sf::Vertex(sf::Vector2f(x1, yTop - grassHeight), grassTopColor, sf::Vector2f(0.f, 0.f)));
+        terrainMesh.append(sf::Vertex(sf::Vector2f(x2, yTop - grassHeight), grassTopColor, sf::Vector2f(16.f, 0.f)));
+        terrainMesh.append(sf::Vertex(sf::Vector2f(x1, yTop), grassBottomColor, sf::Vector2f(0.f, 16.f)));
+
+        terrainMesh.append(sf::Vertex(sf::Vector2f(x2, yTop - grassHeight), grassTopColor, sf::Vector2f(16.f, 0.f)));
+        terrainMesh.append(sf::Vertex(sf::Vector2f(x2, yTop), grassBottomColor, sf::Vector2f(16.f, 16.f)));
+        terrainMesh.append(sf::Vertex(sf::Vector2f(x1, yTop), grassBottomColor, sf::Vector2f(0.f, 16.f)));
+    }
     
     waterMesh.setPrimitiveType(sf::Quads);
-    const float WATER_LEVEL = 750.f;
-    float res = 50.f;
-    int points = static_cast<int>(bounds.width / res);
-    
-    for (int i = 0; i < points; ++i) {
-        float x1 = bounds.left + (i * res);
-        float x2 = x1 + res;
-        float y1 = TerrainGenerator::getTerrainHeight(x1, worldSeed);
-        float y2 = TerrainGenerator::getTerrainHeight(x2, worldSeed);
-        
-        if (y1 > WATER_LEVEL || y2 > WATER_LEVEL) {
-            sf::Color wc(20, 90, 140, 160);
-            waterMesh.append(sf::Vertex(sf::Vector2f(x1, WATER_LEVEL), wc));
-            waterMesh.append(sf::Vertex(sf::Vector2f(x2, WATER_LEVEL), wc));
-            waterMesh.append(sf::Vertex(sf::Vector2f(x2, std::max(y1, y2) + 100.f), wc));
-            waterMesh.append(sf::Vertex(sf::Vector2f(x1, std::max(y1, y2) + 100.f), wc));
-        }
-    }
+    waterMesh.clear();
     
     terrainGenTime = stepClock.restart().asSeconds();
     

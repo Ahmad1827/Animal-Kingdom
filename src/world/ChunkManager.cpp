@@ -4,6 +4,8 @@
 #include <cmath>
 #include <chrono>
 
+static constexpr float FLAT_GROUND_Y = 500.0f;
+
 ChunkManager::ChunkManager(uint32_t seed, sf::Texture& decorTex) : chunkWidth(2000.f), chunkHeight(2000.f), worldSeed(seed), globalDecorTex(decorTex), currentChunkIdx(0) {}
 
 uint64_t ChunkManager::getChunkKey(int x, int y) const {
@@ -248,6 +250,14 @@ void ChunkManager::drawDebug(sf::RenderTarget& target, const sf::FloatRect& view
     }
 }
 
-float ChunkManager::getTerrainHeight(float x) const { return TerrainGenerator::getTerrainHeight(x, worldSeed); }
-int ChunkManager::getCurrentChunkIndex() const { return currentChunkIdx; }
-RegionType ChunkManager::getCurrentRegion(float playerX) const { return Biome::determineRegion(getChunkXAt(playerX), worldSeed); }
+float ChunkManager::getTerrainHeight(float x) const { 
+    return FLAT_GROUND_Y; 
+}
+
+int ChunkManager::getCurrentChunkIndex() const { 
+    return currentChunkIdx; 
+}
+
+RegionType ChunkManager::getCurrentRegion(float playerX) const { 
+    return Biome::determineRegion(getChunkXAt(playerX), worldSeed); 
+}

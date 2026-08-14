@@ -3,6 +3,8 @@
 #include <cmath>
 #include <algorithm>
 
+static constexpr float FLAT_GROUND_Y = 500.0f;
+
 WorldManager::WorldManager(uint32_t seed, sf::Texture& decorTex) : swayTime(0.f) {
     chunkManager = std::make_unique<ChunkManager>(seed, decorTex);
 }
@@ -89,7 +91,7 @@ void WorldManager::drawDebug(sf::RenderTarget& target, const sf::FloatRect& view
 }
 
 float WorldManager::getTerrainHeight(float x) const {
-    return chunkManager->getTerrainHeight(x);
+    return FLAT_GROUND_Y;
 }
 
 bool WorldManager::checkOneWayCollision(const sf::FloatRect& bounds, const sf::Vector2f& velocity, float dt, sf::FloatRect& outPlatformBounds) const {
@@ -325,7 +327,7 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
             flag.setPosition(rightEdge - 3.f, groundY - 110.f);
             flag.setFillColor(kingdomColor); 
             target.draw(flag);
-
+            
             sf::CircleShape skull(12.f);
             skull.setOrigin(12.f, 12.f);
             skull.setPosition(rightEdge, groundY - 120.f);

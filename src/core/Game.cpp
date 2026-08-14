@@ -8,7 +8,7 @@ Game::Game() : window(sf::VideoMode(1280, 720), "Ape Dynasty") {
     assetManager.loadTexture("layer1_sky", "assets/sprites/LAYER1FIX.png");
     assetManager.loadTexture("layer2_mountains", "assets/sprites/LAYER2FIX.png");
     assetManager.loadTexture("layer3_hills", "assets/sprites/LAYER3FIX.png");
-    assetManager.loadTexture("layer4_foreground", "assets/sprites/LAYER4FIX.png");
+   // assetManager.loadTexture("layer4_foreground", "assets/sprites/LAYER4FIX.png");
     assetManager.loadTexture("tileset", "assets/sprites/Tileset.png", true);
     assetManager.loadTexture("decors", "assets/sprites/Decors.png", false);
     assetManager.loadTexture("playerTex", "assets/sprites/ApeSpriteSheet.png");

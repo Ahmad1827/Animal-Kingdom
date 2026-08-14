@@ -3,6 +3,8 @@
 
 class Background {
 public:
+    static constexpr float GROUND_BASELINE_Y = 500.0f;
+
     Background(class AssetManager& assets);
     void update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt);
     
@@ -11,19 +13,23 @@ public:
     void drawForeground(sf::RenderTarget& target, float worldGroundY);
 
 private:
-    sf::Sprite layer1; 
-    sf::Sprite layer2; 
-    sf::Sprite layer3; 
-    sf::Sprite layer4; 
+    struct Layer {
+        sf::Sprite sprite;
+        float parallaxX;
+        float scale;
+        float yOffset;
+        int visibleBottomY;
+    };
 
-    float parallax1X, parallax1Y;
-    float parallax2X, parallax2Y;
-    float parallax3X, parallax3Y;
-    float parallax4X, parallax4Y;
+    Layer layer1_sky;
+    Layer layer2_mountains;
+    Layer layer3_hills;
+    Layer layer4_foreground;
 
     float camX;
     float camY;
     sf::Vector2f vSize;
 
-    void drawLayer(sf::RenderTarget& target, sf::Sprite& spr, float pFactorX, float pFactorY, float targetWorldBottom);
+    void findVisibleBottom(Layer& layer);
+    void renderTiledLayer(sf::RenderTarget& target, Layer& layer, float targetWorldGroundY, bool isSky);
 };

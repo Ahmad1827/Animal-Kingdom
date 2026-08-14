@@ -5,63 +5,74 @@
 #include <cmath>
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
-static constexpr float DIRT_DEPTH = 2000.0f;
+static constexpr float DIRT_DEPTH = 1200.0f;
 
 Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Texture& decorTex) : pos(pos) {
     sf::Clock totalClock;
     
     bounds = sf::FloatRect(pos.x * width, pos.y * height, width, height);
     uint32_t chunkSeed = SeedManager::getChunkSeed(worldSeed, pos.x) + pos.y;
-    
     regionType = Biome::determineRegion(pos.x, worldSeed);
     BiomeProperties props = Biome::getProperties(regionType);
     
     sf::Clock stepClock;
 
-    float step = 50.f;
-    int segments = static_cast<int>(std::ceil(bounds.width / step));
-
-    terrainMesh.setPrimitiveType(sf::Triangles);
-    terrainMesh.clear();
-
     undergroundMesh.setPrimitiveType(sf::Triangles);
     undergroundMesh.clear();
 
-    for (int i = 0; i < segments; ++i) {
-        float x1 = bounds.left + (i * step);
-        float x2 = std::min(x1 + step, bounds.left + bounds.width);
+    float x1 = bounds.left;
+    float x2 = bounds.left + bounds.width;
 
-        float yTop = FLAT_GROUND_Y;
-        float yBottom = FLAT_GROUND_Y + DIRT_DEPTH;
+    // Grass sits slightly above 500 so the ape's feet visually stand IN the grass
+    float yGrassBase = FLAT_GROUND_Y - 4.0f; 
+    float yGrassBot  = FLAT_GROUND_Y + 8.0f;
+    float yDirt1     = FLAT_GROUND_Y + 24.0f;
+    float yDirt2     = FLAT_GROUND_Y + 80.0f;
+    float yDirtDeep  = FLAT_GROUND_Y + DIRT_DEPTH;
 
-        sf::Color dirtColor = props.undergroundColor;
-        sf::Color deepDirtColor(
-            static_cast<sf::Uint8>(props.undergroundColor.r * 0.6f),
-            static_cast<sf::Uint8>(props.undergroundColor.g * 0.6f),
-            static_cast<sf::Uint8>(props.undergroundColor.b * 0.6f)
-        );
+    sf::Color cGrassBase(45, 100, 35);
+    sf::Color cGrassBot(30, 70, 25);
+    sf::Color cDirt1(22, 16, 12);
+    sf::Color cDirt2(12, 8, 6);
+    sf::Color cDirtDeep(0, 0, 0);
 
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, yTop), dirtColor));
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, yTop), dirtColor));
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, yBottom), deepDirtColor));
+    auto addQuad = [&](float topY, float botY, sf::Color topC, sf::Color botC) {
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, topY), topC));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, topY), topC));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, botY), botC));
 
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, yTop), dirtColor));
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, yBottom), deepDirtColor));
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, yBottom), deepDirtColor));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, topY), topC));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, botY), botC));
+        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, botY), botC));
+    };
 
-        float grassHeight = 16.0f;
-        sf::Color grassTopColor(85, 160, 45);
-        sf::Color grassBottomColor(50, 110, 25);
+    addQuad(yGrassBase, yGrassBot, cGrassBase, cGrassBot);
+    addQuad(yGrassBot, yDirt1, cGrassBot, cDirt1);
+    addQuad(yDirt1, yDirt2, cDirt1, cDirt2);
+    addQuad(yDirt2, yDirtDeep, cDirt2, cDirtDeep);
 
-        terrainMesh.append(sf::Vertex(sf::Vector2f(x1, yTop - grassHeight), grassTopColor, sf::Vector2f(0.f, 0.f)));
-        terrainMesh.append(sf::Vertex(sf::Vector2f(x2, yTop - grassHeight), grassTopColor, sf::Vector2f(16.f, 0.f)));
-        terrainMesh.append(sf::Vertex(sf::Vector2f(x1, yTop), grassBottomColor, sf::Vector2f(0.f, 16.f)));
-
-        terrainMesh.append(sf::Vertex(sf::Vector2f(x2, yTop - grassHeight), grassTopColor, sf::Vector2f(16.f, 0.f)));
-        terrainMesh.append(sf::Vertex(sf::Vector2f(x2, yTop), grassBottomColor, sf::Vector2f(16.f, 16.f)));
-        terrainMesh.append(sf::Vertex(sf::Vector2f(x1, yTop), grassBottomColor, sf::Vector2f(0.f, 16.f)));
-    }
+    // FIX 2: Create a beautiful, jagged grass top edge using terrainMesh (untextured)
+    terrainMesh.setPrimitiveType(sf::Triangles);
+    terrainMesh.clear();
     
+    float step = 8.f; 
+    int segments = static_cast<int>(std::ceil(bounds.width / step));
+    for(int i = 0; i < segments; ++i) {
+        float xL = bounds.left + i * step;
+        float xR = std::min(xL + step, bounds.left + bounds.width);
+        
+        // Pseudo-random height for the grass blade using coordinate
+        float hash = std::fmod(xL * 37.1f, 7.f);
+        float bladeHeight = 3.f + hash; // Blade goes up 3 to 10 pixels
+        
+        sf::Color grassTip(65, 130, 45); // Brighter tip
+        
+        // Triangle for grass blade sticking up
+        terrainMesh.append(sf::Vertex(sf::Vector2f(xL + step/2.f, yGrassBase - bladeHeight), grassTip)); 
+        terrainMesh.append(sf::Vertex(sf::Vector2f(xR, yGrassBase), cGrassBase));
+        terrainMesh.append(sf::Vertex(sf::Vector2f(xL, yGrassBase), cGrassBase));
+    }
+
     waterMesh.setPrimitiveType(sf::Quads);
     waterMesh.clear();
     
@@ -116,7 +127,8 @@ void Chunk::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBo
 
     if (terrainMesh.getVertexCount() > 0) {
         sf::RenderStates states;
-        states.texture = &tileset;
+        // FIX 3: Explicitly set NO TEXTURE here! This kills the white line entirely.
+        states.texture = nullptr; 
         target.draw(terrainMesh, states);
         profiler.drawCalls++;
         profiler.objectsRendered++;

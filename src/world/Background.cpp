@@ -1,6 +1,7 @@
 #include "world/Background.h"
 #include "core/AssetManager.h"
 #include <cmath>
+#include <algorithm>
 
 Background::Background(AssetManager& assets) {
     sf::Texture& t1 = assets.getTexture("layer1_sky");
@@ -8,86 +9,114 @@ Background::Background(AssetManager& assets) {
     sf::Texture& t3 = assets.getTexture("layer3_hills");
     sf::Texture& t4 = assets.getTexture("layer4_foreground");
 
-    t1.setRepeated(false);
-    t2.setRepeated(false);
-    t3.setRepeated(false);
-    t4.setRepeated(false);
+    t1.setRepeated(false); t2.setRepeated(false);
+    t3.setRepeated(false); t4.setRepeated(false);
 
-    t1.setSmooth(false);
-    t2.setSmooth(false);
-    t3.setSmooth(false);
-    t4.setSmooth(false);
+    t1.setSmooth(false); t2.setSmooth(false);
+    t3.setSmooth(false); t4.setSmooth(false);
 
-    layer1.setTexture(t1);
-    layer2.setTexture(t2);
-    layer3.setTexture(t3);
-    layer4.setTexture(t4);
+    layer1_sky.sprite.setTexture(t1);
+    layer2_mountains.sprite.setTexture(t2);
+    layer3_hills.sprite.setTexture(t3);
+    layer4_foreground.sprite.setTexture(t4);
 
-    parallax1X = 0.00f;
-    parallax1Y = 0.00f;
-    parallax2X = 0.12f;
-    parallax2Y = 0.10f;
-    parallax3X = 0.35f;
-    parallax3Y = 0.25f;
-    parallax4X = 1.15f;
-    parallax4Y = 1.00f;
+    layer1_sky.parallaxX = 0.00f;
+    layer2_mountains.parallaxX = 0.10f;
+    layer3_hills.parallaxX = 0.30f;
+    layer4_foreground.parallaxX = 0.60f;
+
+    layer1_sky.scale = 1.0f;
+    layer2_mountains.scale = 0.35f;
+    layer3_hills.scale = 0.32f;
+    layer4_foreground.scale = 0.16f;
+
+    // FIX 1: Push the distant layers down so they dip behind the 
+    // physical dirt line, completely hiding the blue sky gap.
+    layer1_sky.yOffset = 0.f;
+    layer2_mountains.yOffset = 25.f; 
+    layer3_hills.yOffset = 25.f;
+    layer4_foreground.yOffset = -10.f;
+
+    findVisibleBottom(layer1_sky);
+    findVisibleBottom(layer2_mountains);
+    findVisibleBottom(layer3_hills);
+    findVisibleBottom(layer4_foreground);
+
+    camX = 0.f; camY = 0.f;
+    vSize = sf::Vector2f(1280.f, 720.f);
+}
+
+void Background::findVisibleBottom(Layer& layer) {
+    const sf::Texture* tex = layer.sprite.getTexture();
+    if (!tex) { layer.visibleBottomY = 0; return; }
+
+    sf::Image img = tex->copyToImage();
+    unsigned int width = img.getSize().x;
+    unsigned int height = img.getSize().y;
+    int lastY = -1;
+
+    for (unsigned int y = 0; y < height; ++y) {
+        for (unsigned int x = 0; x < width; ++x) {
+            if (img.getPixel(x, y).a > 15) {
+                lastY = static_cast<int>(y);
+                break;
+            }
+        }
+    }
+    layer.visibleBottomY = (lastY != -1) ? lastY : static_cast<int>(height);
 }
 
 void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt) {
-    camX = cameraX;
-    camY = cameraY;
-    vSize = viewSize;
+    camX = cameraX; camY = cameraY; vSize = viewSize;
 }
 
-void Background::drawLayer(sf::RenderTarget& target, sf::Sprite& spr, float pFactorX, float pFactorY, float targetWorldBottom) {
-    const sf::Texture* tex = spr.getTexture();
+void Background::renderTiledLayer(sf::RenderTarget& target, Layer& layer, float targetWorldGroundY, bool isSky) {
+    const sf::Texture* tex = layer.sprite.getTexture();
     if (!tex) return;
 
-    float baseHeight = static_cast<float>(layer1.getTexture()->getSize().y);
-    float globalScale = vSize.y / baseHeight;
-    
-    spr.setScale(globalScale, globalScale);
+    float currentScale = layer.scale;
+    if (isSky) currentScale = vSize.y / static_cast<float>(tex->getSize().y);
 
-    float texW = static_cast<float>(tex->getSize().x) * globalScale;
-    float texH = static_cast<float>(tex->getSize().y) * globalScale;
+    layer.sprite.setScale(currentScale, currentScale);
 
-    float overlapTexW = std::floor(texW) - 1.f;
+    float scaledTexW = static_cast<float>(tex->getSize().x) * currentScale;
+    float overlapTexW = std::max(1.0f, std::floor(scaledTexW) - 1.0f);
 
-    float rawOffsetX = camX * pFactorX;
-    float modX = std::fmod(rawOffsetX, overlapTexW);
+    float rawOffset = camX * layer.parallaxX;
+    float modX = std::fmod(rawOffset, overlapTexW);
     if (modX < 0.f) modX += overlapTexW;
 
     float startX = std::floor(camX - (vSize.x / 2.f) - modX);
-    
-    float targetWorldTop = targetWorldBottom - texH;
-    float drawY = targetWorldTop + (camY - targetWorldTop) * (1.0f - pFactorY);
+    float drawY = 0.f;
+
+    if (isSky) {
+        drawY = std::floor(camY - (vSize.y / 2.f));
+    } else {
+        float visibleBottomOffset = static_cast<float>(layer.visibleBottomY) * currentScale;
+        drawY = std::floor(targetWorldGroundY - visibleBottomOffset + layer.yOffset);
+    }
 
     int tilesNeeded = static_cast<int>(std::ceil(vSize.x / overlapTexW)) + 2;
 
     for (int i = 0; i < tilesNeeded; ++i) {
-        spr.setPosition(std::floor(startX + (i * overlapTexW)), std::floor(drawY));
-        target.draw(spr);
+        layer.sprite.setPosition(std::floor(startX + (i * overlapTexW)), drawY);
+        target.draw(layer.sprite);
     }
 }
 
 void Background::drawSky(sf::RenderTarget& target, sf::Color skyTint) {
-    layer1.setColor(skyTint);
-    drawLayer(target, layer1, parallax1X, parallax1Y, camY + vSize.y / 2.f);
+    layer1_sky.sprite.setColor(skyTint);
+    renderTiledLayer(target, layer1_sky, GROUND_BASELINE_Y, true);
 }
 
 void Background::drawDistant(sf::RenderTarget& target, float worldGroundY) {
-    layer2.setColor(sf::Color::White);
-    layer3.setColor(sf::Color::White);
+    layer2_mountains.sprite.setColor(sf::Color::White);
+    layer3_hills.sprite.setColor(sf::Color::White);
 
-    float bottom2 = worldGroundY + (vSize.y * 0.30f); 
-    float bottom3 = worldGroundY + (vSize.y * 0.20f);
-
-    drawLayer(target, layer2, parallax2X, parallax2Y, bottom2);
-    drawLayer(target, layer3, parallax3X, parallax3Y, bottom3);
+    renderTiledLayer(target, layer2_mountains, worldGroundY, false);
+    renderTiledLayer(target, layer3_hills, worldGroundY, false);
 }
 
 void Background::drawForeground(sf::RenderTarget& target, float worldGroundY) {
-    layer4.setColor(sf::Color::White);
-    float bottom4 = worldGroundY + (vSize.y * 0.25f);
-    drawLayer(target, layer4, parallax4X, parallax4Y, bottom4);
+    // Hidden temporarily
 }

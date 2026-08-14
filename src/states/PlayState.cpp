@@ -1162,7 +1162,8 @@ void PlayState::draw(sf::RenderWindow& window) {
     window.setView(cameraManager->getView());
     window.clear();
 
-    float groundY = 0.f;
+    // Establish the authoritative ground baseline to pass to the parallax backgrounds
+    float groundY = 500.0f;
     if (worldManager) {
         groundY = worldManager->getTerrainHeight(cameraManager->getView().getCenter().x);
     }
@@ -1170,12 +1171,12 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (background && dayNightCycle) {
         background->drawSky(window, dayNightCycle->getSkyColor());
         dayNightCycle->draw(window);
-        background->drawDistant(window, groundY);
+        background->drawDistant(window, groundY); // Passing groundY here
     } else {
         if (dayNightCycle) dayNightCycle->draw(window);
         if (background) {
             background->drawSky(window, sf::Color::White);
-            background->drawDistant(window, groundY);
+            background->drawDistant(window, groundY); // Passing groundY here
         }
     }
 
@@ -1190,7 +1191,7 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
 
         if (debugOverlay && debugOverlay->getShowWarfareDebug()) {
-            for(auto& p : simulationManager->getRegistry().getAllKingdoms()) {
+            for (auto& p : simulationManager->getRegistry().getAllKingdoms()) {
                 if (p.second.territoryMaxX > p.second.territoryMinX) {
                     sf::RectangleShape rect(sf::Vector2f(p.second.territoryMaxX - p.second.territoryMinX, 2000.f));
                     sf::Color c = p.second.color;
@@ -1206,7 +1207,7 @@ void PlayState::draw(sf::RenderWindow& window) {
 
         worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
         
-        for(auto& p : simulationManager->getRegistry().getAllKingdoms()) {
+        for (auto& p : simulationManager->getRegistry().getAllKingdoms()) {
             float yLeft = worldManager->getTerrainHeight(p.second.territoryMinX);
             sf::RectangleShape leftTotem(sf::Vector2f(16.f, 150.f));
             leftTotem.setOrigin(8.f, 150.f);
@@ -1341,14 +1342,14 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (background) {
-        background->drawForeground(window, groundY);
+        background->drawForeground(window, groundY); // Passing groundY here
     }
     
     if (npcManager) npcManager->draw(window);
     if (playerWrapper) playerWrapper->draw(window);
 
     if (debugOverlay && debugOverlay->getShowVillageDebug()) {
-        for(auto& p : simulationManager->getRegistry().getAllVillages()) {
+        for (auto& p : simulationManager->getRegistry().getAllVillages()) {
             float minX = p.second.borderMinX;
             float maxX = p.second.borderMaxX;
             
@@ -1433,7 +1434,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                 timeText.setOrigin(timeRect.left + timeRect.width / 2.0f, timeRect.top + timeRect.height / 2.0f);
                 timeText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 32.f);
                 timeText.setFillColor(sf::Color(220, 230, 240, 255)); 
-                timeText.setOutlineColor(sf::Color(0, 0, 0, 255));
+                timeText.setOutlineColor(sf::Color(0, 0, 0, 255)); 
                 timeText.setOutlineThickness(2.0f);
                 window.draw(timeText);
             }

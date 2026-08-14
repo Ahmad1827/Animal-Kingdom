@@ -7,7 +7,8 @@ public:
     void update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt);
     
     void drawSky(sf::RenderTarget& target, sf::Color skyTint);
-    void drawParallax(sf::RenderTarget& target);
+    void drawDistant(sf::RenderTarget& target);
+    void drawForeground(sf::RenderTarget& target);
 
 private:
     sf::Sprite layer1; 

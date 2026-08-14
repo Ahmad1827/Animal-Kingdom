@@ -8,19 +8,17 @@
 #endif
 
 DayNightCycle::DayNightCycle() {
-    // Sun
     sun.setFillColor(sf::Color(255, 255, 200, 255));
     sun.setOutlineThickness(4.f);
     sun.setOutlineColor(sf::Color(255, 200, 50, 100));
 
-    // Moon
     moon.setFillColor(sf::Color(220, 220, 255, 255));
     moon.setOutlineThickness(4.f);
     moon.setOutlineColor(sf::Color(150, 180, 255, 100));
 
     colorNight = sf::Color(10, 15, 35);
     colorSunrise = sf::Color(255, 120, 80);
-    colorDay = sf::Color(255, 255, 255); // Use pure white for mid-day so the PNG's natural blue is preserved
+    colorDay = sf::Color(255, 255, 255);
     colorSunset = sf::Color(200, 80, 100);
 
     generateStars(250);
@@ -37,38 +35,33 @@ void DayNightCycle::generateStars(int count) {
     }
 }
 
-// ---------------------------------------------------------
-// THE SINGLE CALCULATION FOR DAY/NIGHT SYNCHRONIZATION
-// ---------------------------------------------------------
 DayNightState DayNightCycle::calculateState(float normalizedTime) const {
     DayNightState state;
     state.normalizedTime = normalizedTime;
     state.time24h = normalizedTime * 24.0f;
     
-    // Strict cutoff: Day is strictly 06:00 to 18:00
     state.isDay = (state.time24h >= 6.0f && state.time24h < 18.0f);
 
     if (state.isDay) {
-        state.sunProgress = (state.time24h - 6.0f) / 12.0f; // 0.0 at 6AM, 1.0 at 6PM
+        state.sunProgress = (state.time24h - 6.0f) / 12.0f;
         state.moonProgress = 0.0f;
     } else {
         state.sunProgress = 0.0f;
         if (state.time24h >= 18.0f) {
-            state.moonProgress = (state.time24h - 18.0f) / 12.0f; // 0.0 at 6PM, 0.5 at Midnight
+            state.moonProgress = (state.time24h - 18.0f) / 12.0f;
         } else {
-            state.moonProgress = (state.time24h + 6.0f) / 12.0f;  // 0.5 at Midnight, 1.0 at 6AM
+            state.moonProgress = (state.time24h + 6.0f) / 12.0f;
         }
     }
 
-    // Mirroring typical Darkness Filter values mathematically
     if (state.time24h >= 5.0f && state.time24h < 7.0f) {
-        state.darknessAlpha = 0.8f - 0.8f * ((state.time24h - 5.0f) / 2.0f); // Fade out for morning
+        state.darknessAlpha = 0.8f - 0.8f * ((state.time24h - 5.0f) / 2.0f);
     } else if (state.time24h >= 7.0f && state.time24h < 17.0f) {
-        state.darknessAlpha = 0.0f; // Clear day
+        state.darknessAlpha = 0.0f;
     } else if (state.time24h >= 17.0f && state.time24h < 19.0f) {
-        state.darknessAlpha = 0.8f * ((state.time24h - 17.0f) / 2.0f); // Fade in for night
+        state.darknessAlpha = 0.8f * ((state.time24h - 17.0f) / 2.0f);
     } else {
-        state.darknessAlpha = 0.8f; // Pitch black
+        state.darknessAlpha = 0.8f;
     }
 
     state.starsAlpha = state.darknessAlpha;
@@ -89,7 +82,6 @@ void DayNightCycle::updateSkyColor() {
     sf::Color currentSky;
     float t24 = currentState.time24h;
 
-    // Synchronized strictly to the 24 hour boundaries
     if (t24 >= 0.0f && t24 < 4.0f) currentSky = colorNight;
     else if (t24 >= 4.0f && t24 < 6.0f) currentSky = interpolateColor(colorNight, colorSunrise, (t24 - 4.0f) / 2.0f);
     else if (t24 >= 6.0f && t24 < 8.0f) currentSky = interpolateColor(colorSunrise, colorDay, (t24 - 6.0f) / 2.0f);
@@ -117,20 +109,18 @@ void DayNightCycle::updateCelestialBodies(const sf::View& cameraView) {
     float arcRadiusY = viewSize.y * 0.40f; 
     float horizonY = cameraCenter.y + (viewSize.y * 0.15f);
 
-    // SUN (Only updated/visible if it is Day)
     if (currentState.isDay) {
         float angle = M_PI - (currentState.sunProgress * M_PI);
         sun.setPosition(cameraCenter.x + arcRadiusX * std::cos(angle), horizonY - arcRadiusY * std::sin(angle));
     } else {
-        sun.setPosition(cameraCenter.x + 99999.f, cameraCenter.y + 99999.f); // Park offscreen
+        sun.setPosition(cameraCenter.x + 99999.f, cameraCenter.y + 99999.f);
     }
 
-    // MOON (Only updated/visible if it is Night)
     if (!currentState.isDay) {
         float angle = M_PI - (currentState.moonProgress * M_PI);
         moon.setPosition(cameraCenter.x + arcRadiusX * std::cos(angle), horizonY - arcRadiusY * std::sin(angle));
     } else {
-        moon.setPosition(cameraCenter.x + 99999.f, cameraCenter.y + 99999.f); // Park offscreen
+        moon.setPosition(cameraCenter.x + 99999.f, cameraCenter.y + 99999.f);
     }
 }
 
@@ -138,7 +128,6 @@ void DayNightCycle::updateStars(const sf::View& cameraView) {
     sf::Vector2f viewSize = cameraView.getSize();
     sf::Vector2f cameraCenter = cameraView.getCenter();
 
-    // Tie star alpha directly to the unified darkness state
     float alpha = currentState.starsAlpha * 255.f;
     sf::Color starColor(255, 255, 255, static_cast<sf::Uint8>(alpha));
     
@@ -153,7 +142,6 @@ void DayNightCycle::updateStars(const sf::View& cameraView) {
 }
 
 void DayNightCycle::update(float normalizedTime, const sf::View& cameraView) {
-    // ONE calculation sets the values for everything
     currentState = calculateState(normalizedTime);
 
     sf::Vector2f viewSize = cameraView.getSize();
@@ -168,12 +156,7 @@ void DayNightCycle::update(float normalizedTime, const sf::View& cameraView) {
 }
 
 void DayNightCycle::draw(sf::RenderTarget& target) {
-    // We NO LONGER draw the skyRect here. Layer 1 (Sky PNG) handles the backdrop.
-    
-    // Draw stars behind celestial bodies
     if (stars.getVertexCount() > 0 && stars[0].color.a > 0) target.draw(stars);
-    
-    // Draw based on the unified state
     if (currentState.isDay) target.draw(sun);
     if (!currentState.isDay) target.draw(moon);
 }

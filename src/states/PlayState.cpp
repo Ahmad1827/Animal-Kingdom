@@ -1165,12 +1165,12 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (background && dayNightCycle) {
         background->drawSky(window, dayNightCycle->getSkyColor());
         dayNightCycle->draw(window);
-        background->drawParallax(window);
+        background->drawDistant(window);
     } else {
         if (dayNightCycle) dayNightCycle->draw(window);
         if (background) {
             background->drawSky(window, sf::Color::White);
-            background->drawParallax(window);
+            background->drawDistant(window);
         }
     }
 
@@ -1333,6 +1333,10 @@ void PlayState::draw(sf::RenderWindow& window) {
                 cameraManager->getUnloadBounds(),
                 debugOverlay.get());
         }
+    }
+
+    if (background) {
+        background->drawForeground(window);
     }
     
     if (npcManager) npcManager->draw(window);

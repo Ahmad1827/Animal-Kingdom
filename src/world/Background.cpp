@@ -3,10 +3,10 @@
 #include <cmath>
 
 Background::Background(AssetManager& assets) {
-    sf::Texture& t1 = assets.getTexture("LAYER1FIX");
-    sf::Texture& t2 = assets.getTexture("LAYER2FIX");
-    sf::Texture& t3 = assets.getTexture("LAYER3FIX");
-    sf::Texture& t4 = assets.getTexture("LAYER4FIX");
+    sf::Texture& t1 = assets.getTexture("layer1_sky");
+    sf::Texture& t2 = assets.getTexture("layer2_mountains");
+    sf::Texture& t3 = assets.getTexture("layer3_hills");
+    sf::Texture& t4 = assets.getTexture("layer4_foreground");
 
     t1.setRepeated(false);
     t2.setRepeated(false);
@@ -24,9 +24,9 @@ Background::Background(AssetManager& assets) {
     layer4.setTexture(t4);
 
     parallax1 = 0.00f;
-    parallax2 = 0.10f;
-    parallax3 = 0.25f;
-    parallax4 = 0.45f;
+    parallax2 = 0.12f;
+    parallax3 = 0.35f;
+    parallax4 = 0.65f;
 }
 
 void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt) {
@@ -75,14 +75,15 @@ void Background::drawSky(sf::RenderTarget& target, sf::Color skyTint) {
     drawLayer(target, layer1, parallax1, false, 0.f);
 }
 
-void Background::drawParallax(sf::RenderTarget& target) {
+void Background::drawDistant(sf::RenderTarget& target) {
     layer2.setColor(sf::Color::White);
     layer3.setColor(sf::Color::White);
+
+    drawLayer(target, layer2, parallax2, true, 0.f);
+    drawLayer(target, layer3, parallax3, true, 0.f);
+}
+
+void Background::drawForeground(sf::RenderTarget& target) {
     layer4.setColor(sf::Color::White);
-
-    float groundOffset = vSize.y * 0.15f; 
-
-    drawLayer(target, layer2, parallax2, true, groundOffset);
-    drawLayer(target, layer3, parallax3, true, groundOffset);
-    drawLayer(target, layer4, parallax4, true, groundOffset);
+    drawLayer(target, layer4, parallax4, true, 0.f);
 }

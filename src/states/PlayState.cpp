@@ -1622,11 +1622,11 @@ void PlayState::draw(sf::RenderWindow& window) {
         interactionManager.draw(window);
     }
 
+    // Switch to UI/Screen view so all overlays and mouse tracking align 1:1
+    window.setView(window.getDefaultView());
+
     if (mapMode != MapMode::Hidden) {
         drawWorldMap(window);
-        
-        sf::View prevView = window.getView();
-        window.setView(window.getDefaultView());
 
         if (isInspectingCharacter) {
             sim::EntityID targetApe = 0;
@@ -1643,8 +1643,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         } else if (selectedKingdomId != 0) {
             drawKingdomProfile(window, selectedKingdomId);
         }
-        
-        window.setView(prevView);
     }
 
     if (dynastyUI.isOpen()) {

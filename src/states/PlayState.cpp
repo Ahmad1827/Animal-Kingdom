@@ -2828,82 +2828,124 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
     sim::VillageData* v = simulationManager->getRegistry().getVillage(vId);
     if (!v) return;
 
-    // --- DATA EXTRACTION ---
     std::string leaderName = "Unknown Leader";
     sim::ApeData* leader = simulationManager->getRegistry().getApe(v->leaderId);
     if (leader) leaderName = leader->name;
 
-    std::string allegiance = "Independent";
+    std::string allegiance = "Independent Tribe";
     if (v->kingdomId != 0) {
         sim::KingdomData* k = simulationManager->getRegistry().getKingdom(v->kingdomId);
         if (k) allegiance = "Kingdom of " + k->name;
     }
 
-    std::string popStr = std::to_string(v->members.size()) + " apes";
-    std::string foodStr = std::to_string(v->food);
-    std::string woodStr = std::to_string(v->wood);
-    std::string stoneStr = std::to_string(v->stone);
-    std::string activeProjects = std::to_string(v->constructionQueue.size());
-    std::string statusStr = v->isMigrating ? "Migrating" : (v->food < v->members.size() ? "Hungry" : "Stable");
-
-    float panelW = 340.f;
-    float panelH = 500.f;
-    float startX = profilePanelPos.x; 
+    float panelW = 380.f;
+    float panelH = 560.f;
+    float startX = profilePanelPos.x;
     float startY = profilePanelPos.y;
 
+    // Outer Wooden Rim
+    sf::RectangleShape woodBorder(sf::Vector2f(panelW + 12.f, panelH + 12.f));
+    woodBorder.setPosition(startX - 6.f, startY - 6.f);
+    woodBorder.setFillColor(sf::Color(45, 30, 20));
+    woodBorder.setOutlineColor(sf::Color(15, 10, 5));
+    woodBorder.setOutlineThickness(2.f);
+    window.draw(woodBorder);
+
+    // Parchment Body
     sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
     panel.setPosition(startX, startY);
-    panel.setFillColor(sf::Color(35, 25, 20, 245));
-    panel.setOutlineColor(sf::Color(180, 140, 70, 220));
+    panel.setFillColor(sf::Color(220, 205, 172));
+    panel.setOutlineColor(sf::Color(165, 125, 60));
     panel.setOutlineThickness(2.f);
     window.draw(panel);
 
-    auto drawText = [&](const std::string& text, float y, int size, sf::Color col, bool bold = false) {
-        sf::Text t(text, cinematicFont, size);
-        t.setFillColor(col);
-        t.setOutlineColor(sf::Color::Black);
-        t.setOutlineThickness(bold ? 2.f : 1.f);
-        sf::FloatRect bounds = t.getLocalBounds();
-        t.setOrigin(bounds.left + bounds.width / 2.f, 0.f);
-        t.setPosition(startX + panelW / 2.f, y);
-        window.draw(t);
+    // Header Plaque
+    sf::RectangleShape hPlate(sf::Vector2f(panelW - 16.f, 42.f));
+    hPlate.setPosition(startX + 8.f, startY + 8.f);
+    hPlate.setFillColor(sf::Color(65, 45, 28));
+    window.draw(hPlate);
+
+    sf::Text title("SETTLEMENT: " + v->name, cinematicFont, 18);
+    title.setFillColor(sf::Color(245, 215, 120));
+    title.setStyle(sf::Text::Bold);
+    title.setPosition(startX + 18.f, startY + 16.f);
+    window.draw(title);
+
+    auto drawField = [&](const std::string& label, const std::string& val, float y, sf::Color valCol = sf::Color(30, 15, 5)) {
+        sf::Text l(label, cinematicFont, 12);
+        l.setFillColor(sf::Color(90, 70, 50));
+        l.setPosition(startX + 18.f, y);
+        window.draw(l);
+
+        sf::Text vTxt(val, cinematicFont, 14);
+        vTxt.setFillColor(valCol);
+        vTxt.setStyle(sf::Text::Bold);
+        vTxt.setPosition(startX + 18.f, y + 16.f);
+        window.draw(vTxt);
     };
 
-    float curY = startY + 25.f;
-    drawText("VILLAGE OF " + v->name, curY, 26, sf::Color(255, 215, 100), true);
-    
-    curY += 40.f;
-    sf::RectangleShape div(sf::Vector2f(panelW - 60.f, 2.f));
-    div.setPosition(startX + 30.f, curY);
-    div.setFillColor(sf::Color(120, 90, 50, 200));
-    window.draw(div);
+    float curY = startY + 60.f;
+    drawField("Clan Chief / Leader", leaderName, curY);
+    curY += 42.f;
+    drawField("Allegiance & Realm", allegiance, curY, sf::Color(40, 80, 140));
+    curY += 42.f;
+    drawField("Population", std::to_string(v->members.size()) + " clan members", curY);
+    curY += 42.f;
 
+    // Resource Stores Sub-Panel
+    sf::RectangleShape resBox(sf::Vector2f(panelW - 32.f, 60.f));
+    resBox.setPosition(startX + 16.f, curY);
+    resBox.setFillColor(sf::Color(200, 182, 145));
+    resBox.setOutlineColor(sf::Color(140, 110, 70));
+    resBox.setOutlineThickness(1.f);
+    window.draw(resBox);
+
+    sf::Text resH("TRIBAL STOCKPILES", cinematicFont, 11);
+    resH.setFillColor(sf::Color(70, 50, 30));
+    resH.setStyle(sf::Text::Bold);
+    resH.setPosition(resBox.getPosition().x + 8.f, resBox.getPosition().y + 6.f);
+    window.draw(resH);
+
+    std::string resContent = "Food: " + std::to_string(v->food) + "   |   Wood: " + std::to_string(v->wood) + "   |   Stone: " + std::to_string(v->stone);
+    sf::Text resVals(resContent, cinematicFont, 13);
+    resVals.setFillColor(sf::Color(30, 70, 35));
+    resVals.setStyle(sf::Text::Bold);
+    resVals.setPosition(resBox.getPosition().x + 8.f, resBox.getPosition().y + 28.f);
+    window.draw(resVals);
+
+    curY += 75.f;
+
+    // Structures List
+    sf::Text structH("SETTLEMENT STRUCTURES (" + std::to_string(v->finishedStructures.size()) + ")", cinematicFont, 12);
+    structH.setFillColor(sf::Color(80, 55, 30));
+    structH.setStyle(sf::Text::Bold);
+    structH.setPosition(startX + 18.f, curY);
+    window.draw(structH);
     curY += 20.f;
-    drawText("Leader", curY, 14, sf::Color(180, 180, 180));
-    curY += 18.f;
-    drawText(leaderName, curY, 20, sf::Color::White);
 
-    curY += 35.f;
-    drawText("Allegiance", curY, 14, sf::Color(180, 180, 180));
-    curY += 18.f;
-    drawText(allegiance, curY, 18, sf::Color(200, 220, 255));
+    std::string structSummary = "• Clan Hearth & Chieftain Lodge\n• Communal Sleeping Nests\n• Granary & Armory Racks\n• Watch Platforms & Boundary Totems";
+    sf::Text sList(structSummary, cinematicFont, 11);
+    sList.setFillColor(sf::Color(55, 40, 25));
+    sList.setPosition(startX + 18.f, curY);
+    window.draw(sList);
 
-    curY += 35.f;
-    drawText("Population", curY, 14, sf::Color(180, 180, 180));
-    curY += 18.f;
-    drawText(popStr, curY, 18, sf::Color::White);
+    // View Leader Button
+    curY = startY + panelH - 45.f;
+    sf::RectangleShape btn(sf::Vector2f(200.f, 30.f));
+    btn.setOrigin(100.f, 15.f);
+    btn.setPosition(startX + panelW / 2.f, curY);
+    btn.setFillColor(sf::Color(65, 45, 28));
+    btn.setOutlineColor(sf::Color(180, 140, 60));
+    btn.setOutlineThickness(1.5f);
+    window.draw(btn);
 
-    curY += 35.f;
-    drawText("Stores ( Food / Wood / Stone )", curY, 14, sf::Color(180, 180, 180));
-    curY += 18.f;
-    drawText(foodStr + "  /  " + woodStr + "  /  " + stoneStr, curY, 18, sf::Color(150, 200, 150));
-
-    curY += 35.f;
-    drawText("Status: " + statusStr, curY, 18, sf::Color(220, 220, 220));
-
-    // Button
-    curY = startY + panelH - 60.f;
-    drawText("[ View Leader ]", curY, 18, sf::Color(255, 255, 150), true);
+    sf::Text btnTxt("[ View Clan Chief ]", cinematicFont, 13);
+    btnTxt.setFillColor(sf::Color(245, 215, 120));
+    btnTxt.setStyle(sf::Text::Bold);
+    sf::FloatRect bBounds = btnTxt.getLocalBounds();
+    btnTxt.setOrigin(bBounds.left + bBounds.width / 2.f, bBounds.top + bBounds.height / 2.f);
+    btnTxt.setPosition(btn.getPosition());
+    window.draw(btnTxt);
 }
 
 void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId) {

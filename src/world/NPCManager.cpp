@@ -1,4 +1,5 @@
 #include "world/NPCManager.h"
+#include <cmath>
 
 NPCManager::NPCManager(sf::Texture& texture) : apeTexture(texture) {}
 
@@ -10,9 +11,41 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
         sim::ApeData& data = pair.second;
         if (!data.alive || data.id == controlledId) continue;
 
+        // Stage NPC world placement relative to settlement anchors if idle or at home
+        if (data.villageId != 0 && data.hasTravelDestination == false) {
+            sim::VillageData* v = simManager.getRegistry().getVillage(data.villageId);
+            if (v) {
+                float targetAnchorX = v->centerX;
+                switch (data.currentJob) {
+                    case sim::Job::Guard:
+                        targetAnchorX = (data.id % 2 == 0) ? v->centerX - 240.f : v->centerX + 240.f;
+                        break;
+                    case sim::Job::Builder:
+                        targetAnchorX = v->centerX - 120.f;
+                        break;
+                    case sim::Job::Woodcutter:
+                    case sim::Job::StoneGatherer:
+                        targetAnchorX = v->centerX + 140.f;
+                        break;
+                    case sim::Job::Sleep:
+                        targetAnchorX = v->centerX - 60.f;
+                        break;
+                    case sim::Job::Idle:
+                    case sim::Job::Socialize:
+                        targetAnchorX = v->centerX + (static_cast<int>(data.id % 5) - 2) * 35.f;
+                        break;
+                    default:
+                        break;
+                }
+                // Gentle drift toward assigned settlement role position
+                if (std::abs(data.worldX - targetAnchorX) > 180.f) {
+                    data.worldX += (targetAnchorX > data.worldX ? 35.f : -35.f) * dt;
+                }
+            }
+        }
+
         if (data.worldX >= preloadBounds.left && data.worldX <= preloadBounds.left + preloadBounds.width &&
             data.worldY >= preloadBounds.top && data.worldY <= preloadBounds.top + preloadBounds.height) {
-            
             if (activeNPCs.find(data.id) == activeNPCs.end()) {
                 activeNPCs[data.id] = std::make_unique<NPCApe>(data.id, data.worldX, data.worldY, apeTexture);
             }
@@ -36,9 +69,8 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
                 sim::KingdomData* kd = simManager.getRegistry().getKingdom(data->currentKingdom);
                 if (kd && kd->currentKingId == data->id) isKing = true;
             }
-            
-            it->second->setVisualEquipment(data->equippedTool, data->carriedType, data->carriedAmount, isKing);
 
+            it->second->setVisualEquipment(data->equippedTool, data->carriedType, data->carriedAmount, isKing);
             it->second->update(dt, data, worldManager, timeOfDay, simManager.getRegistry(), controlledId);
             ++it;
         }

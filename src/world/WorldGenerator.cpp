@@ -12,18 +12,23 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
     std::mt19937 rng(seed);
 
     while (currentX < endX) {
-        float spacing = 90.f + (rng() % 140); 
+        float spacing = 90.f + (rng() % 140);
         currentX += spacing;
         if (currentX >= endX) break;
+
+        // Tree-Clearing in base footprints: Village centers spawn at fixed intervals (e.g., world origin and multiples of 5000px)
+        float distToVillageCenter = std::abs(std::fmod(std::abs(currentX) + 2500.f, 5000.f) - 2500.f);
+        if (distToVillageCenter < 380.f) {
+            // Keep settlement clear of massive jungle tree trunks
+            continue;
+        }
 
         float scale = 0.75f + (rng() % 65) / 100.f;
         float treeWidth = 80.f * scale;
         float treeHeight = 280.f * scale;
         sf::Color trunkColor(101, 67, 33);
 
-        // Subtly bury the tree trunks exactly into the grass line
-        float yOffset = (rng() % 8) - 2.f; 
-
+        float yOffset = (rng() % 8) - 2.f;
         result.emplace_back(currentX, FLAT_GROUND_Y + yOffset, treeWidth, treeHeight, trunkColor, decorTex);
     }
 
@@ -39,7 +44,7 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
 
     for (int i = 0; i < count; ++i) {
         float x = startX + (i * step) + (rng() % static_cast<int>(step * 0.5f + 1.f));
-        float y = FLAT_GROUND_Y; 
+        float y = FLAT_GROUND_Y;
 
         int type = rng() % 6;
         float scale = 0.8f + (rng() % 50) / 100.f;

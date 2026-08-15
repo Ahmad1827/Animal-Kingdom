@@ -11,24 +11,26 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
         sim::ApeData& data = pair.second;
         if (!data.alive || data.id == controlledId) continue;
 
-        // Stage NPC world placement relative to settlement anchors if idle or at home
         if (data.villageId != 0 && data.hasTravelDestination == false) {
             sim::VillageData* v = simManager.getRegistry().getVillage(data.villageId);
             if (v) {
                 float targetAnchorX = v->centerX;
                 switch (data.currentJob) {
                     case sim::Job::Guard:
-                        targetAnchorX = (data.id % 2 == 0) ? v->centerX - 240.f : v->centerX + 240.f;
+                        targetAnchorX = (data.id % 2 == 0) ? v->centerX - 340.f : v->centerX + 340.f;
                         break;
                     case sim::Job::Builder:
-                        targetAnchorX = v->centerX - 120.f;
+                        targetAnchorX = v->centerX - 285.f;
                         break;
                     case sim::Job::Woodcutter:
                     case sim::Job::StoneGatherer:
-                        targetAnchorX = v->centerX + 140.f;
+                        targetAnchorX = v->centerX + 245.f;
+                        break;
+                    case sim::Job::Forage:
+                        targetAnchorX = v->centerX + 185.f;
                         break;
                     case sim::Job::Sleep:
-                        targetAnchorX = v->centerX - 60.f;
+                        targetAnchorX = (data.id % 2 == 0) ? v->centerX - 145.f : v->centerX - 205.f;
                         break;
                     case sim::Job::Idle:
                     case sim::Job::Socialize:
@@ -37,7 +39,6 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
                     default:
                         break;
                 }
-                // Gentle drift toward assigned settlement role position
                 if (std::abs(data.worldX - targetAnchorX) > 180.f) {
                     data.worldX += (targetAnchorX > data.worldX ? 35.f : -35.f) * dt;
                 }

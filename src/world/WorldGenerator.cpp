@@ -4,6 +4,20 @@
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
 
+static bool isInsideSettlementClearing(float x) {
+    if (std::abs(x - 1000.0f) < 480.0f) {
+        return true;
+    }
+    for (int i = 1; i <= 6; ++i) {
+        float rivalPos1 = (i * 3 * 2000.f) + 1000.f;
+        float rivalPos2 = (-i * 3 * 2000.f) + 1000.f;
+        if (std::abs(x - rivalPos1) < 480.0f || std::abs(x - rivalPos2) < 480.0f) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint32_t seed, uint32_t worldSeed, const BiomeProperties& props, sf::Texture& decorTex) {
     std::vector<Tree> result;
     float currentX = startX + 50.f;
@@ -16,10 +30,7 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         currentX += spacing;
         if (currentX >= endX) break;
 
-        // Tree-Clearing in base footprints: Village centers spawn at fixed intervals (e.g., world origin and multiples of 5000px)
-        float distToVillageCenter = std::abs(std::fmod(std::abs(currentX) + 2500.f, 5000.f) - 2500.f);
-        if (distToVillageCenter < 380.f) {
-            // Keep settlement clear of massive jungle tree trunks
+        if (isInsideSettlementClearing(currentX)) {
             continue;
         }
 
@@ -45,6 +56,10 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
     for (int i = 0; i < count; ++i) {
         float x = startX + (i * step) + (rng() % static_cast<int>(step * 0.5f + 1.f));
         float y = FLAT_GROUND_Y;
+
+        if (isInsideSettlementClearing(x)) {
+            continue;
+        }
 
         int type = rng() % 6;
         float scale = 0.8f + (rng() % 50) / 100.f;

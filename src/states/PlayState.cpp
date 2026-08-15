@@ -1677,24 +1677,24 @@ void PlayState::refreshInteractionTargets() {
 
     for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
         const sim::VillageData& v = pair.second;
-        float groundHeight = worldManager->getTerrainHeight(v.centerX);
-        
-        interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX, groundHeight - 50.f, audioManager.get(), particleSystem.get()
-        ));
+        float groundY = 500.0f;
 
         interactionManager.registerTarget(std::make_shared<VillageCenterInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX - 150.f, groundHeight - 50.f, audioManager.get()
+            v.id, simulationManager->getRegistry(), v.centerX, groundY, audioManager.get()
         ));
-        
+
+        interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
+            v.id, simulationManager->getRegistry(), v.centerX + 65.f, groundY, audioManager.get(), particleSystem.get()
+        ));
+
         interactionManager.registerTarget(std::make_shared<StorageHutInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX + 250.f, groundHeight - 50.f
+            v.id, simulationManager->getRegistry(), v.centerX + 185.f, groundY
         ));
     }
 
     for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
         const sim::KingdomData& k = pair.second;
-        
+
         if (k.territoryMinX != 0.f) {
             interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
                 k.id, simulationManager->getRegistry(), worldManager.get(), true
@@ -1715,17 +1715,15 @@ void PlayState::refreshInteractionTargets() {
         }
     }
 
-    // --- UNIFIED DIPLOMATIC MEETING GROUNDS ---
     struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; };
     std::vector<Polity> polities;
-    
+
     for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
         if (pair.second.kingdomId == 0) {
-            // INTERACTION TARGET NOW RELIES EXCLUSIVELY ON STATIC BORDERS
             polities.push_back({pair.first, false, pair.second.borderMinX, pair.second.borderMaxX});
         }
     }
-    
+
     for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
         if (pair.second.territoryMaxX != 0.f) {
             polities.push_back({pair.first, true, pair.second.territoryMinX, pair.second.territoryMaxX});
@@ -1736,7 +1734,7 @@ void PlayState::refreshInteractionTargets() {
         for (size_t j = i + 1; j < polities.size(); ++j) {
             const Polity& p1 = polities[i];
             const Polity& p2 = polities[j];
-            
+
             float gap = 0.f;
             float midX = 0.f;
 
@@ -1754,7 +1752,7 @@ void PlayState::refreshInteractionTargets() {
             }
 
             if (gap >= 0.f && gap <= 4000.f) {
-                float midY = worldManager->getTerrainHeight(midX);
+                float midY = 500.0f;
                 interactionManager.registerTarget(std::make_shared<DiplomaticMeetingInteractionTarget>(
                     p1.id, p1.isKingdom, p2.id, p2.isKingdom, midX, midY, simulationManager->getRegistry(), simulationManager->getControlledApe()
                 ));

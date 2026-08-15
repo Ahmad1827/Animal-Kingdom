@@ -81,8 +81,10 @@ void PlayState::initDynastySimulation() {
     koba.sex = sim::Sex::MALE;
     koba.dynastyId = activeDynastyId;
     koba.clanId = cl.id;
+    koba.prestige = 150;
     koba.addTrait(sim::TraitID::SILVERBACK);
     koba.addTrait(sim::TraitID::NATURAL_LEADER);
+    koba.logHistory(1, 1, "Ascended as Founding Alpha of High Canopy Clan.");
 
     sim::Character maya;
     maya.id = 2;
@@ -92,6 +94,8 @@ void PlayState::initDynastySimulation() {
     maya.dynastyId = activeDynastyId;
     maya.clanId = cl.id;
     maya.addTrait(sim::TraitID::WISE_ELDER);
+    maya.addOpinionModifier(koba.id, "Spouse Pair-Bond", 35);
+    maya.addOpinionModifier(koba.id, "Respects Wisdom", 15);
 
     sim::Character tano;
     tano.id = 3;
@@ -103,15 +107,22 @@ void PlayState::initDynastySimulation() {
     tano.dynastyId = activeDynastyId;
     tano.clanId = cl.id;
     tano.addTrait(sim::TraitID::AMBITIOUS);
+    tano.addOpinionModifier(koba.id, "Son of the Alpha", 25);
+    tano.addOpinionModifier(koba.id, "Desires Faster Promotion", -10);
 
     sim::Character boro;
     boro.id = 4;
     boro.name = "Boro";
     boro.age = 42;
     boro.sex = sim::Sex::MALE;
+    boro.fatherId = 100;
     boro.dynastyId = activeDynastyId;
     boro.clanId = cl.id;
     boro.addTrait(sim::TraitID::FIERCE_ROAR);
+    boro.addTrait(sim::TraitID::AMBITIOUS);
+    boro.baseStats.prowess = 16;
+    boro.addOpinionModifier(koba.id, "Elder Brother Claim", -15);
+    boro.addOpinionModifier(koba.id, "Appointed Council Marshal", 20);
 
     koba.spouseIds.push_back(maya.id);
     maya.spouseIds.push_back(koba.id);
@@ -163,6 +174,21 @@ void PlayState::processEvents(const sf::Event& event) {
             if (event.key.code == sf::Keyboard::U) {
                 dynastyUI.toggle(sim::DynastyUIMode::SUCCESSION_VIEW);
                 return;
+            }
+            if (dynastyUI.isOpen() && dynastyUI.getMode() == sim::DynastyUIMode::CHARACTER_VIEW) {
+                sim::DynastyData* dData = simulationManager->getRegistry().getDynasty(activeDynastyId);
+                if (dData) {
+                    sim::Dynasty dyn;
+                    dyn.memberIds = dData->members;
+                    if (event.key.code == sf::Keyboard::Right) {
+                        dynastyUI.nextCharacter(dyn);
+                        return;
+                    }
+                    if (event.key.code == sf::Keyboard::Left) {
+                        dynastyUI.previousCharacter(dyn);
+                        return;
+                    }
+                }
             }
         }
     }
@@ -390,8 +416,8 @@ void PlayState::update(float dt) {
     worldClock->update(dt);
 
     if (simulationManager) {
-        // Apply the exact same speed multiplier to the simulation
         simulationManager->update(dt * currentSimSpeed);
+        simulationManager->getRegistry().updatePolitics(dt, simulationManager->getControlledApe());
     }
 
     bool f3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::O);
@@ -1615,6 +1641,7 @@ void PlayState::draw(sf::RenderWindow& window) {
         
         window.setView(prevView);
     }
+
     if (dynastyUI.isOpen()) {
         sim::DynastyData* dData = simulationManager->getRegistry().getDynasty(activeDynastyId);
         sim::Clan* cl = simulationManager->getRegistry().getClan(activeClanId);
@@ -1631,6 +1658,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                 dynWrapper,
                 *cl,
                 simulationManager->getRegistry().getAllCharacters(),
+                simulationManager->getRegistry().getFactions(),
                 cData->id
             );
         }

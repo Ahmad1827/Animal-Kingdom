@@ -3,6 +3,9 @@
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
+#include "dynasty/Opinion.h"
+#include "dynasty/Ambition.h"
+#include "dynasty/Claim.h"
 
 namespace sim {
 
@@ -30,6 +33,12 @@ struct CharacterStats {
     int fertility = 50;
 };
 
+struct CharacterHistoryEntry {
+    int year;
+    int day;
+    std::string description;
+};
+
 class Character {
 public:
     using ID = uint64_t;
@@ -53,15 +62,22 @@ public:
     std::vector<TraitID> traits;
     
     int loyalty = 50;
-    int ambition = 50;
-    std::unordered_map<ID, int> opinions;
+    int ambitionScore = 50;
+    int prestige = 0;
+
+    Ambition ambition;
+    std::vector<Claim> claims;
+    std::unordered_map<ID, OpinionMatrix> opinions;
+    std::vector<CharacterHistoryEntry> history;
 
     CharacterStats getEffectiveStats() const;
     int getOpinionOf(ID targetId) const;
-    void setOpinionOf(ID targetId, int value);
-    void modifyOpinionOf(ID targetId, int delta);
+    const OpinionMatrix* getOpinionBreakdown(ID targetId) const;
+    void addOpinionModifier(ID targetId, const std::string& reason, int value, float duration = -1.0f);
+    void removeOpinionModifier(ID targetId, const std::string& reason);
     bool hasTrait(TraitID trait) const;
     void addTrait(TraitID trait);
+    void logHistory(int year, int day, const std::string& desc);
 };
 
 }

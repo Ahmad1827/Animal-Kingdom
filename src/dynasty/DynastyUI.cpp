@@ -4,8 +4,8 @@
 namespace sim {
 
 DynastyUI::DynastyUI() {
-    panelBg.setFillColor(sf::Color(15, 12, 8, 235));
-    panelBg.setOutlineColor(sf::Color(160, 120, 60));
+    panelBg.setFillColor(sf::Color(18, 14, 10, 240));
+    panelBg.setOutlineColor(sf::Color(170, 130, 70));
     panelBg.setOutlineThickness(2.f);
 }
 
@@ -32,17 +32,30 @@ void DynastyUI::close() {
     currentMode = DynastyUIMode::CLOSED;
 }
 
+void DynastyUI::nextCharacter(const Dynasty& dynasty) {
+    if (!dynasty.memberIds.empty()) {
+        inspectedMemberIndex = (inspectedMemberIndex + 1) % dynasty.memberIds.size();
+    }
+}
+
+void DynastyUI::previousCharacter(const Dynasty& dynasty) {
+    if (!dynasty.memberIds.empty()) {
+        inspectedMemberIndex = (inspectedMemberIndex + dynasty.memberIds.size() - 1) % dynasty.memberIds.size();
+    }
+}
+
 void DynastyUI::render(
     sf::RenderTarget& target,
     const Dynasty& dynasty,
     const Clan& clan,
     const std::unordered_map<Character::ID, Character>& registry,
+    const std::vector<Faction>& factions,
     Character::ID currentAlphaId
 ) {
     if (currentMode == DynastyUIMode::CLOSED) return;
 
     sf::Vector2f viewSize = target.getView().getSize();
-    panelBg.setSize(sf::Vector2f(viewSize.x * 0.72f, viewSize.y * 0.72f));
+    panelBg.setSize(sf::Vector2f(viewSize.x * 0.78f, viewSize.y * 0.78f));
     panelBg.setOrigin(panelBg.getSize().x / 2.f, panelBg.getSize().y / 2.f);
     panelBg.setPosition(target.getView().getCenter());
 
@@ -50,8 +63,12 @@ void DynastyUI::render(
 
     switch (currentMode) {
         case DynastyUIMode::CHARACTER_VIEW: {
-            if (registry.count(currentAlphaId)) {
-                drawCharacterView(target, registry.at(currentAlphaId), dynasty, clan);
+            if (!dynasty.memberIds.empty()) {
+                if (inspectedMemberIndex >= dynasty.memberIds.size()) inspectedMemberIndex = 0;
+                Character::ID targetCharId = dynasty.memberIds[inspectedMemberIndex];
+                if (registry.count(targetCharId)) {
+                    drawCharacterView(target, registry.at(targetCharId), dynasty, clan, currentAlphaId);
+                }
             }
             break;
         }
@@ -59,51 +76,74 @@ void DynastyUI::render(
             drawFamilyTreeView(target, dynasty, registry, currentAlphaId);
             break;
         case DynastyUIMode::SUCCESSION_VIEW:
-            drawSuccessionView(target, dynasty, clan, registry);
+            drawSuccessionView(target, dynasty, clan, registry, factions);
             break;
         default:
             break;
     }
 }
 
-void DynastyUI::drawCharacterView(sf::RenderTarget& target, const Character& character, const Dynasty& dynasty, const Clan& clan) {
+void DynastyUI::drawCharacterView(
+    sf::RenderTarget& target,
+    const Character& character,
+    const Dynasty& dynasty,
+    const Clan& clan,
+    Character::ID alphaId
+) {
     sf::Vector2f center = panelBg.getPosition();
-    float startX = center.x - panelBg.getSize().x * 0.44f;
-    float startY = center.y - panelBg.getSize().y * 0.42f;
+    float startX = center.x - panelBg.getSize().x * 0.46f;
+    float startY = center.y - panelBg.getSize().y * 0.45f;
 
-    headerText.setString("ALPHA PROFILE: " + character.name + " (" + dynasty.name + ")");
+    std::string roleLabel = (character.id == alphaId) ? " [ALPHA RULER]" : " [CLAN MEMBER]";
+    headerText.setString("APE DOSSIER: " + character.name + " (" + dynasty.name + ")" + roleLabel);
     headerText.setPosition(startX, startY);
     target.draw(headerText);
 
     CharacterStats stats = character.getEffectiveStats();
-    std::string info = 
-        "Status: " + std::string(character.isAlive ? "ALIVE" : "DEAD") + "\n" +
-        "Age: " + std::to_string(character.age) + "\n" +
-        "Clan Tension: " + std::to_string(clan.tension) + " / 100\n\n" +
-        "--- ATTRIBUTES ---\n" +
+
+    std::string info =
+        "Status: " + std::string(character.isAlive ? "ALIVE" : "DEAD") + " | Age: " + std::to_string(character.age) +
+        " | Prestige: " + std::to_string(character.prestige) + " | Clan Tension: " + std::to_string(clan.tension) + "/100\n" +
+        "Ambition: " + character.ambition.getName() + "\n\n" +
+        "--- ATTRIBUTES (Base + Traits) ---\n" +
         "Prowess:      " + std::to_string(stats.prowess) + "\n" +
         "Martial:      " + std::to_string(stats.martial) + "\n" +
         "Stewardship:  " + std::to_string(stats.stewardship) + "\n" +
         "Intrigue:     " + std::to_string(stats.intrigue) + "\n" +
         "Diplomacy:    " + std::to_string(stats.diplomacy) + "\n\n" +
-        "--- TRAITS ---\n";
+        "--- OPINION OF CURRENT ALPHA ---\n";
 
+    const OpinionMatrix* opMatrix = character.getOpinionBreakdown(alphaId);
+    if (character.id == alphaId) {
+        info += "* Self-Governing Alpha (+100)\n";
+    } else if (opMatrix && !opMatrix->modifiers.empty()) {
+        for (const auto& mod : opMatrix->modifiers) {
+            info += "* " + mod.reason + ": " + (mod.value >= 0 ? "+" : "") + std::to_string(mod.value) + "\n";
+        }
+        info += "Total Opinion Score: " + std::to_string(opMatrix->calculateTotal()) + " / 100\n";
+    } else {
+        info += "* Neutral Kinship Baseline: 0\n";
+    }
+
+    info += "\n--- ACTIVE TRAITS ---\n";
     for (TraitID trait : character.traits) {
         switch (trait) {
-            case TraitID::SILVERBACK: info += "* Silverback (+Prowess, +Martial)\n"; break;
-            case TraitID::FIERCE_ROAR: info += "* Fierce Roar (+Combat Morale)\n"; break;
-            case TraitID::SNEAKY_FORAGER: info += "* Sneaky Forager (+Intrigue, +Food)\n"; break;
-            case TraitID::WISE_ELDER: info += "* Wise Elder (+Diplomacy)\n"; break;
-            case TraitID::AMBITIOUS: info += "* Ambitious (+Intrigue)\n"; break;
-            case TraitID::LOYAL: info += "* Loyal (+Stability)\n"; break;
-            case TraitID::COWARD: info += "* Coward (-Prowess)\n"; break;
-            case TraitID::NATURAL_LEADER: info += "* Natural Leader (+Influence)\n"; break;
-            case TraitID::FICKLE_GROOMER: info += "* Fickle Groomer\n"; break;
+            case TraitID::SILVERBACK: info += "* Silverback (+Prowess, +Martial, Clan Respect)\n"; break;
+            case TraitID::FIERCE_ROAR: info += "* Fierce Roar (+Combat Morale, +Intimidation)\n"; break;
+            case TraitID::SNEAKY_FORAGER: info += "* Sneaky Forager (+Intrigue, +Foraging, -Trust)\n"; break;
+            case TraitID::WISE_ELDER: info += "* Wise Elder (+Diplomacy, +Clan Stability)\n"; break;
+            case TraitID::AMBITIOUS: info += "* Ambitious (+Intrigue, Faction Organizer)\n"; break;
+            case TraitID::LOYAL: info += "* Loyal (Plot Resistant, +Opinion)\n"; break;
+            case TraitID::COWARD: info += "* Coward (-Prowess, Flee-prone)\n"; break;
+            case TraitID::NATURAL_LEADER: info += "* Natural Leader (+Influence, +Recruitment)\n"; break;
+            case TraitID::FICKLE_GROOMER: info += "* Fickle Groomer (Unstable Loyalty)\n"; break;
         }
     }
 
+    info += "\n[Left / Right Arrow] Cycle Clan Characters";
+
     detailText.setString(info);
-    detailText.setPosition(startX, startY + 45.f);
+    detailText.setPosition(startX, startY + 35.f);
     target.draw(detailText);
 }
 
@@ -114,27 +154,39 @@ void DynastyUI::drawFamilyTreeView(
     Character::ID currentAlphaId
 ) {
     sf::Vector2f center = panelBg.getPosition();
-    float startX = center.x - panelBg.getSize().x * 0.44f;
-    float startY = center.y - panelBg.getSize().y * 0.42f;
+    float startX = center.x - panelBg.getSize().x * 0.46f;
+    float startY = center.y - panelBg.getSize().y * 0.45f;
 
-    headerText.setString("GENEALOGY: " + dynasty.name + " Lineage");
+    headerText.setString("GENEALOGICAL LINEAGE: " + dynasty.name + " Dynasty");
     headerText.setPosition(startX, startY);
     target.draw(headerText);
 
-    std::string tree = "Lineage Trace:\n\n";
+    std::string tree = "Multi-Generational Bloodline Graph:\n\n";
 
     if (registry.count(currentAlphaId)) {
         const Character& alpha = registry.at(currentAlphaId);
         tree += "[CURRENT ALPHA] " + alpha.name + " (Age " + std::to_string(alpha.age) + ")\n";
 
         if (alpha.fatherId != Character::INVALID_ID && registry.count(alpha.fatherId)) {
-            tree += "  |-- Father: " + registry.at(alpha.fatherId).name + " [DEAD]\n";
+            const Character& dad = registry.at(alpha.fatherId);
+            tree += "  |-- Ancestor (Father): " + dad.name + (dad.isAlive ? " [ALIVE]" : " [DEAD]") + "\n";
         }
         if (alpha.motherId != Character::INVALID_ID && registry.count(alpha.motherId)) {
-            tree += "  |-- Mother: " + registry.at(alpha.motherId).name + "\n";
+            const Character& mom = registry.at(alpha.motherId);
+            tree += "  |-- Ancestor (Mother): " + mom.name + (mom.isAlive ? " [ALIVE]" : " [DEAD]") + "\n";
         }
 
-        tree += "  |-- Offspring:\n";
+        tree += "  |-- Siblings:\n";
+        for (Character::ID mid : dynasty.memberIds) {
+            if (mid != alpha.id && registry.count(mid)) {
+                const Character& sib = registry.at(mid);
+                if (sib.fatherId == alpha.fatherId && sib.fatherId != Character::INVALID_ID) {
+                    tree += "  |    * " + sib.name + " (Age " + std::to_string(sib.age) + ") " + (sib.isAlive ? "[ALIVE]" : "[DEAD]") + "\n";
+                }
+            }
+        }
+
+        tree += "  |-- Descendants (Children):\n";
         for (Character::ID childId : alpha.childrenIds) {
             if (registry.count(childId)) {
                 const Character& child = registry.at(childId);
@@ -144,7 +196,7 @@ void DynastyUI::drawFamilyTreeView(
     }
 
     detailText.setString(tree);
-    detailText.setPosition(startX, startY + 45.f);
+    detailText.setPosition(startX, startY + 35.f);
     target.draw(detailText);
 }
 
@@ -152,11 +204,12 @@ void DynastyUI::drawSuccessionView(
     sf::RenderTarget& target,
     const Dynasty& dynasty,
     const Clan& clan,
-    const std::unordered_map<Character::ID, Character>& registry
+    const std::unordered_map<Character::ID, Character>& registry,
+    const std::vector<Faction>& factions
 ) {
     sf::Vector2f center = panelBg.getPosition();
-    float startX = center.x - panelBg.getSize().x * 0.44f;
-    float startY = center.y - panelBg.getSize().y * 0.42f;
+    float startX = center.x - panelBg.getSize().x * 0.46f;
+    float startY = center.y - panelBg.getSize().y * 0.45f;
 
     std::string lawName;
     switch (clan.successionLaw) {
@@ -165,25 +218,40 @@ void DynastyUI::drawSuccessionView(
         case SuccessionLaw::RIGHT_OF_THE_STRONGEST: lawName = "Right of the Strongest"; break;
     }
 
-    headerText.setString("SUCCESSION LINE: " + lawName);
+    headerText.setString("SUCCESSION LINE & POLITICAL FACTIONS: " + lawName);
     headerText.setPosition(startX, startY);
     target.draw(headerText);
 
-    auto candidates = SuccessionSystem::evaluateSuccession(dynasty, registry, clan.successionLaw);
+    auto candidates = SuccessionSystem::evaluateSuccession(dynasty, registry, factions, clan.successionLaw);
 
-    std::string list = "Ranked Candidates:\n\n";
+    std::string list = "--- RANKED SUCCESSION CANDIDATES ---\n";
     int rank = 1;
     for (const auto& c : candidates) {
         if (!registry.count(c.characterId)) continue;
         const Character& ape = registry.at(c.characterId);
 
-        list += std::to_string(rank) + ". " + ape.name + " | Score: " + std::to_string(static_cast<int>(c.score)) + 
-                " | " + c.rationale + "\n";
+        list += std::to_string(rank) + ". " + ape.name + " | Score: " + std::to_string(static_cast<int>(c.score)) +
+                " | " + c.rationale;
+        if (c.factionBackingPower > 0.0f) {
+            list += " (Backed by Faction: +" + std::to_string(static_cast<int>(c.factionBackingPower)) + " Power)";
+        }
+        list += "\n";
         rank++;
     }
 
+    list += "\n--- ACTIVE CLAN FACTIONS ---\n";
+    if (factions.empty()) {
+        list += "No active dissident factions. The clan is united under the Alpha.\n";
+    } else {
+        for (const auto& f : factions) {
+            std::string leaderName = registry.count(f.leaderId) ? registry.at(f.leaderId).name : "Unknown";
+            list += "* " + f.name + " | Leader: " + leaderName + " | Members: " + std::to_string(f.memberIds.size()) +
+                    " | Military Power: " + std::to_string(static_cast<int>(f.powerRating)) + "\n";
+        }
+    }
+
     detailText.setString(list);
-    detailText.setPosition(startX, startY + 45.f);
+    detailText.setPosition(startX, startY + 35.f);
     target.draw(detailText);
 }
 

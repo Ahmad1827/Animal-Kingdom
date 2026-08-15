@@ -32,7 +32,7 @@ CharacterStats Character::getEffectiveStats() const {
                 s.martial = std::max(0, s.martial - 4);
                 break;
             case TraitID::AMBITIOUS:
-                s.intrigue += 2;
+                s.intrigue += 3;
                 s.martial += 2;
                 break;
             case TraitID::LOYAL:
@@ -48,18 +48,28 @@ CharacterStats Character::getEffectiveStats() const {
 int Character::getOpinionOf(ID targetId) const {
     auto it = opinions.find(targetId);
     if (it != opinions.end()) {
-        return it->second;
+        return it->second.calculateTotal();
     }
     return 0;
 }
 
-void Character::setOpinionOf(ID targetId, int value) {
-    opinions[targetId] = std::clamp(value, -100, 100);
+const OpinionMatrix* Character::getOpinionBreakdown(ID targetId) const {
+    auto it = opinions.find(targetId);
+    if (it != opinions.end()) {
+        return &it->second;
+    }
+    return nullptr;
 }
 
-void Character::modifyOpinionOf(ID targetId, int delta) {
-    int current = getOpinionOf(targetId);
-    setOpinionOf(targetId, current + delta);
+void Character::addOpinionModifier(ID targetId, const std::string& reason, int value, float duration) {
+    opinions[targetId].addModifier(reason, value, duration);
+}
+
+void Character::removeOpinionModifier(ID targetId, const std::string& reason) {
+    auto it = opinions.find(targetId);
+    if (it != opinions.end()) {
+        it->second.removeModifier(reason);
+    }
 }
 
 bool Character::hasTrait(TraitID trait) const {
@@ -70,6 +80,10 @@ void Character::addTrait(TraitID trait) {
     if (!hasTrait(trait)) {
         traits.push_back(trait);
     }
+}
+
+void Character::logHistory(int year, int day, const std::string& desc) {
+    history.push_back({year, day, desc});
 }
 
 }

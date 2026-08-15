@@ -9,11 +9,13 @@
 #include "simulation/EventData.h"
 #include "simulation/AnimalData.h"
 #include "simulation/EntityID.h"
-#include <unordered_map>
-#include <vector>
 #include "dynasty/Character.h"
 #include "dynasty/Clan.h"
+#include "dynasty/Faction.h"
 #include "dynasty/Succession.h"
+#include "dynasty/PoliticalSystem.h"
+#include <unordered_map>
+#include <vector>
 
 namespace sim {
 
@@ -29,9 +31,11 @@ private:
     std::unordered_map<EventID, WorldEvent> activeEvents;
     std::unordered_map<EntityID, AnimalData> animals;
     std::vector<HistoricalRecord> history;
+
     std::unordered_map<Character::ID, Character> characters;
     std::unordered_map<uint64_t, Clan> clans;
-    
+    std::vector<Faction> factions;
+
     Season currentSeason = Season::Spring;
     int currentYear = 1;
     int currentDay = 1;
@@ -47,6 +51,19 @@ public:
     void registerEvent(const WorldEvent& e) { activeEvents[e.id] = e; }
     void registerAnimal(const AnimalData& a) { animals[a.id] = a; }
     void addHistory(const HistoricalRecord& record) { history.push_back(record); }
+
+    void registerCharacter(const Character& character) { characters[character.id] = character; }
+    Character* getCharacter(Character::ID id) { auto it = characters.find(id); return it != characters.end() ? &it->second : nullptr; }
+    std::unordered_map<Character::ID, Character>& getAllCharacters() { return characters; }
+    const std::unordered_map<Character::ID, Character>& getAllCharacters() const { return characters; }
+
+    void registerClan(const Clan& clan) { clans[clan.id] = clan; }
+    Clan* getClan(uint64_t id) { auto it = clans.find(id); return it != clans.end() ? &it->second : nullptr; }
+    std::unordered_map<uint64_t, Clan>& getAllClans() { return clans; }
+    const std::unordered_map<uint64_t, Clan>& getAllClans() const { return clans; }
+
+    std::vector<Faction>& getFactions() { return factions; }
+    const std::vector<Faction>& getFactions() const { return factions; }
 
     ApeData* getApe(EntityID id) { auto it = apes.find(id); return it != apes.end() ? &it->second : nullptr; }
     VillageData* getVillage(VillageID id) { auto it = villages.find(id); return it != villages.end() ? &it->second : nullptr; }
@@ -76,15 +93,21 @@ public:
 
     void removeEvent(EventID id) { activeEvents.erase(id); }
     void removeArmy(ArmyID id) { armies.erase(id); }
-    void registerCharacter(const Character& character) { characters[character.id] = character; }
-    Character* getCharacter(Character::ID id) { auto it = characters.find(id); return it != characters.end() ? &it->second : nullptr; }
-    std::unordered_map<Character::ID, Character>& getAllCharacters() { return characters; }
-    const std::unordered_map<Character::ID, Character>& getAllCharacters() const { return characters; }
 
-    void registerClan(const Clan& clan) { clans[clan.id] = clan; }
-    Clan* getClan(uint64_t id) { auto it = clans.find(id); return it != clans.end() ? &it->second : nullptr; }
-    std::unordered_map<uint64_t, Clan>& getAllClans() { return clans; }
-    const std::unordered_map<uint64_t, Clan>& getAllClans() const { return clans; }
+    void updatePolitics(float dt, EntityID alphaId) {
+        for (auto& clanPair : clans) {
+            DynastyData* dData = getDynasty(clanPair.second.dynastyId);
+            if (!dData) continue;
+
+            Dynasty dyn;
+            dyn.id = dData->id;
+            dyn.name = dData->name;
+            dyn.currentAlphaId = alphaId;
+            dyn.memberIds = dData->members;
+
+            PoliticalSystem::updatePoliticalAI(clanPair.second, dyn, characters, factions, currentYear, currentDay);
+        }
+    }
 
     void executeSuccession(DynastyID dynId, EntityID currentAlphaId) {
         DynastyData* d = getDynasty(dynId);
@@ -104,14 +127,19 @@ public:
         dynWrapper.currentAlphaId = currentAlphaId;
         dynWrapper.memberIds = d->members;
 
-        Character::ID heirId = SuccessionSystem::determineHeir(dynWrapper, characters, law);
+        Character::ID heirId = SuccessionSystem::determineHeir(dynWrapper, characters, factions, law);
         if (heirId != Character::INVALID_ID) {
             if (characters.count(currentAlphaId)) {
                 characters[currentAlphaId].isAlive = false;
+                characters[currentAlphaId].logHistory(currentYear, currentDay, "Died of injuries / old age.");
             }
+            if (characters.count(heirId)) {
+                characters[heirId].logHistory(currentYear, currentDay, "Ascended as the new Alpha of " + d->name + ".");
+            }
+
             for (auto& pair : clans) {
                 if (pair.second.dynastyId == dynId) {
-                    pair.second.adjustTension(15);
+                    pair.second.adjustTension(20);
                 }
             }
         }

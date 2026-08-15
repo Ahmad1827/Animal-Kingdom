@@ -1,5 +1,6 @@
 #include "dynasty/DynastyTest.h"
 #include "dynasty/Succession.h"
+#include "dynasty/Faction.h"
 #include <cassert>
 #include <iostream>
 
@@ -7,6 +8,8 @@ namespace sim {
 
 void DynastyTestRunner::runDeterministicTest() {
     std::unordered_map<Character::ID, Character> registry;
+    std::vector<Faction> factions;
+
     Dynasty dynasty;
     dynasty.id = 1;
     dynasty.name = "First Tree";
@@ -96,7 +99,7 @@ void DynastyTestRunner::runDeterministicTest() {
     dynasty.setAlpha(koba.id);
 
     clan.successionLaw = SuccessionLaw::BLOODLINE_PRIMOGENITURE;
-    Character::ID heir1 = SuccessionSystem::determineHeir(dynasty, registry, clan.successionLaw);
+    Character::ID heir1 = SuccessionSystem::determineHeir(dynasty, registry, factions, clan.successionLaw);
     assert(heir1 == tano.id);
 
     registry[koba.id].isAlive = false;
@@ -106,11 +109,11 @@ void DynastyTestRunner::runDeterministicTest() {
     assert(dynasty.historicalAlphaIds.front() == koba.id);
 
     clan.successionLaw = SuccessionLaw::ELDER_SENIORITY;
-    Character::ID heirSeniority = SuccessionSystem::determineHeir(dynasty, registry, clan.successionLaw);
+    Character::ID heirSeniority = SuccessionSystem::determineHeir(dynasty, registry, factions, clan.successionLaw);
     assert(heirSeniority == boro.id);
 
     clan.successionLaw = SuccessionLaw::RIGHT_OF_THE_STRONGEST;
-    Character::ID heirStrongest = SuccessionSystem::determineHeir(dynasty, registry, clan.successionLaw);
+    Character::ID heirStrongest = SuccessionSystem::determineHeir(dynasty, registry, factions, clan.successionLaw);
     assert(heirStrongest == boro.id);
 }
 

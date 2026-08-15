@@ -6,6 +6,7 @@ namespace sim {
 std::vector<SuccessionCandidate> SuccessionSystem::evaluateSuccession(
     const Dynasty& dynasty,
     const std::unordered_map<Character::ID, Character>& characterRegistry,
+    const std::vector<Faction>& factions,
     SuccessionLaw law
 ) {
     std::vector<SuccessionCandidate> candidates;
@@ -26,11 +27,17 @@ std::vector<SuccessionCandidate> SuccessionSystem::evaluateSuccession(
         entry.characterId = candidate.id;
         entry.score = 0.0f;
 
+        for (const auto& f : factions) {
+            if (f.targetClaimantId == candidate.id) {
+                entry.factionBackingPower += f.powerRating;
+            }
+        }
+
         switch (law) {
             case SuccessionLaw::BLOODLINE_PRIMOGENITURE: {
                 if (currentAlpha && std::find(currentAlpha->childrenIds.begin(), currentAlpha->childrenIds.end(), candidate.id) != currentAlpha->childrenIds.end()) {
                     entry.score += 1000.0f + (100.0f - candidate.age * 0.1f);
-                    entry.rationale = "Direct Offspring";
+                    entry.rationale = "Direct Offspring (Primogeniture)";
                 } else if (candidate.fatherId == (currentAlpha ? currentAlpha->fatherId : 0) && candidate.fatherId != 0) {
                     entry.score += 500.0f + candidate.age;
                     entry.rationale = "Sibling of Alpha";
@@ -42,7 +49,7 @@ std::vector<SuccessionCandidate> SuccessionSystem::evaluateSuccession(
             }
             case SuccessionLaw::ELDER_SENIORITY: {
                 entry.score = static_cast<float>(candidate.age * 10);
-                entry.rationale = "Age: " + std::to_string(candidate.age);
+                entry.rationale = "Seniority Age: " + std::to_string(candidate.age);
                 break;
             }
             case SuccessionLaw::RIGHT_OF_THE_STRONGEST: {
@@ -55,6 +62,8 @@ std::vector<SuccessionCandidate> SuccessionSystem::evaluateSuccession(
                 break;
             }
         }
+
+        entry.score += entry.factionBackingPower * 0.5f;
         candidates.push_back(entry);
     }
 
@@ -68,9 +77,10 @@ std::vector<SuccessionCandidate> SuccessionSystem::evaluateSuccession(
 Character::ID SuccessionSystem::determineHeir(
     const Dynasty& dynasty,
     const std::unordered_map<Character::ID, Character>& characterRegistry,
+    const std::vector<Faction>& factions,
     SuccessionLaw law
 ) {
-    auto candidates = evaluateSuccession(dynasty, characterRegistry, law);
+    auto candidates = evaluateSuccession(dynasty, characterRegistry, factions, law);
     if (!candidates.empty()) {
         return candidates.front().characterId;
     }

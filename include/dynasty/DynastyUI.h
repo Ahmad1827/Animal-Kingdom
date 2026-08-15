@@ -1,10 +1,11 @@
-// include/dynasty/DynastyUI.h
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <unordered_map>
 #include "dynasty/Character.h"
 #include "dynasty/Dynasty.h"
 #include "dynasty/Clan.h"
+
+namespace sim {
 
 enum class DynastyUIMode {
     CLOSED,
@@ -18,7 +19,10 @@ public:
     DynastyUI();
     void init(const sf::Font& font);
     void toggle(DynastyUIMode mode);
+    void close();
     bool isOpen() const { return currentMode != DynastyUIMode::CLOSED; }
+    DynastyUIMode getMode() const { return currentMode; }
+
     void render(
         sf::RenderTarget& target,
         const Dynasty& dynasty,
@@ -38,3 +42,5 @@ private:
     void drawFamilyTreeView(sf::RenderTarget& target, const Dynasty& dynasty, const std::unordered_map<Character::ID, Character>& registry, Character::ID currentAlphaId);
     void drawSuccessionView(sf::RenderTarget& target, const Dynasty& dynasty, const Clan& clan, const std::unordered_map<Character::ID, Character>& registry);
 };
+
+}

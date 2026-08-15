@@ -61,6 +61,72 @@ void PlayState::init() {
     }
     
     worldClock->setMultiplier(30.f);
+
+    dynastyUI.init(cinematicFont);
+    initDynastySimulation();
+}
+void PlayState::initDynastySimulation() {
+    sim::SimulationRegistry& reg = simulationManager->getRegistry();
+
+    sim::Clan cl;
+    cl.id = activeClanId;
+    cl.name = "High Canopy Clan";
+    cl.dynastyId = activeDynastyId;
+    cl.successionLaw = sim::SuccessionLaw::BLOODLINE_PRIMOGENITURE;
+
+    sim::Character koba;
+    koba.id = 1;
+    koba.name = "Koba";
+    koba.age = 36;
+    koba.sex = sim::Sex::MALE;
+    koba.dynastyId = activeDynastyId;
+    koba.clanId = cl.id;
+    koba.addTrait(sim::TraitID::SILVERBACK);
+    koba.addTrait(sim::TraitID::NATURAL_LEADER);
+
+    sim::Character maya;
+    maya.id = 2;
+    maya.name = "Maya";
+    maya.age = 32;
+    maya.sex = sim::Sex::FEMALE;
+    maya.dynastyId = activeDynastyId;
+    maya.clanId = cl.id;
+    maya.addTrait(sim::TraitID::WISE_ELDER);
+
+    sim::Character tano;
+    tano.id = 3;
+    tano.name = "Tano";
+    tano.age = 15;
+    tano.sex = sim::Sex::MALE;
+    tano.fatherId = koba.id;
+    tano.motherId = maya.id;
+    tano.dynastyId = activeDynastyId;
+    tano.clanId = cl.id;
+    tano.addTrait(sim::TraitID::AMBITIOUS);
+
+    sim::Character boro;
+    boro.id = 4;
+    boro.name = "Boro";
+    boro.age = 42;
+    boro.sex = sim::Sex::MALE;
+    boro.dynastyId = activeDynastyId;
+    boro.clanId = cl.id;
+    boro.addTrait(sim::TraitID::FIERCE_ROAR);
+
+    koba.spouseIds.push_back(maya.id);
+    maya.spouseIds.push_back(koba.id);
+    koba.childrenIds.push_back(tano.id);
+    maya.childrenIds.push_back(tano.id);
+
+    reg.registerCharacter(koba);
+    reg.registerCharacter(maya);
+    reg.registerCharacter(tano);
+    reg.registerCharacter(boro);
+
+    cl.assignCouncil(sim::CouncilPosition::WAR_CHANTER, boro.id);
+    cl.assignCouncil(sim::CouncilPosition::WISE_ELDER, maya.id);
+
+    reg.registerClan(cl);
 }
 
 void PlayState::processEvents(const sf::Event& event) {
@@ -79,7 +145,27 @@ void PlayState::processEvents(const sf::Event& event) {
         }
         return; 
     }
+    if (event.type == sf::Event::KeyPressed) {
+        if (event.key.code == sf::Keyboard::Escape && dynastyUI.isOpen()) {
+            dynastyUI.close();
+            return;
+        }
 
+        if (mapMode == MapMode::Hidden && !isDialogueActive) {
+            if (event.key.code == sf::Keyboard::C) {
+                dynastyUI.toggle(sim::DynastyUIMode::CHARACTER_VIEW);
+                return;
+            }
+            if (event.key.code == sf::Keyboard::F) {
+                dynastyUI.toggle(sim::DynastyUIMode::FAMILY_TREE_VIEW);
+                return;
+            }
+            if (event.key.code == sf::Keyboard::U) {
+                dynastyUI.toggle(sim::DynastyUIMode::SUCCESSION_VIEW);
+                return;
+            }
+        }
+    }
     if (mapMode != MapMode::Hidden) {
         // Handle "Close" logic for Map Profiles (Escape key always backs out of the deepest view)
         if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
@@ -242,7 +328,10 @@ void PlayState::processEvents(const sf::Event& event) {
         }
         if (event.key.code == sf::Keyboard::F7) {
             sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-            if (cData) sim::SuccessionManager::handleDeath(simulationManager->getRegistry(), cData->id);
+            if (cData) {
+                simulationManager->getRegistry().executeSuccession(activeDynastyId, cData->id);
+                sim::SuccessionManager::handleDeath(simulationManager->getRegistry(), cData->id);
+            }
         }
         if (event.key.code == sf::Keyboard::N) {
             debugOverlay->toggleWarfareDebug();
@@ -1525,6 +1614,26 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
         
         window.setView(prevView);
+    }
+    if (dynastyUI.isOpen()) {
+        sim::DynastyData* dData = simulationManager->getRegistry().getDynasty(activeDynastyId);
+        sim::Clan* cl = simulationManager->getRegistry().getClan(activeClanId);
+        sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+        if (dData && cl && cData) {
+            sim::Dynasty dynWrapper;
+            dynWrapper.id = dData->id;
+            dynWrapper.name = dData->name;
+            dynWrapper.currentAlphaId = cData->id;
+            dynWrapper.memberIds = dData->members;
+
+            dynastyUI.render(
+                window,
+                dynWrapper,
+                *cl,
+                simulationManager->getRegistry().getAllCharacters(),
+                cData->id
+            );
+        }
     }
 
     if (debugOverlay) debugOverlay->draw(window);

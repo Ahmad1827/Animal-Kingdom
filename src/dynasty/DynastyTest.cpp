@@ -1,8 +1,9 @@
-// src/dynasty/DynastyTest.cpp
 #include "dynasty/DynastyTest.h"
 #include "dynasty/Succession.h"
 #include <cassert>
 #include <iostream>
+
+namespace sim {
 
 void DynastyTestRunner::runDeterministicTest() {
     std::unordered_map<Character::ID, Character> registry;
@@ -94,25 +95,23 @@ void DynastyTestRunner::runDeterministicTest() {
     dynasty.founderId = koba.id;
     dynasty.setAlpha(koba.id);
 
-    // Test 1: Bloodline Primogeniture Heir Evaluation
     clan.successionLaw = SuccessionLaw::BLOODLINE_PRIMOGENITURE;
     Character::ID heir1 = SuccessionSystem::determineHeir(dynasty, registry, clan.successionLaw);
     assert(heir1 == tano.id);
 
-    // Test 2: Alpha Death & Succession
     registry[koba.id].isAlive = false;
     dynasty.setAlpha(heir1);
     assert(dynasty.currentAlphaId == tano.id);
     assert(dynasty.historicalAlphaIds.size() == 1);
     assert(dynasty.historicalAlphaIds.front() == koba.id);
 
-    // Test 3: Elder Seniority under new Alpha
     clan.successionLaw = SuccessionLaw::ELDER_SENIORITY;
     Character::ID heirSeniority = SuccessionSystem::determineHeir(dynasty, registry, clan.successionLaw);
     assert(heirSeniority == boro.id);
 
-    // Test 4: Right of the Strongest
     clan.successionLaw = SuccessionLaw::RIGHT_OF_THE_STRONGEST;
     Character::ID heirStrongest = SuccessionSystem::determineHeir(dynasty, registry, clan.successionLaw);
     assert(heirStrongest == boro.id);
+}
+
 }

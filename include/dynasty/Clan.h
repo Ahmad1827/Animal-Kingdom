@@ -1,10 +1,11 @@
-// include/dynasty/Clan.h
 #pragma once
 #include <string>
 #include <unordered_map>
 #include "dynasty/Character.h"
 #include "dynasty/Dynasty.h"
 #include "dynasty/Succession.h"
+
+namespace sim {
 
 enum class CouncilPosition {
     NONE,
@@ -36,3 +37,5 @@ public:
     ClanModifiers calculateModifiers(const std::unordered_map<Character::ID, Character>& registry) const;
     void adjustTension(int delta);
 };
+
+}

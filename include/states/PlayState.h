@@ -20,7 +20,7 @@
 #include "interaction/InteractionManager.h"
 #include <functional>
 #include "world/DayNightCycle.h"
-
+#include "dynasty/DynastyUI.h"
 
 class Game;
 
@@ -44,6 +44,10 @@ private:
     std::unique_ptr<StructureManager> structureManager;
     
     InteractionManager interactionManager;
+    sim::DynastyUI dynastyUI;
+    uint64_t activeDynastyId = 1;
+    uint64_t activeClanId = 1;
+    void initDynastySimulation();
 
     ProfilerStats profiler;
     uint32_t activeSeed;

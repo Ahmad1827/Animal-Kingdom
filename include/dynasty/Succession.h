@@ -1,9 +1,11 @@
-// include/dynasty/Succession.h
 #pragma once
 #include <vector>
 #include <string>
+#include <unordered_map>
 #include "dynasty/Character.h"
 #include "dynasty/Dynasty.h"
+
+namespace sim {
 
 enum class SuccessionLaw {
     BLOODLINE_PRIMOGENITURE,
@@ -31,3 +33,5 @@ public:
         SuccessionLaw law
     );
 };
+
+}

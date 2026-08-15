@@ -1,10 +1,11 @@
-// src/dynasty/DynastyUI.cpp
 #include "dynasty/DynastyUI.h"
 #include "dynasty/Succession.h"
 
+namespace sim {
+
 DynastyUI::DynastyUI() {
-    panelBg.setFillColor(sf::Color(20, 15, 10, 230));
-    panelBg.setOutlineColor(sf::Color(180, 140, 80));
+    panelBg.setFillColor(sf::Color(15, 12, 8, 235));
+    panelBg.setOutlineColor(sf::Color(160, 120, 60));
     panelBg.setOutlineThickness(2.f);
 }
 
@@ -12,11 +13,11 @@ void DynastyUI::init(const sf::Font& loadedFont) {
     font = loadedFont;
     headerText.setFont(font);
     headerText.setCharacterSize(22);
-    headerText.setFillColor(sf::Color(240, 200, 120));
+    headerText.setFillColor(sf::Color(245, 210, 110));
 
     detailText.setFont(font);
     detailText.setCharacterSize(15);
-    detailText.setFillColor(sf::Color(220, 220, 220));
+    detailText.setFillColor(sf::Color(225, 225, 225));
 }
 
 void DynastyUI::toggle(DynastyUIMode mode) {
@@ -25,6 +26,10 @@ void DynastyUI::toggle(DynastyUIMode mode) {
     } else {
         currentMode = mode;
     }
+}
+
+void DynastyUI::close() {
+    currentMode = DynastyUIMode::CLOSED;
 }
 
 void DynastyUI::render(
@@ -37,7 +42,7 @@ void DynastyUI::render(
     if (currentMode == DynastyUIMode::CLOSED) return;
 
     sf::Vector2f viewSize = target.getView().getSize();
-    panelBg.setSize(sf::Vector2f(viewSize.x * 0.75f, viewSize.y * 0.75f));
+    panelBg.setSize(sf::Vector2f(viewSize.x * 0.72f, viewSize.y * 0.72f));
     panelBg.setOrigin(panelBg.getSize().x / 2.f, panelBg.getSize().y / 2.f);
     panelBg.setPosition(target.getView().getCenter());
 
@@ -63,10 +68,10 @@ void DynastyUI::render(
 
 void DynastyUI::drawCharacterView(sf::RenderTarget& target, const Character& character, const Dynasty& dynasty, const Clan& clan) {
     sf::Vector2f center = panelBg.getPosition();
-    float startX = center.x - panelBg.getSize().x * 0.45f;
+    float startX = center.x - panelBg.getSize().x * 0.44f;
     float startY = center.y - panelBg.getSize().y * 0.42f;
 
-    headerText.setString("ALPHA PROFILE: " + character.name + " (" + dynasty.name + " Dynasty)");
+    headerText.setString("ALPHA PROFILE: " + character.name + " (" + dynasty.name + ")");
     headerText.setPosition(startX, startY);
     target.draw(headerText);
 
@@ -109,14 +114,14 @@ void DynastyUI::drawFamilyTreeView(
     Character::ID currentAlphaId
 ) {
     sf::Vector2f center = panelBg.getPosition();
-    float startX = center.x - panelBg.getSize().x * 0.45f;
+    float startX = center.x - panelBg.getSize().x * 0.44f;
     float startY = center.y - panelBg.getSize().y * 0.42f;
 
-    headerText.setString("GENEALOGICAL TREE: " + dynasty.name + " Lineage");
+    headerText.setString("GENEALOGY: " + dynasty.name + " Lineage");
     headerText.setPosition(startX, startY);
     target.draw(headerText);
 
-    std::string tree = "Lineage Trace (Current Alpha Ancestry & Descendants):\n\n";
+    std::string tree = "Lineage Trace:\n\n";
 
     if (registry.count(currentAlphaId)) {
         const Character& alpha = registry.at(currentAlphaId);
@@ -129,7 +134,7 @@ void DynastyUI::drawFamilyTreeView(
             tree += "  |-- Mother: " + registry.at(alpha.motherId).name + "\n";
         }
 
-        tree += "  |-- Descendants:\n";
+        tree += "  |-- Offspring:\n";
         for (Character::ID childId : alpha.childrenIds) {
             if (registry.count(childId)) {
                 const Character& child = registry.at(childId);
@@ -150,7 +155,7 @@ void DynastyUI::drawSuccessionView(
     const std::unordered_map<Character::ID, Character>& registry
 ) {
     sf::Vector2f center = panelBg.getPosition();
-    float startX = center.x - panelBg.getSize().x * 0.45f;
+    float startX = center.x - panelBg.getSize().x * 0.44f;
     float startY = center.y - panelBg.getSize().y * 0.42f;
 
     std::string lawName;
@@ -166,7 +171,7 @@ void DynastyUI::drawSuccessionView(
 
     auto candidates = SuccessionSystem::evaluateSuccession(dynasty, registry, clan.successionLaw);
 
-    std::string list = "Ranked Eligible Successors:\n\n";
+    std::string list = "Ranked Candidates:\n\n";
     int rank = 1;
     for (const auto& c : candidates) {
         if (!registry.count(c.characterId)) continue;
@@ -180,4 +185,6 @@ void DynastyUI::drawSuccessionView(
     detailText.setString(list);
     detailText.setPosition(startX, startY + 45.f);
     target.draw(detailText);
+}
+
 }

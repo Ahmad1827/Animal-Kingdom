@@ -1,6 +1,7 @@
-// src/dynasty/Clan.cpp
 #include "dynasty/Clan.h"
 #include <algorithm>
+
+namespace sim {
 
 void Clan::assignCouncil(CouncilPosition pos, Character::ID charId) {
     council[pos] = charId;
@@ -44,4 +45,6 @@ ClanModifiers Clan::calculateModifiers(const std::unordered_map<Character::ID, C
 
 void Clan::adjustTension(int delta) {
     tension = std::clamp(tension + delta, 0, 100);
+}
+
 }

@@ -11,6 +11,9 @@
 #include "simulation/EntityID.h"
 #include <unordered_map>
 #include <vector>
+#include "dynasty/Character.h"
+#include "dynasty/Clan.h"
+#include "dynasty/Succession.h"
 
 namespace sim {
 
@@ -26,6 +29,8 @@ private:
     std::unordered_map<EventID, WorldEvent> activeEvents;
     std::unordered_map<EntityID, AnimalData> animals;
     std::vector<HistoricalRecord> history;
+    std::unordered_map<Character::ID, Character> characters;
+    std::unordered_map<uint64_t, Clan> clans;
     
     Season currentSeason = Season::Spring;
     int currentYear = 1;
@@ -71,6 +76,46 @@ public:
 
     void removeEvent(EventID id) { activeEvents.erase(id); }
     void removeArmy(ArmyID id) { armies.erase(id); }
+    void registerCharacter(const Character& character) { characters[character.id] = character; }
+    Character* getCharacter(Character::ID id) { auto it = characters.find(id); return it != characters.end() ? &it->second : nullptr; }
+    std::unordered_map<Character::ID, Character>& getAllCharacters() { return characters; }
+    const std::unordered_map<Character::ID, Character>& getAllCharacters() const { return characters; }
+
+    void registerClan(const Clan& clan) { clans[clan.id] = clan; }
+    Clan* getClan(uint64_t id) { auto it = clans.find(id); return it != clans.end() ? &it->second : nullptr; }
+    std::unordered_map<uint64_t, Clan>& getAllClans() { return clans; }
+    const std::unordered_map<uint64_t, Clan>& getAllClans() const { return clans; }
+
+    void executeSuccession(DynastyID dynId, EntityID currentAlphaId) {
+        DynastyData* d = getDynasty(dynId);
+        if (!d) return;
+
+        SuccessionLaw law = SuccessionLaw::BLOODLINE_PRIMOGENITURE;
+        for (const auto& pair : clans) {
+            if (pair.second.dynastyId == dynId) {
+                law = pair.second.successionLaw;
+                break;
+            }
+        }
+
+        Dynasty dynWrapper;
+        dynWrapper.id = d->id;
+        dynWrapper.name = d->name;
+        dynWrapper.currentAlphaId = currentAlphaId;
+        dynWrapper.memberIds = d->members;
+
+        Character::ID heirId = SuccessionSystem::determineHeir(dynWrapper, characters, law);
+        if (heirId != Character::INVALID_ID) {
+            if (characters.count(currentAlphaId)) {
+                characters[currentAlphaId].isAlive = false;
+            }
+            for (auto& pair : clans) {
+                if (pair.second.dynastyId == dynId) {
+                    pair.second.adjustTension(15);
+                }
+            }
+        }
+    }
 };
 
 }

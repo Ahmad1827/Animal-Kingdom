@@ -1,9 +1,10 @@
-// include/dynasty/Character.h
 #pragma once
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <cstdint>
+
+namespace sim {
 
 enum class Sex { MALE, FEMALE };
 
@@ -62,3 +63,5 @@ public:
     bool hasTrait(TraitID trait) const;
     void addTrait(TraitID trait);
 };
+
+}

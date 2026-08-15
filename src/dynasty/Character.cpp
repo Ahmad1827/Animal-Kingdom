@@ -1,6 +1,7 @@
-// src/dynasty/Character.cpp
 #include "dynasty/Character.h"
 #include <algorithm>
+
+namespace sim {
 
 CharacterStats Character::getEffectiveStats() const {
     CharacterStats s = baseStats;
@@ -69,4 +70,6 @@ void Character::addTrait(TraitID trait) {
     if (!hasTrait(trait)) {
         traits.push_back(trait);
     }
+}
+
 }

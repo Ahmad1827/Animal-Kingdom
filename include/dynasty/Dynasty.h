@@ -1,9 +1,10 @@
-// include/dynasty/Dynasty.h
 #pragma once
 #include <string>
 #include <vector>
 #include <cstdint>
 #include "dynasty/Character.h"
+
+namespace sim {
 
 class Dynasty {
 public:
@@ -19,3 +20,5 @@ public:
     void registerMember(Character::ID charId);
     void setAlpha(Character::ID newAlphaId);
 };
+
+}

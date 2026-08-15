@@ -1,6 +1,7 @@
-// src/dynasty/Dynasty.cpp
 #include "dynasty/Dynasty.h"
 #include <algorithm>
+
+namespace sim {
 
 void Dynasty::registerMember(Character::ID charId) {
     if (std::find(memberIds.begin(), memberIds.end(), charId) == memberIds.end()) {
@@ -13,4 +14,6 @@ void Dynasty::setAlpha(Character::ID newAlphaId) {
         historicalAlphaIds.push_back(currentAlphaId);
     }
     currentAlphaId = newAlphaId;
+}
+
 }

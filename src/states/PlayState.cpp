@@ -141,6 +141,11 @@ void PlayState::initDynastySimulation() {
 }
 
 void PlayState::processEvents(const sf::Event& event) {
+    if (event.type == sf::Event::MouseMoved) {
+        sf::Vector2f mCoords = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y), game->getWindow().getDefaultView());
+        dynastyUI.handleMouseMove(mCoords);
+    }
+
     if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Tab) {
         if (mapMode == MapMode::Hidden) {
             mapMode = MapMode::Mini;

@@ -5,6 +5,7 @@
 #include "entities/Tree.h"
 #include <string>
 #include <vector>
+#include <iostream>
 
 class TreeHarvestInteractionTarget : public InteractionTarget {
 private:
@@ -48,7 +49,10 @@ public:
     int getPriority() const override { return 10; }
 
     void onInteract() override {
-        if (!targetTree) return;
+        if (!targetTree) {
+            std::cout << "[WOOD CUT ERROR] onInteract called with null targetTree." << std::endl;
+            return;
+        }
 
         sim::VillageData* v = registry.getVillage(playerVillageId);
         if (!v) return;
@@ -65,6 +69,7 @@ public:
                     worker->hasTravelDestination = false;
                     worker->currentTargetNode = 0;
                     worker->currentJob = sim::Job::Idle;
+                    std::cout << "[WOOD CUT] Order canceled for Worker " << workerId << std::endl;
                 }
             }
             targetTree->resetHarvest();
@@ -76,21 +81,38 @@ public:
         for (sim::EntityID mId : v->members) {
             if (mId == v->leaderId) continue;
             sim::ApeData* ape = registry.getApe(mId);
-            if (ape && ape->alive && (ape->currentJob == sim::Job::Idle || ape->currentJob == sim::Job::Wander || ape->currentJob == sim::Job::Socialize)) {
+            if (ape && ape->alive && (ape->currentJob == sim::Job::Idle || ape->currentJob == sim::Job::Wander || ape->currentJob == sim::Job::Socialize || ape->currentJob == sim::Job::Sleep)) {
                 chosenWorkerId = mId;
                 break;
             }
         }
 
+        // Fallback: pick any non-leader member
+        if (chosenWorkerId == 0) {
+            for (sim::EntityID mId : v->members) {
+                if (mId != v->leaderId) {
+                    chosenWorkerId = mId;
+                    break;
+                }
+            }
+        }
+
         if (chosenWorkerId != 0) {
             sim::ApeData* worker = registry.getApe(chosenWorkerId);
-            worker->currentJob = sim::Job::Woodcutter;
-            worker->hasTravelDestination = true;
-            worker->travelDestinationX = targetTree->getTrunkCenter();
-            worker->currentTargetNode = static_cast<sim::EntityID>(targetTree->getId());
+            if (worker) {
+                worker->currentJob = sim::Job::Woodcutter;
+                worker->hasTravelDestination = true;
+                worker->travelDestinationX = targetTree->getTrunkCenter();
+                worker->currentTargetNode = static_cast<sim::EntityID>(targetTree->getId());
 
-            targetTree->setHarvestState(TreeHarvestState::Targeted);
-            targetTree->setAssignedWorkerId(chosenWorkerId);
+                targetTree->setHarvestState(TreeHarvestState::Targeted);
+                targetTree->setAssignedWorkerId(chosenWorkerId);
+
+                std::cout << "[WOOD CUT] Worker " << chosenWorkerId << " (" << worker->name << "): IDLE -> MOVING_TO_TREE TargetTree=" 
+                          << targetTree->getId() << " DestX=" << targetTree->getTrunkCenter() << std::endl;
+            }
+        } else {
+            std::cout << "[WOOD CUT ERROR] No worker available in clan to assign to Tree " << targetTree->getId() << std::endl;
         }
     }
 

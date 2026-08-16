@@ -451,42 +451,30 @@ void PlayState::update(float dt) {
     if (f8Pressed && !f8PressedLastFrame) debugOverlay->toggleProfiler();
     f8PressedLastFrame = f8Pressed;
 
-    bool f11Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::V);
-    if (f11Pressed && !f11PressedLastFrame) debugOverlay->toggleVillageDebug();
-    f11PressedLastFrame = f11Pressed;
-
     bool f9Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F9);
     if (f9Pressed && !f9PressedLastFrame && !isTransitioning) {
-        sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-        if (cData) {
-            sim::DynastyData* dyn = simulationManager->getRegistry().getDynasty(cData->dynastyId);
-            if (dyn) {
-                bool foundCurrent = false;
-                sim::EntityID nextId = 0;
-                for (auto id : dyn->members) {
-                    sim::ApeData* mem = simulationManager->getRegistry().getApe(id);
-                    if (!mem || !mem->alive) continue;
-                    if (foundCurrent) {
-                        nextId = id;
-                        break;
-                    }
-                    if (id == cData->id) foundCurrent = true;
+        sim::ApeData* controlledApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+        if (controlledApe && worldManager) {
+            float playerX = controlledApe->worldX;
+            std::vector<Tree*> candidateTrees = worldManager->getNearbyTrees(playerX, 2000.f);
+            Tree* nearestTree = nullptr;
+            float minDist = 99999.f;
+            
+            for (Tree* tree : candidateTrees) {
+                if (!tree || tree->getHarvestState() == TreeHarvestState::Harvested) continue;
+                float dist = std::abs(playerX - tree->getTrunkCenter());
+                if (dist < minDist) {
+                    minDist = dist;
+                    nearestTree = tree;
                 }
-                if (nextId == 0) {
-                    for (auto id : dyn->members) {
-                        sim::ApeData* mem = simulationManager->getRegistry().getApe(id);
-                        if (mem && mem->alive && id != cData->id) {
-                            nextId = id;
-                            break;
-                        }
-                    }
-                }
-                if (nextId != 0) {
-                    simulationManager->setControlledApe(nextId);
-                    isTransitioning = true;
-                    transitionTimer = 2.0f;
-                    playerWrapper.reset();
-                }
+            }
+            
+            if (nearestTree) {
+                int tid = nearestTree->getId();
+                std::cout << "[F9 DEBUG] Immediate removal of Tree ID=" << tid << " at X=" << nearestTree->getTrunkCenter() << std::endl;
+                nearestTree->setHarvestState(TreeHarvestState::Harvested);
+                worldManager->harvestTree(tid);
+                std::cout << "[F9 DEBUG] Tree ID=" << tid << " removed from authoritative chunk storage." << std::endl;
             }
         }
     }
@@ -494,19 +482,30 @@ void PlayState::update(float dt) {
 
     bool f10Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F10);
     if (f10Pressed && !f10PressedLastFrame) {
-        sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-        if (cData) {
-            sim::DynastyData* d = simulationManager->getRegistry().getDynasty(cData->dynastyId);
-            if (d) {
-                std::cout << "--- DYNASTY " << d->name << " ---\n";
-                for (auto m : d->members) {
-                    sim::ApeData* a = simulationManager->getRegistry().getApe(m);
-                    if (a) std::cout << "Member ID " << m << ": " << a->name << (a->alive ? " (Alive)" : " (Dead)") << "\n";
-                }
+        for (auto& pair : simulationManager->getRegistry().getAllApes()) {
+            if (pair.second.currentJob == sim::Job::Woodcutter && pair.second.alive) {
+                std::cout << "[F10 DEBUG] Forcing Worker " << pair.first << " into CHOPPING position." << std::endl;
+                pair.second.hasTravelDestination = false;
             }
         }
     }
     f10PressedLastFrame = f10Pressed;
+
+    bool f11Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F11);
+    if (f11Pressed && !f11PressedLastFrame) {
+        std::cout << "\n=== [F11 DIAGNOSTIC DUMP] ===" << std::endl;
+        for (const auto& pair : simulationManager->getRegistry().getAllApes()) {
+            if (pair.second.currentJob == sim::Job::Woodcutter) {
+                std::cout << "WORKER ID=" << pair.first << " (" << pair.second.name << ")"
+                          << " | JOB=Woodcutter"
+                          << " | TARGET_TREE_ID=" << pair.second.currentTargetNode
+                          << " | X=" << pair.second.worldX
+                          << " | DEST_X=" << pair.second.travelDestinationX << std::endl;
+            }
+        }
+        std::cout << "==============================\n" << std::endl;
+    }
+    f11PressedLastFrame = f11Pressed;
 
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::K) && playerWrapper && !isTransitioning) {
         sim::ApeData* current = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());

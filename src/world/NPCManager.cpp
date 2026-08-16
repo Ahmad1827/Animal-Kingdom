@@ -11,7 +11,12 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
         sim::ApeData& data = pair.second;
         if (!data.alive || data.id == controlledId) continue;
 
-        if (data.villageId != 0 && data.hasTravelDestination == false) {
+        // DO NOT rubberband active woodcutters, builders, or resource carriers back to village center
+        if (data.villageId != 0 && data.hasTravelDestination == false && 
+            data.currentJob != sim::Job::Woodcutter && 
+            data.currentJob != sim::Job::Builder && 
+            data.currentJob != sim::Job::CarryResource) {
+            
             sim::VillageData* v = simManager.getRegistry().getVillage(data.villageId);
             if (v) {
                 float targetAnchorX = v->centerX;
@@ -19,14 +24,8 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
                     case sim::Job::Guard:
                         targetAnchorX = (data.id % 2 == 0) ? v->centerX - 340.f : v->centerX + 340.f;
                         break;
-                    case sim::Job::Builder:
-                        targetAnchorX = v->centerX - 285.f;
-                        break;
-                    case sim::Job::Woodcutter:
-                    case sim::Job::StoneGatherer:
-                        targetAnchorX = v->centerX + 245.f;
-                        break;
                     case sim::Job::Forage:
+                    case sim::Job::StoneGatherer:
                         targetAnchorX = v->centerX + 185.f;
                         break;
                     case sim::Job::Sleep:

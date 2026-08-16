@@ -1,4 +1,5 @@
 #include "entities/NPCApe.h"
+#include "entities/Tree.h"
 #include <cmath>
 #include <algorithm>
 #include <cstdlib>
@@ -8,8 +9,7 @@ NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture)
     : simId(id), physicalApe(x, y, texture, false), stateTimer(0.f), intendedMoveX(0.f), 
       isDroppingToHang(false), grabbedChunk(0), grabbedVine(-1), grabbedSeg(-1), 
       pauseTimer(0.f), workTimer(0.f) {
-    
-    baseSpeedMultiplier = 0.9f + (std::rand() % 20) / 100.f;
+    baseSpeedMultiplier = 1.0f;
     personalOffset = ((id * 37) % 100) - 50.f; 
 }
 
@@ -21,7 +21,6 @@ bool NPCApe::hasTrait(sim::ApeData* data, sim::Trait trait) {
 }
 
 void NPCApe::fireAudioHook(const std::string& soundEvent) {
-    std::cout << "AUDIO_HOOK: " << soundEvent << "\n";
 }
 
 void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId) {
@@ -32,70 +31,106 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
     else if (data->carriedType == sim::ResourceType::Stone) physicalApe.setCarriedItem(3);
     else physicalApe.setCarriedItem(0);
 
+    if (data->currentJob == sim::Job::Woodcutter) {
+        return;
+    }
+
+    if (data->currentJob == sim::Job::Builder || data->currentJob == sim::Job::CarryResource) {
+        float targetX = physicalApe.getPosition().x;
+        float stopDistance = 60.f;
+        bool shouldWorkAtTarget = false;
+
+        if (data->currentJob == sim::Job::Builder) {
+            if (data->currentTargetStructure != 0) {
+                sim::StructureData* s = registry.getStructure(data->currentTargetStructure);
+                if (s) {
+                    targetX = s->worldX;
+                    stopDistance = 60.f;
+                    shouldWorkAtTarget = true;
+                }
+            }
+        }
+        else if (data->currentJob == sim::Job::CarryResource) {
+            if (data->currentTargetStructure != 0) {
+                sim::StructureData* s = registry.getStructure(data->currentTargetStructure);
+                if (s) targetX = s->worldX;
+            } else if (v) {
+                targetX = v->centerX;
+            }
+            stopDistance = 40.f;
+        }
+
+        float dist = std::abs(physicalApe.getPosition().x - targetX);
+        if (dist > stopDistance) {
+            intendedMoveX = (physicalApe.getPosition().x < targetX) ? 1.f : -1.f;
+            physicalApe.setState(ApeState::Grounded);
+        } else {
+            intendedMoveX = 0.f;
+            if (shouldWorkAtTarget) {
+                physicalApe.setState(ApeState::Working);
+            } else {
+                physicalApe.setState(ApeState::Grounded);
+            }
+        }
+        return;
+    }
+
     if (playerId != 0 && playerId != data->id) {
         sim::ApeData* player = registry.getApe(playerId);
         if (player && player->alive) {
             float playerX = player->worldX;
             float myX = physicalApe.getPosition().x;
 
-            // --- AUDIENCE HOST & CROWD OVERRIDE ---
-        sim::EntityID hostId = player->scheduledAudienceHost;
-        // Ensure we don't trigger if they are currently summoned to a meeting ground!
-        if (hostId != 0 && player->summonedRepId != hostId) {
-            sim::ApeData* hostApe = registry.getApe(hostId);
-            if (hostApe) {
-                float throneX = hostApe->worldX; 
-                bool isHostVillage = false;
-                
-                // Determine Throne Location
-                sim::VillageData* hostV = registry.getVillage(hostApe->villageId);
-                sim::KingdomData* hostK = (hostApe->currentKingdom != 0) ? registry.getKingdom(hostApe->currentKingdom) : nullptr;
-                
-                if (hostK && hostK->currentKingId == hostId) {
-                    sim::VillageData* capV = registry.getVillage(hostK->capitalVillageId);
-                    if (capV) { throneX = capV->centerX; isHostVillage = (data->villageId == capV->id); }
-                } else if (hostV && hostV->leaderId == hostId) {
-                    throneX = hostV->centerX;
-                    isHostVillage = (data->villageId == hostV->id);
-                }
+            sim::EntityID hostId = player->scheduledAudienceHost;
+            if (hostId != 0 && player->summonedRepId != hostId) {
+                sim::ApeData* hostApe = registry.getApe(hostId);
+                if (hostApe) {
+                    float throneX = hostApe->worldX; 
+                    bool isHostVillage = false;
+                    
+                    sim::VillageData* hostV = registry.getVillage(hostApe->villageId);
+                    sim::KingdomData* hostK = (hostApe->currentKingdom != 0) ? registry.getKingdom(hostApe->currentKingdom) : nullptr;
+                    
+                    if (hostK && hostK->currentKingId == hostId) {
+                        sim::VillageData* capV = registry.getVillage(hostK->capitalVillageId);
+                        if (capV) { throneX = capV->centerX; isHostVillage = (data->villageId == capV->id); }
+                    } else if (hostV && hostV->leaderId == hostId) {
+                        throneX = hostV->centerX;
+                        isHostVillage = (data->villageId == hostV->id);
+                    }
 
-                // If player is entering the homeland bounds (within 1500 units)
-                if (std::abs(playerX - throneX) < 1500.f) {
-                    if (data->id == hostId) {
-                        // 1. RULER LOGIC: Stand exactly at the throne
-                        if (std::abs(myX - throneX) > 20.f) {
-                            intendedMoveX = (myX < throneX) ? 1.f : -1.f;
-                            physicalApe.setState(ApeState::Grounded);
-                        } else {
-                            intendedMoveX = (myX < playerX) ? 0.001f : -0.001f; 
-                            physicalApe.setState(ApeState::Grounded);
+                    if (std::abs(playerX - throneX) < 1500.f) {
+                        if (data->id == hostId) {
+                            if (std::abs(myX - throneX) > 20.f) {
+                                intendedMoveX = (myX < throneX) ? 1.f : -1.f;
+                                physicalApe.setState(ApeState::Grounded);
+                            } else {
+                                intendedMoveX = (myX < playerX) ? 0.001f : -0.001f; 
+                                physicalApe.setState(ApeState::Grounded);
+                            }
+                            return;
+                        } 
+                        else if (isHostVillage) {
+                            bool isLeft = (data->id % 2 == 0);
+                            int posIdx = (data->id % 20);
+                            float offset = 180.f + (posIdx * 45.f);
+                            float targetX = throneX + (isLeft ? -offset : offset);
+                            
+                            if (std::abs(myX - targetX) > 20.f) {
+                                intendedMoveX = (myX < targetX) ? 1.f : -1.f;
+                                physicalApe.setState(ApeState::Grounded);
+                            } else {
+                                intendedMoveX = (myX < throneX) ? 0.001f : -0.001f;
+                                physicalApe.setState(ApeState::Grounded);
+                            }
+                            return;
                         }
-                        return; // Bypass normal AI
-                    } 
-                    else if (isHostVillage) {
-                        // 2. CROWD LOGIC: Form an aisle leading up to the throne!
-                        bool isLeft = (data->id % 2 == 0);
-                        int posIdx = (data->id % 20); // Distribute up to 20 apes per side
-                        float offset = 180.f + (posIdx * 45.f); // Leave 360 units of empty space in the middle
-                        float targetX = throneX + (isLeft ? -offset : offset);
-                        
-                        if (std::abs(myX - targetX) > 20.f) {
-                            intendedMoveX = (myX < targetX) ? 1.f : -1.f;
-                            physicalApe.setState(ApeState::Grounded);
-                        } else {
-                            // Stop and face the center of the aisle to watch the player
-                            intendedMoveX = (myX < throneX) ? 0.001f : -0.001f;
-                            physicalApe.setState(ApeState::Grounded);
-                        }
-                        return; // Bypass normal AI
                     }
                 }
             }
-        }
 
             float dist = std::abs(playerX - myX);
 
-            // Proximity Check: Only react when player is local
             if (dist < 500.0f) { 
                 bool isVillageLeader = (v && v->leaderId == data->id);
                 sim::KingdomData* kData = (data->currentKingdom != 0) ? registry.getKingdom(data->currentKingdom) : nullptr;
@@ -104,7 +139,6 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
                 if (isVillageLeader || isKing) {
                     bool isFriendly = false, isSuspicious = false, isHostile = false;
                     
-                    // Single Source of Truth Resolution
                     if (isKing) {
                         sim::KingdomData* pK = (player->currentKingdom != 0) ? registry.getKingdom(player->currentKingdom) : nullptr;
                         if (pK && kData->relations.count(pK->id)) {
@@ -113,7 +147,6 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
                             else if (status == sim::DiplomacyStatus::Rival) isSuspicious = true;
                             else if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance) isFriendly = true;
                         } else if (pK && kData->borderTension.count(pK->id)) {
-                            // Fallback for tension without formal status
                             if (kData->borderTension[pK->id] >= 50.f) isSuspicious = true; 
                         }
                     } else if (isVillageLeader) {
@@ -125,7 +158,6 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
                         }
                     }
 
-                    // Apply the physical behavior override
                     if (isFriendly || isSuspicious || isHostile) {
                         float hostileSafeDist = 300.f;
                         float suspiciousSafeDist = 180.f;
@@ -133,32 +165,28 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
                         
                         if (isFriendly) {
                             if (dist < friendlyGreetDist) {
-                                // Polite Acknowledgement: Stop working/walking and face the player
                                 intendedMoveX = (myX < playerX) ? 0.001f : -0.001f;
                                 physicalApe.setState(ApeState::Grounded);
-                                return; // Bypass normal AI
+                                return;
                             }
-                            // If friendly but far away, do nothing (continue normal village jobs)
                         } 
                         else {
                             float preferredDist = isHostile ? hostileSafeDist : suspiciousSafeDist;
                             
                             if (dist < preferredDist) {
-                                // Cautious/Hostile: Actively back away to maintain safe distance
                                 intendedMoveX = (myX < playerX) ? -1.f : 1.f;
                             } else {
-                                // Reached safe distance: Stop and keep a close eye on the player
                                 intendedMoveX = (myX < playerX) ? 0.001f : -0.001f; 
                             }
                             physicalApe.setState(ApeState::Grounded);
-                            return; // Bypass normal AI
+                            return;
                         }
                     }
                 }
             }
         }
     }
-    // --- END DIPLOMATIC BEHAVIOR ---
+
     if (std::rand() % 100 < 5 && pauseTimer <= 0.f) {
         pauseTimer = 0.5f + (std::rand() % 15) / 10.f;
         intendedMoveX = 0.f;
@@ -176,40 +204,12 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
         targetX = data->travelDestinationX;
         stopDistance = 10.f;
     } 
-    else if (data->currentJob == sim::Job::CarryResource) {
-        if (data->currentTargetStructure != 0) {
-            sim::StructureData* s = registry.getStructure(data->currentTargetStructure);
-            if (s) targetX = s->worldX;
-        } else if (v) {
-            targetX = v->centerX;
-        }
-    } 
-    else if (data->currentJob == sim::Job::Woodcutter) {
-        if (data->hasTravelDestination) {
-            targetX = data->travelDestinationX;
-            stopDistance = 45.f;
-            shouldWorkAtTarget = true;
-        }
-    }
     else if (data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::StoneGatherer) {
         if (data->currentTargetNode != 0) {
             sim::ResourceNode* node = registry.getResource(data->currentTargetNode);
             if (node) {
                 targetX = node->worldX;
                 shouldWorkAtTarget = true;
-            }
-        }
-    }
-    else if (data->currentJob == sim::Job::Builder) {
-        if (data->currentTargetStructure != 0) {
-            sim::StructureData* s = registry.getStructure(data->currentTargetStructure);
-            if (s) {
-                if (s->curWood < s->reqWood || s->curStone < s->reqStone) {
-                    targetX = v ? v->centerX : physicalApe.getPosition().x; 
-                } else {
-                    targetX = s->worldX;
-                    if (!s->isFinished) shouldWorkAtTarget = true;
-                }
             }
         }
     } 
@@ -275,15 +275,14 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
     sf::FloatRect platformBounds;
     bool wasGrounded = (physicalApe.getState() == ApeState::Grounded || physicalApe.getState() == ApeState::Working);
 
-    if (physicalApe.getState() != ApeState::ClimbingTrunk && physicalApe.getState() != ApeState::HangingBranch && physicalApe.getState() != ApeState::ClimbingVine && physicalApe.getState() != ApeState::Working) physicalApe.setState(ApeState::Airborne);
+    if (physicalApe.getState() != ApeState::ClimbingTrunk && physicalApe.getState() != ApeState::HangingBranch && physicalApe.getState() != ApeState::ClimbingVine && physicalApe.getState() != ApeState::Working) {
+        physicalApe.setState(ApeState::Airborne);
+    }
 
     float groundHeight = worldManager->getTerrainHeight(playerBounds.left + playerBounds.width / 2.f);
     float bottomY = playerBounds.top + playerBounds.height;
-    
-    // --- THIS IS THE MISSING FIX: Calculate distance to terrain for slope snapping ---
     float distanceToGround = groundHeight - bottomY;
     
-    // Check if flat against the ground
     if (physicalApe.getVelocity().y >= 0.f && bottomY >= groundHeight) {
         physicalApe.setPosition(physicalApe.getPosition().x, groundHeight - playerBounds.height);
         physicalApe.setVelocity(physicalApe.getVelocity().x, 0.f);
@@ -293,8 +292,6 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
         physicalApe.setDroppingThrough(false);
         isDroppingToHang = false;
     }
-    // --- SLOPE SNAPPING LOGIC ---
-    // If the NPC was previously grounded and walks down a hill, glue them to the slope so they don't flicker into Airborne/Jump!
     else if (wasGrounded && physicalApe.getVelocity().y >= 0.f && distanceToGround > 0.f && distanceToGround < 25.f) {
         physicalApe.setPosition(physicalApe.getPosition().x, groundHeight - playerBounds.height);
         physicalApe.setVelocity(physicalApe.getVelocity().x, 0.f);
@@ -313,35 +310,151 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
         if (worldManager->checkOneWayCollision(checkBounds, checkVel, dt, platformBounds)) {
             physicalApe.setPosition(physicalApe.getPosition().x, platformBounds.top - playerBounds.height);
             physicalApe.setVelocity(physicalApe.getVelocity().x, 0.f);
-            physicalApe.setState(ApeState::Grounded);
+            if (physicalApe.getState() != ApeState::Working) {
+                physicalApe.setState(ApeState::Grounded);
+            }
             isDroppingToHang = false;
         }
     }
 }
 
 void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId) {
-    if (pauseTimer > 0.f) {
-        pauseTimer -= dt;
-        intendedMoveX = 0.f; 
-    } else {
-        stateTimer -= dt;
-        if (stateTimer <= 0.f) {
-            determineNextAction(data, timeOfDay, registry, playerId);
-            stateTimer = 0.2f + (std::rand() % 10) / 100.f; 
+    if (data->currentJob == sim::Job::Woodcutter && worldManager) {
+        float myX = physicalApe.getPosition().x;
+        float destX = data->travelDestinationX != 0.f ? data->travelDestinationX : myX;
+        float distToDest = std::abs(myX - destX);
+
+        workTimer += dt;
+        if (workTimer >= 0.25f) {
+            workTimer = 0.f;
+            std::cout << "[TRANSIT DEBUG] Worker " << data->id << " (" << data->name 
+                      << ") | CurrentX=" << myX 
+                      << " | TargetDestX=" << destX 
+                      << " | DistanceRemaining=" << distToDest 
+                      << " | TargetTreeID=" << data->currentTargetNode << std::endl << std::flush;
+        }
+
+        if (distToDest > 80.f) {
+            physicalApe.setState(ApeState::Grounded);
+            intendedMoveX = (myX < destX) ? 1.f : -1.f;
+        } else {
+            intendedMoveX = 0.f;
+            physicalApe.setVelocity(0.f, 0.f);
+
+            int targetTreeId = static_cast<int>(data->currentTargetNode);
+            std::cout << "\n=======================================================\n";
+            std::cout << "[ARRIVAL EVENT] Worker=" << data->id << " reached target position!\n"
+                      << " -> WorkerX=" << myX << " | TargetTreeID=" << targetTreeId << " | DestX=" << destX << std::endl;
+
+            bool removed = false;
+            int removedTreeId = 0;
+
+            if (targetTreeId != 0) {
+                removed = worldManager->harvestTree(targetTreeId);
+                if (removed) removedTreeId = targetTreeId;
+            }
+
+            if (!removed) {
+                std::cout << "[SEARCH FALLBACK] Directly query nearby chunk range (3000px)..." << std::endl;
+                std::vector<Tree*> nearby = worldManager->getNearbyTrees(destX, 3000.f);
+                std::cout << " -> Trees returned in range: " << nearby.size() << std::endl;
+                for (Tree* t : nearby) {
+                    if (t) {
+                        std::cout << "     * Candidate Tree ID=" << t->getId() 
+                                  << " at TrunkX=" << t->getTrunkCenter() 
+                                  << " (Distance: " << std::abs(myX - t->getTrunkCenter()) << ")" << std::endl;
+                        if (t->getHarvestState() != TreeHarvestState::Harvested) {
+                            removedTreeId = t->getId();
+                            t->setHarvestState(TreeHarvestState::Harvested);
+                            removed = worldManager->harvestTree(removedTreeId);
+                            if (removed) {
+                                std::cout << "     => Harvested candidate tree ID=" << removedTreeId << std::endl;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (removed) {
+                std::cout << "[SUCCESS] Tree ID=" << removedTreeId << " DELETED FROM WORLD!\n";
+
+                sim::VillageData* v = registry.getVillage(data->villageId);
+                if (v) {
+                    v->wood += 15;
+                    std::cout << "[RESOURCE AWARDED] +15 Wood added. Clan Stockpile: " << v->wood << std::endl;
+                }
+
+                data->carriedType = sim::ResourceType::Wood;
+                data->carriedAmount = 2;
+                data->currentTargetNode = 0;
+                data->hasTravelDestination = false;
+                data->currentJob = sim::Job::CarryResource;
+                physicalApe.setState(ApeState::Grounded);
+            } else {
+                std::cout << "[FAILURE] Could not resolve or delete tree at destination. Releasing worker.\n";
+                data->currentJob = sim::Job::Idle;
+                data->currentTargetNode = 0;
+                data->hasTravelDestination = false;
+                physicalApe.setState(ApeState::Grounded);
+            }
+            std::cout << "=======================================================\n\n" << std::flush;
         }
     }
-
-    if (physicalApe.getState() == ApeState::Working) {
-        intendedMoveX = 0.f;
-        workTimer += dt;
-        if (workTimer >= 1.0f) {
-            workTimer -= 1.0f;
-            if (data->currentJob == sim::Job::Builder) fireAudioHook("hammer");
-            else if (data->currentJob == sim::Job::Woodcutter) fireAudioHook("axe");
-            else if (data->currentJob == sim::Job::StoneGatherer) fireAudioHook("pickaxe");
+    else if (data->currentJob == sim::Job::Builder && worldManager) {
+        float myX = physicalApe.getPosition().x;
+        sim::StructureData* s = registry.getStructure(data->currentTargetStructure);
+        if (s && s->isUnderConstruction && !s->isFinished) {
+            float dist = std::abs(myX - s->worldX);
+            if (dist <= 65.f) {
+                physicalApe.setState(ApeState::Working);
+                intendedMoveX = 0.f;
+                physicalApe.setVelocity(0.f, physicalApe.getVelocity().y);
+                
+                workTimer += dt;
+                if (workTimer >= 0.8f) {
+                    workTimer -= 0.8f;
+                }
+                s->progress += dt * 3.0f * data->skills.building;
+                if (s->progress >= s->maxProgress) {
+                    s->progress = s->maxProgress;
+                    s->isUnderConstruction = false;
+                    s->isFinished = true;
+                    s->currentBuilder = 0;
+                    sim::VillageData* v = registry.getVillage(data->villageId);
+                    if (v) {
+                        v->finishedStructures.push_back(s->id);
+                        v->constructionQueue.erase(
+                            std::remove(v->constructionQueue.begin(), v->constructionQueue.end(), s->id),
+                            v->constructionQueue.end()
+                        );
+                    }
+                    data->currentJob = sim::Job::Idle;
+                    data->currentTargetStructure = 0;
+                    data->hasTravelDestination = false;
+                    physicalApe.setState(ApeState::Grounded);
+                }
+            } else {
+                physicalApe.setState(ApeState::Grounded);
+                intendedMoveX = (myX < s->worldX) ? 1.f : -1.f;
+            }
+        } else {
+            data->currentJob = sim::Job::Idle;
+            data->currentTargetStructure = 0;
+            data->hasTravelDestination = false;
+            physicalApe.setState(ApeState::Grounded);
         }
     } else {
-        workTimer = 0.f;
+        if (pauseTimer > 0.f) {
+            pauseTimer -= dt;
+            intendedMoveX = 0.f; 
+        } else {
+            stateTimer -= dt;
+            if (stateTimer <= 0.f) {
+                determineNextAction(data, timeOfDay, registry, playerId);
+                stateTimer = 0.2f + (std::rand() % 10) / 100.f; 
+            }
+        }
     }
 
     if (physicalApe.getState() == ApeState::Grounded || physicalApe.getState() == ApeState::Airborne || physicalApe.getState() == ApeState::Working) {
@@ -351,8 +464,11 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
             speed = 220.f * baseSpeedMultiplier;
         }
         
-        if (intendedMoveX != 0.f) physicalApe.setVelocity(intendedMoveX * speed, physicalApe.getVelocity().y);
-        else physicalApe.setVelocity(0.f, physicalApe.getVelocity().y);
+        if (intendedMoveX != 0.f && physicalApe.getState() != ApeState::Working) {
+            physicalApe.setVelocity(intendedMoveX * speed, physicalApe.getVelocity().y);
+        } else {
+            physicalApe.setVelocity(0.f, physicalApe.getVelocity().y);
+        }
     }
 
     applyPhysics(dt, worldManager);

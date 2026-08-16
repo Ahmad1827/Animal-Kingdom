@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
+#include <iostream>
 #include "world/WorldManager.h"
 #include "entities/Tree.h"
 
@@ -38,6 +39,8 @@ void JobSystem::spawnStructure(SimulationRegistry& registry, VillageData& villag
     s.currentBuilder = 0;
     s.curWood = 0;
     s.curStone = 0;
+    s.isPlanned = false;
+    s.isUnderConstruction = true;
     s.isFinished = false;
 
     if (type == StructureType::Nest) { s.reqWood = 10; s.reqStone = 0; s.maxProgress = 20.f; }
@@ -176,7 +179,11 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
         ApeData& ape = pair.second;
         if (!ape.alive) continue;
 
-        if (ape.hasTravelDestination) {
+        if (ape.currentJob == Job::Woodcutter) {
+            continue;
+        }
+
+        if (ape.hasTravelDestination && ape.currentJob != Job::Builder && ape.currentJob != Job::CarryResource) {
             ape.currentJob = Job::March;
             float dist = ape.travelDestinationX - ape.worldX;
             
@@ -197,9 +204,6 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
 
         VillageData* village = registry.getVillage(ape.villageId);
 
-        // Army & Warfare Job Overrides
-
-        // Army & Warfare Job Overrides
         if (ape.currentArmyId != 0) {
             ArmyData* army = registry.getArmy(ape.currentArmyId);
             if (army) {
@@ -233,9 +237,9 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                                 if (status == DiplomacyStatus::War) {
                                     ape.currentJob = Job::Combat;
                                     ape.currentCombatTarget = otherPair.first;
-                                } else if (status == DiplomacyStatus::Rival) {
+                                } else if (status == sim::DiplomacyStatus::Rival) {
                                     ape.currentJob = Job::Intimidate;
-                                } else if (status == DiplomacyStatus::Neutral) {
+                                } else if (status == sim::DiplomacyStatus::Neutral) {
                                     ape.currentJob = Job::Observe;
                                 }
                             }
@@ -283,14 +287,14 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
             continue;
         }
 
-        if (isNight) {
+        if (isNight && ape.currentJob != Job::Builder && ape.currentJob != Job::CarryResource) {
             ape.currentJob = Job::Sleep;
             ape.currentTargetNode = 0;
             ape.currentTargetStructure = 0;
             continue;
         }
 
-        if (isEvening) {
+        if (isEvening && ape.currentJob != Job::Builder && ape.currentJob != Job::CarryResource) {
             if (ape.carriedAmount > 0) {
                 ape.currentJob = Job::CarryResource;
             } else {
@@ -301,7 +305,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
             continue;
         }
 
-        if (ape.carriedAmount > 0) {
+        if (ape.carriedAmount > 0 && ape.currentJob != Job::Builder) {
             ape.currentJob = Job::CarryResource;
             if (ape.currentTargetStructure != 0) {
                 StructureData* s = registry.getStructure(ape.currentTargetStructure);
@@ -326,7 +330,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
             continue;
         }
 
-        if (ape.hunger < 40.f) {
+        if (ape.hunger < 40.f && ape.currentJob != Job::Builder && ape.currentJob != Job::CarryResource) {
             if (village && village->food > 0 && std::abs(ape.worldX - village->centerX) < 150.f) {
                 ape.currentJob = Job::Eat;
                 village->food--;
@@ -338,7 +342,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
             continue;
         }
 
-        if (ape.currentJob == Job::Idle || ape.currentJob == Job::Wander || ape.currentJob == Job::Socialize || ape.currentJob == Job::Eat) {
+        if (!ape.hasTravelDestination && ape.currentJob != Job::Builder && (ape.currentJob == Job::Idle || ape.currentJob == Job::Wander || ape.currentJob == Job::Socialize || ape.currentJob == Job::Eat)) {
             if (village) {
                 if (ape.equippedTool == ToolType::WoodenSpear && village->kingdomId != 0) {
                     ape.currentJob = Job::Patrol;
@@ -351,67 +355,13 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                     ape.currentJob = Job::Builder;
                     ape.currentTargetStructure = village->constructionQueue.front();
                 }
-                else if (village->wood < 40 && !village->isMigrating) {
-                    ape.currentJob = Job::Woodcutter;
-                    ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Wood, village);
-                }
-                else if (village->stone < 30 && !village->isMigrating) {
-                    ape.currentJob = Job::StoneGatherer;
-                    ape.currentTargetNode = findNearestNode(registry, ape.worldX, ape.worldY, ResourceType::Stone, village);
-                }
                 else {
                     ape.currentJob = (std::rand() % 100 < 15) ? Job::Scout : Job::Wander;
                 }
             }
         }
 
-        if (ape.currentJob == Job::Woodcutter) {
-            if (ape.currentTargetNode != 0) {
-                int treeId = static_cast<int>(ape.currentTargetNode);
-                bool treeFound = false;
-
-                WorldManager* wm = registry.getWorldManager();
-                if (wm) {
-                    std::vector<Tree*> nearby = wm->getNearbyTrees(ape.worldX, 400.f);
-                    for (Tree* t : nearby) {
-                        if (t && (t->getId() == treeId || std::abs(ape.worldX - t->getTrunkCenter()) <= 60.f)) {
-                            treeFound = true;
-                            float dist = std::abs(ape.worldX - t->getTrunkCenter());
-
-                            if (dist <= 65.f) {
-                                t->setHarvestState(TreeHarvestState::BeingHarvested);
-
-                                if (t->advanceHarvest(1.2f)) {
-                                    t->setHarvestState(TreeHarvestState::Harvested);
-                                    wm->harvestTree(t->getId());
-
-                                    if (village) {
-                                        village->wood += 15;
-                                    }
-                                    ape.carriedType = ResourceType::Wood;
-                                    ape.carriedAmount = 2;
-                                    ape.currentTargetNode = 0;
-                                    ape.hasTravelDestination = false;
-                                    ape.currentJob = Job::CarryResource;
-                                    ape.skills.woodcutting += 0.05f;
-                                }
-                            } else {
-                                ape.hasTravelDestination = true;
-                                ape.travelDestinationX = t->getTrunkCenter();
-                            }
-                            break;
-                        }
-                    }
-                }
-
-                if (!treeFound && ape.carriedAmount == 0) {
-                    ape.currentJob = Job::Idle;
-                    ape.currentTargetNode = 0;
-                    ape.hasTravelDestination = false;
-                }
-            }
-        }
-        else if (ape.currentJob == Job::Forage || ape.currentJob == Job::StoneGatherer) {
+        if (ape.currentJob == Job::Forage || ape.currentJob == Job::StoneGatherer) {
             if (ape.currentTargetNode != 0) {
                 ResourceNode* node = registry.getResource(ape.currentTargetNode);
                 if (node && node->amount > 0) {
@@ -453,13 +403,6 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                                     std::remove(village->constructionQueue.begin(), village->constructionQueue.end(), s->id),
                                     village->constructionQueue.end()
                                 );
-
-                                // Persistent simulation benefits
-                                if (s->type == StructureType::StorageHut) {
-                                    // Granary expands food buffer
-                                } else if (s->type == StructureType::Nest) {
-                                    // Worker Nest increases population headroom
-                                }
                             }
 
                             ape.currentJob = Job::Idle;

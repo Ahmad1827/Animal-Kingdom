@@ -38,7 +38,7 @@ public:
     std::vector<Tree>& getMutableTrees() { return trees; }
     bool removeTree(int treeId) {
         auto it = std::remove_if(trees.begin(), trees.end(), [treeId](const Tree& t) {
-            return t.getId() == treeId;
+            return (treeId != 0 && t.getId() == treeId) || t.getHarvestState() == TreeHarvestState::Harvested;
         });
         if (it != trees.end()) {
             trees.erase(it, trees.end());

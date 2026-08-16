@@ -80,19 +80,17 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
         registry.registerStructure(s);
     };
 
-    // Finished Clan Core
     addFinished(StructureType::VillageCenter, "Clan Hearth & Lodge", 0.f, "Heart of the Clan & Ruling Seat");
     addFinished(StructureType::Bonfire, "Central Fire Circle", 65.f, "Warmth & Clan Cohesion");
     addFinished(StructureType::WoodPile, "Timber Stockpile", 245.f, "Stores Harvested Wood");
     addFinished(StructureType::SimpleBarrier, "West Palisade", -360.f, "Settlement Perimeter");
     addFinished(StructureType::SimpleBarrier, "East Palisade", 400.f, "Settlement Perimeter");
 
-    // Physical Build Nodes for Clan Expansion
-    addBuildNode(StructureType::StorageHut, "Granary & Food Cache", 185.f, 8, 0, 40.f, "Food Capacity +25");
-    addBuildNode(StructureType::Nest, "Worker Sleeping Nest", -145.f, 10, 0, 30.f, "Clan Worker Capacity +1");
-    addBuildNode(StructureType::Nest, "Communal Sleeping Nest", -205.f, 10, 0, 30.f, "Clan Worker Capacity +1");
-    addBuildNode(StructureType::BuilderHut, "Tool & Crafting Shed", -285.f, 12, 0, 45.f, "Enables Tool Production");
-    addBuildNode(StructureType::WatchPlatform, "Lookout Watch Post", 340.f, 10, 0, 35.f, "Early Threat Detection");
+    addBuildNode(StructureType::StorageHut, "Granary & Food Cache", 185.f, 8, 0, 15.f, "Food Capacity +25");
+    addBuildNode(StructureType::Nest, "Worker Sleeping Nest", -145.f, 10, 0, 10.f, "Clan Worker Capacity +1");
+    addBuildNode(StructureType::Nest, "Communal Sleeping Nest", -205.f, 10, 0, 10.f, "Clan Worker Capacity +1");
+    addBuildNode(StructureType::BuilderHut, "Tool & Crafting Shed", -285.f, 12, 0, 15.f, "Enables Tool Production");
+    addBuildNode(StructureType::WatchPlatform, "Lookout Watch Post", 340.f, 10, 0, 12.f, "Early Threat Detection");
 }
 
 void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t worldSeed) {

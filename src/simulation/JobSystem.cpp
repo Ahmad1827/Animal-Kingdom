@@ -381,7 +381,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                             if (dist <= 65.f) {
                                 t->setHarvestState(TreeHarvestState::BeingHarvested);
 
-                                if (t->advanceHarvest(0.15f)) {
+                                if (t->advanceHarvest(1.2f)) {
                                     t->setHarvestState(TreeHarvestState::Harvested);
                                     wm->harvestTree(t->getId());
 
@@ -437,9 +437,9 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                     s->currentBuilder = ape.id;
                     float dist = std::abs(ape.worldX - s->worldX);
 
-                    if (dist <= 45.f) {
+                    if (dist <= 65.f) {
                         ape.hasTravelDestination = false;
-                        s->progress += 0.08f * ape.skills.building;
+                        s->progress += 1.5f * ape.skills.building;
 
                         if (s->progress >= s->maxProgress) {
                             s->progress = s->maxProgress;

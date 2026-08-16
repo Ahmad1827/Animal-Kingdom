@@ -23,6 +23,7 @@ private:
     float baseSpeedMultiplier;
     float personalOffset;
     float workTimer;
+    float woodcutLogTimer;
 
     void determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId);
     void applyPhysics(float dt, WorldManager* worldManager);

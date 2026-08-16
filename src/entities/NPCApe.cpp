@@ -8,7 +8,7 @@
 NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture) 
     : simId(id), physicalApe(x, y, texture, false), stateTimer(0.f), intendedMoveX(0.f), 
       isDroppingToHang(false), grabbedChunk(0), grabbedVine(-1), grabbedSeg(-1), 
-      pauseTimer(0.f), workTimer(0.f) {
+      pauseTimer(0.f), workTimer(0.f), woodcutLogTimer(0.f) {
     baseSpeedMultiplier = 1.0f;
     personalOffset = ((id * 37) % 100) - 50.f; 
 }
@@ -319,6 +319,21 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
 }
 
 void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId) {
+    static int globalFrameTick = 0;
+    globalFrameTick++;
+
+    if (data->currentJob == sim::Job::Woodcutter || data->currentTargetNode != 0) {
+        if (globalFrameTick % 30 == 0) {
+            float curX = physicalApe.getPosition().x;
+            float tX = data->travelDestinationX;
+            std::cout << "[WOODCUTTER " << data->id << " (" << data->name << ")] Job=" << static_cast<int>(data->currentJob) 
+                      << " | Current Position X: " << curX 
+                      << " | Target Tree X: " << tX 
+                      << " | Distance Remaining: " << std::abs(curX - tX) 
+                      << " | Tree ID: " << data->currentTargetNode << std::endl << std::flush;
+        }
+    }
+
     if (data->currentJob == sim::Job::Woodcutter && worldManager) {
         if (data->currentTargetNode == 0) {
             data->currentJob = sim::Job::Idle;
@@ -328,18 +343,8 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
         }
 
         float myX = physicalApe.getPosition().x;
-        float destX = data->travelDestinationX != 0.f ? data->travelDestinationX : myX;
+        float destX = (data->travelDestinationX != 0.f) ? data->travelDestinationX : myX;
         float distToDest = std::abs(myX - destX);
-
-        workTimer += dt;
-        if (workTimer >= 0.25f) {
-            workTimer = 0.f;
-            std::cout << "[TRANSIT] Worker " << data->id << " (" << data->name 
-                      << ") | WorkerX: " << myX 
-                      << " | DestX: " << destX 
-                      << " | DistRemaining: " << distToDest 
-                      << " | TargetTreeID: " << data->currentTargetNode << std::endl << std::flush;
-        }
 
         if (distToDest > 80.f) {
             physicalApe.setState(ApeState::Grounded);
@@ -350,8 +355,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
 
             int targetTreeId = static_cast<int>(data->currentTargetNode);
             std::cout << "\n=======================================================\n"
-                      << "[ARRIVAL] Worker=" << data->id << " (" << data->name << ") ARRIVED at DestX=" << destX << " | WorkerX=" << myX << "\n"
-                      << "          Attempting to delete TargetTreeID=" << targetTreeId << "...\n" << std::flush;
+                      << "[WOODCUTTER " << data->id << " ARRIVED] Position X: " << myX << " | Tree ID: " << targetTreeId << "\n" << std::flush;
 
             bool removed = false;
             int removedId = 0;
@@ -362,7 +366,6 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
             }
 
             if (!removed) {
-                std::cout << "[SEARCH FALLBACK] Querying trees around DestX=" << destX << "..." << std::endl << std::flush;
                 std::vector<Tree*> nearby = worldManager->getNearbyTrees(destX, 3000.f);
                 for (Tree* t : nearby) {
                     if (t && t->getHarvestState() != TreeHarvestState::Harvested) {
@@ -375,12 +378,12 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
             }
 
             if (removed) {
-                std::cout << "[SUCCESS] Tree ID=" << removedId << " CUT AND REMOVED FROM WORLD!\n" << std::flush;
+                std::cout << "[WOODCUTTER SUCCESS] Tree ID " << removedId << " CUT AND REMOVED!\n" << std::flush;
 
                 sim::VillageData* v = registry.getVillage(data->villageId);
                 if (v) {
                     v->wood += 15;
-                    std::cout << "[WOOD AWARDED] +15 Wood added to Clan stockpile. Total: " << v->wood << std::endl << std::flush;
+                    std::cout << "[WOOD AWARDED] +15 Wood added to Stockpile. Total: " << v->wood << std::endl << std::flush;
                 }
 
                 data->carriedType = sim::ResourceType::Wood;
@@ -390,7 +393,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
                 data->currentJob = sim::Job::CarryResource;
                 physicalApe.setState(ApeState::Grounded);
             } else {
-                std::cout << "[FAILURE] Tree could not be resolved in world storage. Releasing worker.\n" << std::flush;
+                std::cout << "[WOODCUTTER FAILURE] Tree could not be resolved in world storage.\n" << std::flush;
                 data->currentJob = sim::Job::Idle;
                 data->currentTargetNode = 0;
                 data->hasTravelDestination = false;

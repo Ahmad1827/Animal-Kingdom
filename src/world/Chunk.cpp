@@ -23,7 +23,6 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
     float x1 = bounds.left;
     float x2 = bounds.left + bounds.width;
 
-    // Grass sits slightly above 500 so the ape's feet visually stand IN the grass
     float yGrassBase = FLAT_GROUND_Y - 4.0f; 
     float yGrassBot  = FLAT_GROUND_Y + 8.0f;
     float yDirt1     = FLAT_GROUND_Y + 24.0f;
@@ -51,7 +50,6 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
     addQuad(yDirt1, yDirt2, cDirt1, cDirt2);
     addQuad(yDirt2, yDirtDeep, cDirt2, cDirtDeep);
 
-    // FIX 2: Create a beautiful, jagged grass top edge using terrainMesh (untextured)
     terrainMesh.setPrimitiveType(sf::Triangles);
     terrainMesh.clear();
     
@@ -61,13 +59,11 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
         float xL = bounds.left + i * step;
         float xR = std::min(xL + step, bounds.left + bounds.width);
         
-        // Pseudo-random height for the grass blade using coordinate
         float hash = std::fmod(xL * 37.1f, 7.f);
-        float bladeHeight = 3.f + hash; // Blade goes up 3 to 10 pixels
+        float bladeHeight = 3.f + hash;
         
-        sf::Color grassTip(65, 130, 45); // Brighter tip
+        sf::Color grassTip(65, 130, 45);
         
-        // Triangle for grass blade sticking up
         terrainMesh.append(sf::Vertex(sf::Vector2f(xL + step/2.f, yGrassBase - bladeHeight), grassTip)); 
         terrainMesh.append(sf::Vertex(sf::Vector2f(xR, yGrassBase), cGrassBase));
         terrainMesh.append(sf::Vertex(sf::Vector2f(xL, yGrassBase), cGrassBase));
@@ -127,7 +123,6 @@ void Chunk::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBo
 
     if (terrainMesh.getVertexCount() > 0) {
         sf::RenderStates states;
-        // FIX 3: Explicitly set NO TEXTURE here! This kills the white line entirely.
         states.texture = nullptr; 
         target.draw(terrainMesh, states);
         profiler.drawCalls++;

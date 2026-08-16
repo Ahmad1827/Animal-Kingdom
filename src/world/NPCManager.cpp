@@ -11,39 +11,6 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
         sim::ApeData& data = pair.second;
         if (!data.alive || data.id == controlledId) continue;
 
-        // DO NOT rubberband active woodcutters, builders, or resource carriers back to village center
-        if (data.villageId != 0 && data.hasTravelDestination == false && 
-            data.currentJob != sim::Job::Woodcutter && 
-            data.currentJob != sim::Job::Builder && 
-            data.currentJob != sim::Job::CarryResource) {
-            
-            sim::VillageData* v = simManager.getRegistry().getVillage(data.villageId);
-            if (v) {
-                float targetAnchorX = v->centerX;
-                switch (data.currentJob) {
-                    case sim::Job::Guard:
-                        targetAnchorX = (data.id % 2 == 0) ? v->centerX - 340.f : v->centerX + 340.f;
-                        break;
-                    case sim::Job::Forage:
-                    case sim::Job::StoneGatherer:
-                        targetAnchorX = v->centerX + 185.f;
-                        break;
-                    case sim::Job::Sleep:
-                        targetAnchorX = (data.id % 2 == 0) ? v->centerX - 145.f : v->centerX - 205.f;
-                        break;
-                    case sim::Job::Idle:
-                    case sim::Job::Socialize:
-                        targetAnchorX = v->centerX + (static_cast<int>(data.id % 5) - 2) * 35.f;
-                        break;
-                    default:
-                        break;
-                }
-                if (std::abs(data.worldX - targetAnchorX) > 180.f) {
-                    data.worldX += (targetAnchorX > data.worldX ? 35.f : -35.f) * dt;
-                }
-            }
-        }
-
         if (data.worldX >= preloadBounds.left && data.worldX <= preloadBounds.left + preloadBounds.width &&
             data.worldY >= preloadBounds.top && data.worldY <= preloadBounds.top + preloadBounds.height) {
             if (activeNPCs.find(data.id) == activeNPCs.end()) {

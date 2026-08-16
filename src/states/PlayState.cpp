@@ -393,10 +393,11 @@ void PlayState::processEvents(const sf::Event& event) {
 }
 
 void PlayState::update(float dt) {
-    size_t currentKingdomCount = simulationManager->getRegistry().getAllKingdoms().size();
-    if (currentKingdomCount != lastKingdomCount) {
+    static float targetRefreshTimer = 0.f;
+    targetRefreshTimer += dt;
+    if (targetRefreshTimer >= 0.5f && !interactionManager.isInteracting() && !isDialogueActive) {
+        targetRefreshTimer = 0.f;
         refreshInteractionTargets();
-        lastKingdomCount = currentKingdomCount;
     }
     static uint64_t grabbedChunk = 0;
     static int grabbedVine = -1;

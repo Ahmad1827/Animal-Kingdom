@@ -175,9 +175,14 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
         villagePlanningAI(registry, pair.second, totalTicks);
     }
 
-    for (auto& pair : registry.getAllApes()) {
+   for (auto& pair : registry.getAllApes()) {
         ApeData& ape = pair.second;
         if (!ape.alive) continue;
+
+        // DO NOT OVERRIDE ACTIVE WOODCUTTERS
+        if (ape.currentJob == Job::Woodcutter) {
+            continue;
+        }
 
         if (ape.currentJob == Job::Woodcutter) {
             continue;

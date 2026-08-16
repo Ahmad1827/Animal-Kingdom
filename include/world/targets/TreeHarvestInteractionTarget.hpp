@@ -49,18 +49,27 @@ public:
     int getPriority() const override { return 10; }
 
     void onInteract() override {
+        std::cout << "[TREE INTERACT] onInteract() triggered!" << std::endl << std::flush;
+
         if (!targetTree) {
-            std::cout << "[WOOD CUT ERROR] onInteract called with null targetTree." << std::endl;
+            std::cout << "[TREE INTERACT ERROR] targetTree is null!" << std::endl << std::flush;
             return;
         }
 
         sim::VillageData* v = registry.getVillage(playerVillageId);
-        if (!v) return;
+        if (!v) {
+            for (auto& pair : registry.getAllVillages()) {
+                v = &pair.second;
+                playerVillageId = pair.first;
+                break;
+            }
+        }
 
-        float tx = targetTree->getTrunkCenter();
-        if (tx < v->borderMinX || tx > v->borderMaxX) return;
+        if (!v) {
+            std::cout << "[TREE INTERACT ERROR] No village found in registry!" << std::endl << std::flush;
+            return;
+        }
 
-        // Cancel order if already targeted
         if (targetTree->getHarvestState() == TreeHarvestState::Targeted || targetTree->getHarvestState() == TreeHarvestState::BeingHarvested) {
             uint64_t workerId = targetTree->getAssignedWorkerId();
             if (workerId != 0) {
@@ -69,14 +78,13 @@ public:
                     worker->hasTravelDestination = false;
                     worker->currentTargetNode = 0;
                     worker->currentJob = sim::Job::Idle;
-                    std::cout << "[WOOD CUT] Order canceled for Worker " << workerId << std::endl;
+                    std::cout << "[TREE INTERACT] Order canceled for Worker " << workerId << std::endl << std::flush;
                 }
             }
             targetTree->resetHarvest();
             return;
         }
 
-        // Find available clan worker
         sim::EntityID chosenWorkerId = 0;
         for (sim::EntityID mId : v->members) {
             if (mId == v->leaderId) continue;
@@ -87,14 +95,20 @@ public:
             }
         }
 
-        // Fallback: pick any non-leader member
         if (chosenWorkerId == 0) {
             for (sim::EntityID mId : v->members) {
                 if (mId != v->leaderId) {
-                    chosenWorkerId = mId;
-                    break;
+                    sim::ApeData* ape = registry.getApe(mId);
+                    if (ape && ape->alive) {
+                        chosenWorkerId = mId;
+                        break;
+                    }
                 }
             }
+        }
+
+        if (chosenWorkerId == 0 && !v->members.empty()) {
+            chosenWorkerId = v->members.front();
         }
 
         if (chosenWorkerId != 0) {
@@ -108,11 +122,16 @@ public:
                 targetTree->setHarvestState(TreeHarvestState::Targeted);
                 targetTree->setAssignedWorkerId(chosenWorkerId);
 
-                std::cout << "[WOOD CUT] Worker " << chosenWorkerId << " (" << worker->name << "): IDLE -> MOVING_TO_TREE TargetTree=" 
-                          << targetTree->getId() << " DestX=" << targetTree->getTrunkCenter() << std::endl;
+                std::cout << "\n=======================================================\n"
+                          << "[WOODCUT ASSIGN]\n"
+                          << "Worker ID: " << chosenWorkerId << " (" << worker->name << ")\n"
+                          << "Tree ID: " << targetTree->getId() << "\n"
+                          << "Tree Position: " << targetTree->getTrunkCenter() << "\n"
+                          << "Worker Position: " << worker->worldX << "\n"
+                          << "=======================================================\n" << std::flush;
             }
         } else {
-            std::cout << "[WOOD CUT ERROR] No worker available in clan to assign to Tree " << targetTree->getId() << std::endl;
+            std::cout << "[TREE INTERACT ERROR] Could not find any valid worker in village " << v->name << std::endl << std::flush;
         }
     }
 
@@ -122,32 +141,20 @@ public:
         std::vector<InteractionMenuEntry> entries;
         if (!targetTree) return entries;
 
-        sim::VillageData* v = registry.getVillage(playerVillageId);
-        if (!v) return entries;
-
-        float tx = targetTree->getTrunkCenter();
-        bool inTerritory = (tx >= v->borderMinX && tx <= v->borderMaxX);
-
-        if (!inTerritory) {
-            entries.push_back({"This forest lies beyond your clan's claimed borders.", nullptr});
-            entries.push_back({"Expand tribal territory to harvest these trees.", nullptr});
-            return entries;
-        }
-
         if (targetTree->getHarvestState() == TreeHarvestState::Targeted || targetTree->getHarvestState() == TreeHarvestState::BeingHarvested) {
-            entries.push_back({"Status: Workers Dispatched for Logging", nullptr});
+            entries.push_back({"Status: Workers Dispatched for Logging", [this]() {
+                onInteract();
+            }});
             entries.push_back({"Timber Yield: +15 Raw Wood on Completion", nullptr});
             entries.push_back({"", nullptr});
             entries.push_back({"[ Cancel Harvest Order ]", [this]() {
                 onInteract();
             }});
         } else {
-            entries.push_back({"Rich hard-timber tree suitable for harvesting.", nullptr});
-            entries.push_back({"Estimated Yield: +15 Wood to Clan Stores", nullptr});
-            entries.push_back({"", nullptr});
             entries.push_back({"[ Order Clan Workers to Chop ]", [this]() {
                 onInteract();
             }});
+            entries.push_back({"Estimated Yield: +15 Wood to Clan Stores", nullptr});
         }
 
         return entries;

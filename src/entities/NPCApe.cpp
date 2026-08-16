@@ -184,7 +184,14 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
             targetX = v->centerX;
         }
     } 
-    else if (data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::Woodcutter || data->currentJob == sim::Job::StoneGatherer) {
+    else if (data->currentJob == sim::Job::Woodcutter) {
+        if (data->hasTravelDestination) {
+            targetX = data->travelDestinationX;
+            stopDistance = 45.f;
+            shouldWorkAtTarget = true;
+        }
+    }
+    else if (data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::StoneGatherer) {
         if (data->currentTargetNode != 0) {
             sim::ResourceNode* node = registry.getResource(data->currentTargetNode);
             if (node) {
@@ -192,7 +199,7 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
                 shouldWorkAtTarget = true;
             }
         }
-    } 
+    }
     else if (data->currentJob == sim::Job::Builder) {
         if (data->currentTargetStructure != 0) {
             sim::StructureData* s = registry.getStructure(data->currentTargetStructure);

@@ -24,6 +24,7 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
     float endX = startX + width - 50.f;
 
     std::mt19937 rng(seed);
+    int treeCounter = 1;
 
     while (currentX < endX) {
         float spacing = 90.f + (rng() % 140);
@@ -40,9 +41,9 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         sf::Color trunkColor(101, 67, 33);
 
         float yOffset = (rng() % 8) - 2.f;
-        result.emplace_back(currentX, FLAT_GROUND_Y + yOffset, treeWidth, treeHeight, trunkColor, decorTex);
+        int uniqueTreeId = static_cast<int>(std::abs(std::round(currentX))) * 100 + (treeCounter++);
+        result.emplace_back(currentX, FLAT_GROUND_Y + yOffset, treeWidth, treeHeight, trunkColor, decorTex, uniqueTreeId);
     }
-
     return result;
 }
 

@@ -372,19 +372,18 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
 
                 WorldManager* wm = registry.getWorldManager();
                 if (wm) {
-                    std::vector<Tree*> nearby = wm->getNearbyTrees(ape.worldX, 350.f);
+                    std::vector<Tree*> nearby = wm->getNearbyTrees(ape.worldX, 400.f);
                     for (Tree* t : nearby) {
-                        if (t && t->getId() == treeId) {
+                        if (t && (t->getId() == treeId || std::abs(ape.worldX - t->getTrunkCenter()) <= 60.f)) {
                             treeFound = true;
                             float dist = std::abs(ape.worldX - t->getTrunkCenter());
 
-                            if (dist <= 40.f) {
-                                ape.hasTravelDestination = false;
+                            if (dist <= 65.f) {
                                 t->setHarvestState(TreeHarvestState::BeingHarvested);
 
-                                if (t->advanceHarvest(0.05f)) {
+                                if (t->advanceHarvest(0.15f)) {
                                     t->setHarvestState(TreeHarvestState::Harvested);
-                                    wm->harvestTree(treeId);
+                                    wm->harvestTree(t->getId());
 
                                     if (village) {
                                         village->wood += 15;
@@ -392,6 +391,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                                     ape.carriedType = ResourceType::Wood;
                                     ape.carriedAmount = 2;
                                     ape.currentTargetNode = 0;
+                                    ape.hasTravelDestination = false;
                                     ape.currentJob = Job::CarryResource;
                                     ape.skills.woodcutting += 0.05f;
                                 }

@@ -403,31 +403,93 @@ void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::S
 void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim::StructureData& s, float groundY) {
     float progressRatio = std::clamp(s.progress / std::max(1.f, s.maxProgress), 0.f, 1.f);
 
-    sf::RectangleShape stakeL(sf::Vector2f(6.f, 26.f));
-    stakeL.setOrigin(3.f, 26.f);
-    stakeL.setPosition(s.worldX - 35.f, groundY);
-    stakeL.setFillColor(sf::Color(88, 58, 28));
+    // 1. Staked Perimeter Pegs (Visible for all planned & active sites)
+    sf::RectangleShape stakeL(sf::Vector2f(6.f, 28.f));
+    stakeL.setOrigin(3.f, 28.f);
+    stakeL.setPosition(s.worldX - 45.f, groundY);
+    stakeL.setFillColor(sf::Color(85, 55, 26));
+    stakeL.setOutlineColor(sf::Color(25, 15, 8));
+    stakeL.setOutlineThickness(1.f);
     target.draw(stakeL);
 
-    sf::RectangleShape stakeR(sf::Vector2f(6.f, 26.f));
-    stakeR.setOrigin(3.f, 26.f);
-    stakeR.setPosition(s.worldX + 35.f, groundY);
-    stakeR.setFillColor(sf::Color(88, 58, 28));
+    sf::RectangleShape stakeR(sf::Vector2f(6.f, 28.f));
+    stakeR.setOrigin(3.f, 28.f);
+    stakeR.setPosition(s.worldX + 45.f, groundY);
+    stakeR.setFillColor(sf::Color(85, 55, 26));
+    stakeR.setOutlineColor(sf::Color(25, 15, 8));
+    stakeR.setOutlineThickness(1.f);
     target.draw(stakeR);
 
-    sf::RectangleShape cord(sf::Vector2f(70.f, 2.f));
-    cord.setOrigin(35.f, 1.f);
+    // Guide Cord
+    sf::RectangleShape cord(sf::Vector2f(90.f, 2.f));
+    cord.setOrigin(45.f, 1.f);
     cord.setPosition(s.worldX, groundY - 18.f);
-    cord.setFillColor(sf::Color(205, 175, 85));
+    cord.setFillColor(sf::Color(215, 185, 95));
     target.draw(cord);
 
-    if (progressRatio >= 0.33f) {
-        sf::RectangleShape scaf(sf::Vector2f(55.f, 32.f));
-        scaf.setOrigin(27.5f, 32.f);
-        scaf.setPosition(s.worldX, groundY);
-        scaf.setFillColor(sf::Color::Transparent);
-        scaf.setOutlineColor(sf::Color(140, 90, 42));
-        scaf.setOutlineThickness(2.f);
-        target.draw(scaf);
+    // Ground Plot Marker
+    sf::RectangleShape plotBase(sf::Vector2f(86.f, 4.f));
+    plotBase.setOrigin(43.f, 4.f);
+    plotBase.setPosition(s.worldX, groundY);
+    plotBase.setFillColor(s.isUnderConstruction ? sf::Color(150, 110, 60) : sf::Color(75, 55, 35, 180));
+    target.draw(plotBase);
+
+    // 2. Stage 1: Foundation Timber (25%+)
+    if (progressRatio >= 0.25f) {
+        sf::RectangleShape foundation(sf::Vector2f(80.f, 10.f));
+        foundation.setOrigin(40.f, 10.f);
+        foundation.setPosition(s.worldX, groundY - 2.f);
+        foundation.setFillColor(sf::Color(95, 65, 35));
+        foundation.setOutlineColor(sf::Color(35, 20, 10));
+        foundation.setOutlineThickness(1.f);
+        target.draw(foundation);
+    }
+
+    // 3. Stage 2: Timber Framing & Scaffolding (50%+)
+    if (progressRatio >= 0.50f) {
+        sf::RectangleShape frameL(sf::Vector2f(8.f, 45.f));
+        frameL.setOrigin(4.f, 45.f);
+        frameL.setPosition(s.worldX - 30.f, groundY - 10.f);
+        frameL.setFillColor(sf::Color(115, 80, 45));
+        target.draw(frameL);
+
+        sf::RectangleShape frameR(sf::Vector2f(8.f, 45.f));
+        frameR.setOrigin(4.f, 45.f);
+        frameR.setPosition(s.worldX + 30.f, groundY - 10.f);
+        frameR.setFillColor(sf::Color(115, 80, 45));
+        target.draw(frameR);
+
+        sf::RectangleShape topCross(sf::Vector2f(72.f, 6.f));
+        topCross.setOrigin(36.f, 6.f);
+        topCross.setPosition(s.worldX, groundY - 50.f);
+        topCross.setFillColor(sf::Color(135, 95, 52));
+        target.draw(topCross);
+    }
+
+    // 4. Stage 3: Partial Roof & Infill (75%+)
+    if (progressRatio >= 0.75f) {
+        sf::RectangleShape partialWall(sf::Vector2f(60.f, 25.f));
+        partialWall.setOrigin(30.f, 25.f);
+        partialWall.setPosition(s.worldX, groundY - 12.f);
+        partialWall.setFillColor(sf::Color(140, 105, 55, 200));
+        target.draw(partialWall);
+    }
+
+    // Build Progress Bar when actively being constructed
+    if (s.isUnderConstruction) {
+        float barW = 48.f;
+        sf::RectangleShape barBg(sf::Vector2f(barW, 5.f));
+        barBg.setOrigin(barW / 2.f, 2.5f);
+        barBg.setPosition(s.worldX, groundY - 65.f);
+        barBg.setFillColor(sf::Color(30, 20, 12, 220));
+        barBg.setOutlineColor(sf::Color(160, 125, 60));
+        barBg.setOutlineThickness(1.f);
+        target.draw(barBg);
+
+        sf::RectangleShape barFill(sf::Vector2f(barW * progressRatio, 5.f));
+        barFill.setOrigin(barW / 2.f, 2.5f);
+        barFill.setPosition(s.worldX, groundY - 65.f);
+        barFill.setFillColor(sf::Color(220, 175, 45));
+        target.draw(barFill);
     }
 }

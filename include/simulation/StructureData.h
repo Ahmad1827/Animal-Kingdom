@@ -1,5 +1,6 @@
 #pragma once
 #include "simulation/EntityID.h"
+#include <string>
 
 namespace sim {
     enum class StructureType { Nest, StorageHut, WatchPlatform, WoodPile, StonePile, SimpleBarrier, TreeLadder, VillageCenter, BuilderHut, Bonfire };
@@ -8,6 +9,7 @@ namespace sim {
         StructureID id;
         StructureType type;
         VillageID villageId;
+        std::string name;
         float worldX;
         float worldY;
         
@@ -20,6 +22,10 @@ namespace sim {
         int curWood;
         int curStone;
         
+        bool isPlanned;
+        bool isUnderConstruction;
         bool isFinished;
+
+        std::string benefitText;
     };
 }

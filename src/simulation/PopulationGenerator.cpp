@@ -37,35 +37,62 @@ ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId,
 }
 
 static void spawnBaseStructures(SimulationRegistry& registry, VillageData& village) {
-    auto addStruct = [&](StructureType type, float offsetX, int wood, int stone) {
+    auto addFinished = [&](StructureType type, const std::string& name, float offsetX, const std::string& benefit) {
         StructureData s;
         s.id = IDGenerator::generateStructureID();
         s.type = type;
+        s.name = name;
         s.villageId = village.id;
         s.worldX = village.centerX + offsetX;
         s.worldY = 500.0f;
-        s.progress = 60.f;
-        s.maxProgress = 60.f;
-        s.reqWood = wood;
-        s.reqStone = stone;
-        s.curWood = wood;
-        s.curStone = stone;
+        s.progress = 50.f;
+        s.maxProgress = 50.f;
+        s.reqWood = 0;
+        s.reqStone = 0;
+        s.curWood = 0;
+        s.curStone = 0;
+        s.isPlanned = false;
+        s.isUnderConstruction = false;
         s.isFinished = true;
+        s.benefitText = benefit;
         village.finishedStructures.push_back(s.id);
         registry.registerStructure(s);
     };
 
-    addStruct(StructureType::VillageCenter, 0.f, 50, 20);
-    addStruct(StructureType::Bonfire, 65.f, 10, 5);
-    addStruct(StructureType::StorageHut, 185.f, 35, 15);
-    addStruct(StructureType::WoodPile, 245.f, 15, 0);
-    addStruct(StructureType::StonePile, 275.f, 0, 15);
-    addStruct(StructureType::Nest, -145.f, 20, 5);
-    addStruct(StructureType::Nest, -205.f, 20, 5);
-    addStruct(StructureType::BuilderHut, -285.f, 30, 10);
-    addStruct(StructureType::WatchPlatform, 340.f, 25, 10);
-    addStruct(StructureType::SimpleBarrier, -360.f, 15, 0);
-    addStruct(StructureType::SimpleBarrier, 400.f, 15, 0);
+    auto addBuildNode = [&](StructureType type, const std::string& name, float offsetX, int reqWood, int reqStone, float buildTime, const std::string& benefit) {
+        StructureData s;
+        s.id = IDGenerator::generateStructureID();
+        s.type = type;
+        s.name = name;
+        s.villageId = village.id;
+        s.worldX = village.centerX + offsetX;
+        s.worldY = 500.0f;
+        s.progress = 0.f;
+        s.maxProgress = buildTime;
+        s.reqWood = reqWood;
+        s.reqStone = reqStone;
+        s.curWood = 0;
+        s.curStone = 0;
+        s.isPlanned = true;
+        s.isUnderConstruction = false;
+        s.isFinished = false;
+        s.benefitText = benefit;
+        registry.registerStructure(s);
+    };
+
+    // Finished Clan Core
+    addFinished(StructureType::VillageCenter, "Clan Hearth & Lodge", 0.f, "Heart of the Clan & Ruling Seat");
+    addFinished(StructureType::Bonfire, "Central Fire Circle", 65.f, "Warmth & Clan Cohesion");
+    addFinished(StructureType::WoodPile, "Timber Stockpile", 245.f, "Stores Harvested Wood");
+    addFinished(StructureType::SimpleBarrier, "West Palisade", -360.f, "Settlement Perimeter");
+    addFinished(StructureType::SimpleBarrier, "East Palisade", 400.f, "Settlement Perimeter");
+
+    // Physical Build Nodes for Clan Expansion
+    addBuildNode(StructureType::StorageHut, "Granary & Food Cache", 185.f, 8, 0, 40.f, "Food Capacity +25");
+    addBuildNode(StructureType::Nest, "Worker Sleeping Nest", -145.f, 10, 0, 30.f, "Clan Worker Capacity +1");
+    addBuildNode(StructureType::Nest, "Communal Sleeping Nest", -205.f, 10, 0, 30.f, "Clan Worker Capacity +1");
+    addBuildNode(StructureType::BuilderHut, "Tool & Crafting Shed", -285.f, 12, 0, 45.f, "Enables Tool Production");
+    addBuildNode(StructureType::WatchPlatform, "Lookout Watch Post", 340.f, 10, 0, 35.f, "Early Threat Detection");
 }
 
 void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t worldSeed) {

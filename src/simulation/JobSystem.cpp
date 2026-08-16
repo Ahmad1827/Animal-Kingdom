@@ -433,42 +433,48 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
         else if (ape.currentJob == Job::Builder) {
             if (ape.currentTargetStructure != 0) {
                 StructureData* s = registry.getStructure(ape.currentTargetStructure);
-                if (s && !s->isFinished) {
+                if (s && s->isUnderConstruction && !s->isFinished) {
                     s->currentBuilder = ape.id;
-                    if (s->curWood < s->reqWood) {
-                        if (village && village->wood > 0) {
-                            if (std::abs(ape.worldX - village->centerX) < 100.f) {
-                                village->wood--;
-                                ape.carriedType = ResourceType::Wood;
-                                ape.carriedAmount = 1;
-                            }
-                        }
-                    } else if (s->curStone < s->reqStone) {
-                        if (village && village->stone > 0) {
-                            if (std::abs(ape.worldX - village->centerX) < 100.f) {
-                                village->stone--;
-                                ape.carriedType = ResourceType::Stone;
-                                ape.carriedAmount = 1;
-                            }
-                        }
-                    } else {
-                        if (std::abs(ape.worldX - s->worldX) < 100.f) {
-                            s->progress += 1.0f * ape.skills.building;
-                            if (s->progress >= s->maxProgress) {
-                                s->isFinished = true;
+                    float dist = std::abs(ape.worldX - s->worldX);
+
+                    if (dist <= 45.f) {
+                        ape.hasTravelDestination = false;
+                        s->progress += 0.08f * ape.skills.building;
+
+                        if (s->progress >= s->maxProgress) {
+                            s->progress = s->maxProgress;
+                            s->isUnderConstruction = false;
+                            s->isFinished = true;
+                            s->currentBuilder = 0;
+
+                            if (village) {
                                 village->finishedStructures.push_back(s->id);
                                 village->constructionQueue.erase(
                                     std::remove(village->constructionQueue.begin(), village->constructionQueue.end(), s->id),
                                     village->constructionQueue.end()
                                 );
-                                ape.currentJob = Job::Idle;
-                                ape.currentTargetStructure = 0;
+
+                                // Persistent simulation benefits
+                                if (s->type == StructureType::StorageHut) {
+                                    // Granary expands food buffer
+                                } else if (s->type == StructureType::Nest) {
+                                    // Worker Nest increases population headroom
+                                }
                             }
+
+                            ape.currentJob = Job::Idle;
+                            ape.currentTargetStructure = 0;
+                            ape.hasTravelDestination = false;
+                            ape.skills.building += 0.05f;
                         }
+                    } else {
+                        ape.hasTravelDestination = true;
+                        ape.travelDestinationX = s->worldX;
                     }
                 } else {
                     ape.currentJob = Job::Idle;
                     ape.currentTargetStructure = 0;
+                    ape.hasTravelDestination = false;
                 }
             }
         }

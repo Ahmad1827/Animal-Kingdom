@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "world/DayNightCycle.h"
 #include "world/targets/TreeHarvestInteractionTarget.hpp"
+#include "world/targets/BuildNodeInteractionTarget.hpp"
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -1688,9 +1689,17 @@ void PlayState::refreshInteractionTargets() {
             v.id, simulationManager->getRegistry(), v.centerX + 65.f, groundY, audioManager.get(), particleSystem.get()
         ));
 
-        interactionManager.registerTarget(std::make_shared<StorageHutInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX + 185.f, groundY
-        ));
+        // Register interactive build nodes / unbuilt plots & structures
+        for (const auto& sPair : simulationManager->getRegistry().getAllStructures()) {
+            const sim::StructureData& s = sPair.second;
+            if (s.villageId == v.id) {
+                if (s.type != sim::StructureType::VillageCenter && s.type != sim::StructureType::Bonfire && s.type != sim::StructureType::WoodPile) {
+                    interactionManager.registerTarget(std::make_shared<BuildNodeInteractionTarget>(
+                        s.id, v.id, simulationManager->getRegistry(), worldManager.get()
+                    ));
+                }
+            }
+        }
     }
 
     for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {

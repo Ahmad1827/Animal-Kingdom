@@ -1764,13 +1764,52 @@ void PlayState::refreshInteractionTargets() {
     sim::ApeData* controlledApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     if (pVillage && controlledApe && worldManager) {
         float playerX = controlledApe->worldX;
-        std::vector<Tree*> localTrees = worldManager->getNearbyTrees(playerX, 500.f);
-        for (Tree* tree : localTrees) {
-            if (tree && tree->getHarvestState() != TreeHarvestState::Harvested) {
-                interactionManager.registerTarget(std::make_shared<TreeHarvestInteractionTarget>(
-                    tree, pVillage->id, simulationManager->getRegistry(), worldManager.get()
-                ));
+
+        // Search wide enough across loaded chunks to find the closest trees in each direction
+        std::vector<Tree*> candidateTrees = worldManager->getNearbyTrees(playerX, 2000.f);
+
+        Tree* nearestLeft = nullptr;
+        float minLeftDist = std::numeric_limits<float>::max();
+
+        Tree* nearestRight = nullptr;
+        float minRightDist = std::numeric_limits<float>::max();
+
+        for (Tree* tree : candidateTrees) {
+            if (!tree) continue;
+            if (tree->getHarvestState() == TreeHarvestState::Harvested) continue;
+
+            float tx = tree->getTrunkCenter();
+
+            // Ignore trees outside clan territory
+            if (tx < pVillage->borderMinX || tx > pVillage->borderMaxX) continue;
+
+            float dist = std::abs(playerX - tx);
+
+            if (tx <= playerX) {
+                if (dist < minLeftDist) {
+                    minLeftDist = dist;
+                    nearestLeft = tree;
+                }
+            } else {
+                if (dist < minRightDist) {
+                    minRightDist = dist;
+                    nearestRight = tree;
+                }
             }
+        }
+
+        // Register ONLY the single nearest tree on the left (if one exists)
+        if (nearestLeft) {
+            interactionManager.registerTarget(std::make_shared<TreeHarvestInteractionTarget>(
+                nearestLeft, pVillage->id, simulationManager->getRegistry(), worldManager.get()
+            ));
+        }
+
+        // Register ONLY the single nearest tree on the right (if one exists)
+        if (nearestRight) {
+            interactionManager.registerTarget(std::make_shared<TreeHarvestInteractionTarget>(
+                nearestRight, pVillage->id, simulationManager->getRegistry(), worldManager.get()
+            ));
         }
     }
 }

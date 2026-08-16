@@ -38,4 +38,6 @@ public:
     void disturbEnvironment(const sf::FloatRect& bounds, float velocityX);    
     
     ChunkManager* getChunkManager() const;
+    std::vector<Tree*> getNearbyTrees(float centerX, float radius);
+    bool harvestTree(int treeId);
 };

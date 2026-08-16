@@ -2,6 +2,7 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <memory>
+#include <algorithm>
 #include "entities/Tree.h"
 #include "world/Decoration.h"
 #include "world/Biome.h"
@@ -34,6 +35,17 @@ public:
     void updateSway(float globalTime, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector);
     const std::vector<Decoration>& getDecorations() const { return decorations; }
     const std::vector<Tree>& getTrees() const;
+    std::vector<Tree>& getMutableTrees() { return trees; }
+    bool removeTree(int treeId) {
+        auto it = std::remove_if(trees.begin(), trees.end(), [treeId](const Tree& t) {
+            return t.getId() == treeId;
+        });
+        if (it != trees.end()) {
+            trees.erase(it, trees.end());
+            return true;
+        }
+        return false;
+    }
     RegionType getRegionType() const;
     ChunkPos getPos() const;
     sf::FloatRect getBounds() const;

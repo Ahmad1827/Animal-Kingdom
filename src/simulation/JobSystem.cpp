@@ -5,6 +5,8 @@
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
+#include "world/WorldManager.h"
+#include "entities/Tree.h"
 
 namespace sim {
 
@@ -363,7 +365,53 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
             }
         }
 
-        if (ape.currentJob == Job::Forage || ape.currentJob == Job::Woodcutter || ape.currentJob == Job::StoneGatherer) {
+        if (ape.currentJob == Job::Woodcutter) {
+            if (ape.currentTargetNode != 0) {
+                int treeId = static_cast<int>(ape.currentTargetNode);
+                bool treeFound = false;
+
+                WorldManager* wm = registry.getWorldManager();
+                if (wm) {
+                    std::vector<Tree*> nearby = wm->getNearbyTrees(ape.worldX, 350.f);
+                    for (Tree* t : nearby) {
+                        if (t && t->getId() == treeId) {
+                            treeFound = true;
+                            float dist = std::abs(ape.worldX - t->getTrunkCenter());
+
+                            if (dist <= 40.f) {
+                                ape.hasTravelDestination = false;
+                                t->setHarvestState(TreeHarvestState::BeingHarvested);
+
+                                if (t->advanceHarvest(0.05f)) {
+                                    t->setHarvestState(TreeHarvestState::Harvested);
+                                    wm->harvestTree(treeId);
+
+                                    if (village) {
+                                        village->wood += 15;
+                                    }
+                                    ape.carriedType = ResourceType::Wood;
+                                    ape.carriedAmount = 2;
+                                    ape.currentTargetNode = 0;
+                                    ape.currentJob = Job::CarryResource;
+                                    ape.skills.woodcutting += 0.05f;
+                                }
+                            } else {
+                                ape.hasTravelDestination = true;
+                                ape.travelDestinationX = t->getTrunkCenter();
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if (!treeFound && ape.carriedAmount == 0) {
+                    ape.currentJob = Job::Idle;
+                    ape.currentTargetNode = 0;
+                    ape.hasTravelDestination = false;
+                }
+            }
+        }
+        else if (ape.currentJob == Job::Forage || ape.currentJob == Job::StoneGatherer) {
             if (ape.currentTargetNode != 0) {
                 ResourceNode* node = registry.getResource(ape.currentTargetNode);
                 if (node && node->amount > 0) {
@@ -371,11 +419,9 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                         node->amount--;
                         ape.carriedType = node->type;
                         int capacity = (ape.equippedTool == ToolType::Basket) ? 3 : 1;
-                        if (ape.equippedTool == ToolType::StoneAxe && node->type == ResourceType::Wood) capacity = 2;
                         if (ape.equippedTool == ToolType::StonePick && node->type == ResourceType::Stone) capacity = 2;
                         ape.carriedAmount = capacity;
                         ape.currentTargetNode = 0;
-                        if (node->type == ResourceType::Wood) ape.skills.woodcutting += 0.01f;
                         if (node->type == ResourceType::Stone) ape.skills.gathering += 0.01f;
                         if (node->type == ResourceType::Food) ape.skills.gathering += 0.01f;
                     }

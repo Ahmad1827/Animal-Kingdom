@@ -17,7 +17,7 @@
 #include <iostream>
 #include <algorithm>
 #include "world/DayNightCycle.h"
-
+#include "world/targets/TreeHarvestInteractionTarget.hpp"
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -45,6 +45,7 @@ void PlayState::init() {
     
     
     simulationManager = std::make_unique<sim::SimulationManager>();
+    simulationManager->getRegistry().setWorldManager(worldManager.get());
     structureManager = std::make_unique<StructureManager>();
     
     cinematicFont.loadFromFile("font.ttf");
@@ -1755,6 +1756,19 @@ void PlayState::refreshInteractionTargets() {
                 float midY = 500.0f;
                 interactionManager.registerTarget(std::make_shared<DiplomaticMeetingInteractionTarget>(
                     p1.id, p1.isKingdom, p2.id, p2.isKingdom, midX, midY, simulationManager->getRegistry(), simulationManager->getControlledApe()
+                ));
+            }
+        }
+    }
+    sim::VillageData* pVillage = simulationManager->getRegistry().getVillage(activeClanId);
+    sim::ApeData* controlledApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    if (pVillage && controlledApe && worldManager) {
+        float playerX = controlledApe->worldX;
+        std::vector<Tree*> localTrees = worldManager->getNearbyTrees(playerX, 500.f);
+        for (Tree* tree : localTrees) {
+            if (tree && tree->getHarvestState() != TreeHarvestState::Harvested) {
+                interactionManager.registerTarget(std::make_shared<TreeHarvestInteractionTarget>(
+                    tree, pVillage->id, simulationManager->getRegistry(), worldManager.get()
                 ));
             }
         }

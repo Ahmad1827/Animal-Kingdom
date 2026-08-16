@@ -261,3 +261,24 @@ int ChunkManager::getCurrentChunkIndex() const {
 RegionType ChunkManager::getCurrentRegion(float playerX) const { 
     return Biome::determineRegion(getChunkXAt(playerX), worldSeed); 
 }
+
+std::vector<Tree*> ChunkManager::getNearbyTrees(float centerX, float radius) {
+    std::vector<Tree*> results;
+    for (auto& pair : getActiveChunks()) {
+        for (auto& tree : pair.second->getMutableTrees()) {
+            if (std::abs(tree.getTrunkCenter() - centerX) <= radius) {
+                results.push_back(&tree);
+            }
+        }
+    }
+    return results;
+}
+
+bool ChunkManager::harvestTree(int treeId) {
+    for (auto& pair : getActiveChunks()) {
+        if (pair.second->removeTree(treeId)) {
+            return true;
+        }
+    }
+    return false;
+}

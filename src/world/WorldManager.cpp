@@ -336,3 +336,11 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
         }
     }
 }
+
+std::vector<Tree*> WorldManager::getNearbyTrees(float centerX, float radius) {
+    return chunkManager ? chunkManager->getNearbyTrees(centerX, radius) : std::vector<Tree*>{};
+}
+
+bool WorldManager::harvestTree(int treeId) {
+    return chunkManager ? chunkManager->harvestTree(treeId) : false;
+}

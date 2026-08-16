@@ -40,4 +40,6 @@ public:
     float getTerrainHeight(float x) const;
     int getCurrentChunkIndex() const;
     RegionType getCurrentRegion(float playerX) const;
+    std::vector<Tree*> getNearbyTrees(float centerX, float radius);
+    bool harvestTree(int treeId);
 };

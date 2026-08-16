@@ -4,7 +4,8 @@
 #include "core/VisualConfig.h"
 #include <algorithm>
 
-Tree::Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture) {
+Tree::Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture, int id) 
+    : treeId(id) {
     trunkBounds = sf::FloatRect(x - width / 2.f, y - height, width, height);
     totalBounds = trunkBounds;
 
@@ -175,6 +176,43 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBound
     if (dynamicMesh.getVertexCount() > 0) {
         target.draw(dynamicMesh);
         profiler.drawCalls++;
+    }
+
+    if (harvestState == TreeHarvestState::Targeted || harvestState == TreeHarvestState::BeingHarvested) {
+        float centerX = getTrunkCenter();
+        float markerY = trunkBounds.top + 40.f;
+
+        sf::RectangleShape banner(sf::Vector2f(8.f, 22.f));
+        banner.setOrigin(4.f, 11.f);
+        banner.setPosition(centerX, markerY);
+        banner.setFillColor(harvestState == TreeHarvestState::BeingHarvested ? sf::Color(220, 60, 40) : sf::Color(220, 180, 50));
+        banner.setOutlineColor(sf::Color(30, 20, 10));
+        banner.setOutlineThickness(1.f);
+        target.draw(banner);
+
+        sf::CircleShape badge(6.f, 4);
+        badge.setOrigin(6.f, 6.f);
+        badge.setPosition(centerX, markerY - 14.f);
+        badge.setFillColor(sf::Color(190, 145, 55));
+        badge.setOutlineColor(sf::Color(40, 25, 10));
+        badge.setOutlineThickness(1.f);
+        target.draw(badge);
+
+        if (harvestProgress > 0.0f) {
+            float barW = 36.f;
+            sf::RectangleShape barBg(sf::Vector2f(barW, 4.f));
+            barBg.setOrigin(barW / 2.f, 2.f);
+            barBg.setPosition(centerX, markerY + 18.f);
+            barBg.setFillColor(sf::Color(40, 30, 20, 200));
+            target.draw(barBg);
+
+            float fill = std::clamp(harvestProgress / maxHarvestProgress, 0.0f, 1.0f);
+            sf::RectangleShape barFill(sf::Vector2f(barW * fill, 4.f));
+            barFill.setOrigin(barW / 2.f, 2.f);
+            barFill.setPosition(centerX, markerY + 18.f);
+            barFill.setFillColor(sf::Color(100, 200, 70));
+            target.draw(barFill);
+        }
     }
     
     profiler.objectsRendered += 1 + branchSprites.size() + (dynamicMesh.getVertexCount() > 0 ? 1 : 0);

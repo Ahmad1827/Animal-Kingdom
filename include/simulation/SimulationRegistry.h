@@ -17,6 +17,8 @@
 #include <unordered_map>
 #include <vector>
 
+class WorldManager;
+
 namespace sim {
 
 class SimulationRegistry {
@@ -35,6 +37,7 @@ private:
     std::unordered_map<Character::ID, Character> characters;
     std::unordered_map<uint64_t, Clan> clans;
     std::vector<Faction> factions;
+    WorldManager* worldManager = nullptr;
 
     Season currentSeason = Season::Spring;
     int currentYear = 1;
@@ -64,6 +67,8 @@ public:
 
     std::vector<Faction>& getFactions() { return factions; }
     const std::vector<Faction>& getFactions() const { return factions; }
+    void setWorldManager(WorldManager* wm) { worldManager = wm; }
+    WorldManager* getWorldManager() const { return worldManager; }
 
     ApeData* getApe(EntityID id) { auto it = apes.find(id); return it != apes.end() ? &it->second : nullptr; }
     VillageData* getVillage(VillageID id) { auto it = villages.find(id); return it != villages.end() ? &it->second : nullptr; }

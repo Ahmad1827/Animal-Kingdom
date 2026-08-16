@@ -9,8 +9,16 @@ struct BranchData { sf::FloatRect bounds; };
 struct VineData { sf::Vector2f origin; float length; float disturbance; };
 struct CanopyData { sf::Vector2f center; float radius; sf::Color color; };
 
+enum class TreeHarvestState {
+    Untouched,
+    Targeted,
+    BeingHarvested,
+    Harvested
+};
+
 class Tree : public WorldObject {
 private:
+    int treeId = 0;
     sf::FloatRect totalBounds;
     sf::FloatRect trunkBounds;
 
@@ -24,11 +32,16 @@ private:
     sf::VertexArray staticMesh;
     sf::VertexArray dynamicMesh;
 
+    TreeHarvestState harvestState = TreeHarvestState::Untouched;
+    float harvestProgress = 0.0f;
+    static constexpr float maxHarvestProgress = 10.0f;
+    uint64_t assignedWorkerId = 0;
+
     void appendQuad(sf::VertexArray& mesh, const sf::FloatRect& rect, sf::Color color);
     void appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, float radius, sf::Color color);
 
 public:
-    Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture);
+    Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture, int id = 0);
     void addBranch(float yOffset, float width, bool rightSide, sf::Color color, sf::Texture& decorTexture);
     void addVine(float xOffset, float yOffset, float length);
     void buildCanopy(uint32_t& seed, float baseRadius, float yOffset, sf::Color color, int clusterCount);
@@ -47,4 +60,22 @@ public:
     float getTrunkCenter() const;
     const std::vector<BranchData>& getBranches() const;
     const std::vector<VineData>& getVines() const;
+
+    int getId() const { return treeId; }
+    void setId(int id) { treeId = id; }
+    TreeHarvestState getHarvestState() const { return harvestState; }
+    void setHarvestState(TreeHarvestState state) { harvestState = state; }
+    uint64_t getAssignedWorkerId() const { return assignedWorkerId; }
+    void setAssignedWorkerId(uint64_t workerId) { assignedWorkerId = workerId; }
+    float getHarvestProgress() const { return harvestProgress; }
+    float getMaxHarvestProgress() const { return maxHarvestProgress; }
+    bool advanceHarvest(float dt) {
+        harvestProgress += dt;
+        return harvestProgress >= maxHarvestProgress;
+    }
+    void resetHarvest() {
+        harvestProgress = 0.0f;
+        harvestState = TreeHarvestState::Untouched;
+        assignedWorkerId = 0;
+    }
 };

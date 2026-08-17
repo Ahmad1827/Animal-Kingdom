@@ -183,6 +183,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
             continue;
         }
 
+
         if (ape.hasTravelDestination && ape.currentJob != Job::Builder && ape.currentJob != Job::CarryResource) {
             ape.currentJob = Job::March;
             float dist = ape.travelDestinationX - ape.worldX;

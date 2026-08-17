@@ -46,6 +46,17 @@ public:
         }
         return false;
     }
+
+    bool removeTreeNear(float worldX, float radius) {
+        auto it = std::remove_if(trees.begin(), trees.end(), [worldX, radius](const Tree& t) {
+            return std::abs(t.getTrunkCenter() - worldX) <= radius || t.getHarvestState() == TreeHarvestState::Harvested;
+        });
+        if (it != trees.end()) {
+            trees.erase(it, trees.end());
+            return true;
+        }
+        return false;
+    }
     RegionType getRegionType() const;
     ChunkPos getPos() const;
     sf::FloatRect getBounds() const;

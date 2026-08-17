@@ -178,7 +178,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     spouse.homeY = spouse.worldY;
     spouse.spouseId = founder.id;
     founder.spouseId = spouse.id;
-    spouse.currentJob = Job::Forage;
+    spouse.currentJob = Job::Idle;
 
     ApeData child = createRandomApe(worldSeed + 1002, dyn.id, pVillage.id, names, allTraits, worldSeed);
     child.name = "Tano";
@@ -218,7 +218,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     worker2.worldY = 500.0f;
     worker2.homeX = worker2.worldX;
     worker2.homeY = worker2.worldY;
-    worker2.currentJob = Job::Woodcutter;
+    worker2.currentJob = Job::Idle;
 
     founder.children.push_back(child.id);
     spouse.children.push_back(child.id);

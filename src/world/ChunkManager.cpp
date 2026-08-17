@@ -282,3 +282,13 @@ bool ChunkManager::harvestTree(int treeId) {
     }
     return false;
 }
+
+bool ChunkManager::harvestTreeNear(float worldX, float radius) {
+    bool anyRemoved = false;
+    for (auto& pair : getActiveChunks()) {
+        if (pair.second->removeTreeNear(worldX, radius)) {
+            anyRemoved = true;
+        }
+    }
+    return anyRemoved;
+}

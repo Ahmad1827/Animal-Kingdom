@@ -42,4 +42,5 @@ public:
     RegionType getCurrentRegion(float playerX) const;
     std::vector<Tree*> getNearbyTrees(float centerX, float radius);
     bool harvestTree(int treeId);
+    bool harvestTreeNear(float worldX, float radius);
 };

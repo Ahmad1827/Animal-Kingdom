@@ -1,5 +1,6 @@
 #include "world/NPCManager.h"
 #include <cmath>
+#include <iostream>
 
 NPCManager::NPCManager(sf::Texture& texture) : apeTexture(texture) {}
 
@@ -11,11 +12,8 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
         sim::ApeData& data = pair.second;
         if (!data.alive || data.id == controlledId) continue;
 
-        if (data.worldX >= preloadBounds.left && data.worldX <= preloadBounds.left + preloadBounds.width &&
-            data.worldY >= preloadBounds.top && data.worldY <= preloadBounds.top + preloadBounds.height) {
-            if (activeNPCs.find(data.id) == activeNPCs.end()) {
-                activeNPCs[data.id] = std::make_unique<NPCApe>(data.id, data.worldX, data.worldY, apeTexture);
-            }
+        if (activeNPCs.find(data.id) == activeNPCs.end()) {
+            activeNPCs[data.id] = std::make_unique<NPCApe>(data.id, data.worldX, data.worldY, apeTexture);
         }
     }
 
@@ -26,21 +24,15 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
             continue;
         }
 
-        sf::FloatRect bounds = it->second->getBounds();
-        if (bounds.left + bounds.width < unloadBounds.left || bounds.left > unloadBounds.left + unloadBounds.width ||
-            bounds.top + bounds.height < unloadBounds.top || bounds.top > unloadBounds.top + unloadBounds.height) {
-            it = activeNPCs.erase(it);
-        } else {
-            bool isKing = false;
-            if (data->currentKingdom != 0) {
-                sim::KingdomData* kd = simManager.getRegistry().getKingdom(data->currentKingdom);
-                if (kd && kd->currentKingId == data->id) isKing = true;
-            }
-
-            it->second->setVisualEquipment(data->equippedTool, data->carriedType, data->carriedAmount, isKing);
-            it->second->update(dt, data, worldManager, timeOfDay, simManager.getRegistry(), controlledId);
-            ++it;
+        bool isKing = false;
+        if (data->currentKingdom != 0) {
+            sim::KingdomData* kd = simManager.getRegistry().getKingdom(data->currentKingdom);
+            if (kd && kd->currentKingId == data->id) isKing = true;
         }
+
+        it->second->setVisualEquipment(data->equippedTool, data->carriedType, data->carriedAmount, isKing);
+        it->second->update(dt, data, worldManager, timeOfDay, simManager.getRegistry(), controlledId);
+        ++it;
     }
 }
 

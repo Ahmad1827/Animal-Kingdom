@@ -25,6 +25,10 @@ private:
     float workTimer;
     float woodcutLogTimer;
 
+    sf::Font nameFont;
+    sf::Text nameText;
+    bool fontLoaded;
+
     void determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId);
     void applyPhysics(float dt, WorldManager* worldManager);
     bool hasTrait(sim::ApeData* data, sim::Trait trait);

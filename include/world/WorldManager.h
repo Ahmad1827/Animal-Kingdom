@@ -40,4 +40,5 @@ public:
     ChunkManager* getChunkManager() const;
     std::vector<Tree*> getNearbyTrees(float centerX, float radius);
     bool harvestTree(int treeId);
+    bool harvestTreeNear(float worldX, float radius);
 };

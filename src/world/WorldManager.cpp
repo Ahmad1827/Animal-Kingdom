@@ -344,3 +344,7 @@ std::vector<Tree*> WorldManager::getNearbyTrees(float centerX, float radius) {
 bool WorldManager::harvestTree(int treeId) {
     return chunkManager ? chunkManager->harvestTree(treeId) : false;
 }
+
+bool WorldManager::harvestTreeNear(float worldX, float radius) {
+    return chunkManager ? chunkManager->harvestTreeNear(worldX, radius) : false;
+}

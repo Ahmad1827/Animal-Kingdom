@@ -151,7 +151,9 @@ void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBoun
 
     for (auto& tree : const_cast<std::vector<Tree>&>(trees)) {
         tree.update(1.0f / 60.0f);
-        if (tree.getBounds().intersects(viewBounds) || tree.getHarvestState() == TreeHarvestState::Falling) {
+        if (tree.getBounds().intersects(viewBounds) || 
+            tree.getHarvestState() == TreeHarvestState::Falling || 
+            tree.getHarvestState() == TreeHarvestState::Fading) {
             tree.drawGeometry(target, viewBounds, profiler);
             profiler.visibleTrees++;
         } else profiler.objectsCulled++;

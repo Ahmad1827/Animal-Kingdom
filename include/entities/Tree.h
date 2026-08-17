@@ -14,6 +14,7 @@ enum class TreeHarvestState {
     Targeted,
     BeingHarvested,
     Falling,
+    Fading,
     Harvested
 };
 
@@ -41,6 +42,8 @@ private:
     float fallAngle = 0.0f;
     float fallAngularVelocity = 0.0f;
     float fallDirection = 1.0f;
+    float fadeTimer = 0.0f;
+    static constexpr float maxFadeTime = 1.5f;
 
     void appendQuad(sf::VertexArray& mesh, const sf::FloatRect& rect, sf::Color color);
     void appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, float radius, sf::Color color);
@@ -79,6 +82,8 @@ public:
         harvestState = TreeHarvestState::Falling;
         fallDirection = (direction >= 0.0f) ? 1.0f : -1.0f;
         fallAngularVelocity = 15.0f * fallDirection;
+        fallAngle = 0.0f;
+        fadeTimer = 0.0f;
     }
     
     bool advanceHarvest(float dt) {
@@ -91,5 +96,6 @@ public:
         assignedWorkerId = 0;
         fallAngle = 0.0f;
         fallAngularVelocity = 0.0f;
+        fadeTimer = 0.0f;
     }
 };

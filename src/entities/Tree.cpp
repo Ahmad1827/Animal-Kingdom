@@ -114,7 +114,7 @@ void Tree::initDynamicMesh() {
 }
 
 void Tree::updateSway(float globalTime, const sf::Vector2f& windVector) {
-    if (dynamicMesh.getVertexCount() == 0 || harvestState == TreeHarvestState::Falling) return;
+    if (dynamicMesh.getVertexCount() == 0 || harvestState == TreeHarvestState::Falling || harvestState == TreeHarvestState::Fading) return;
 
     size_t vIdx = 0;
     
@@ -163,6 +163,12 @@ void Tree::update(float dt) {
 
         if (std::abs(fallAngle) >= 88.0f) {
             fallAngle = (fallDirection > 0.0f) ? 88.0f : -88.0f;
+            harvestState = TreeHarvestState::Fading;
+            fadeTimer = 0.0f;
+        }
+    } else if (harvestState == TreeHarvestState::Fading) {
+        fadeTimer += dt;
+        if (fadeTimer >= maxFadeTime) {
             harvestState = TreeHarvestState::Harvested;
         }
     }
@@ -181,7 +187,7 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBound
     if (harvestState == TreeHarvestState::Harvested) return;
 
     sf::Transform treeTransform;
-    if (harvestState == TreeHarvestState::Falling) {
+    if (harvestState == TreeHarvestState::Falling || harvestState == TreeHarvestState::Fading) {
         sf::Vector2f basePivot(getTrunkCenter(), trunkBounds.top + trunkBounds.height);
         treeTransform.rotate(fallAngle, basePivot);
     }
@@ -189,15 +195,34 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBound
     sf::RenderStates states;
     states.transform = treeTransform;
 
-    target.draw(trunkSprite, states);
+    sf::Uint8 alpha = 255;
+    if (harvestState == TreeHarvestState::Fading) {
+        float factor = 1.0f - std::clamp(fadeTimer / maxFadeTime, 0.0f, 1.0f);
+        alpha = static_cast<sf::Uint8>(255 * factor);
+    }
+
+    sf::Sprite drawnTrunk = trunkSprite;
+    drawnTrunk.setColor(sf::Color(255, 255, 255, alpha));
+    target.draw(drawnTrunk, states);
     profiler.drawCalls++;
     
     for (const auto& bs : branchSprites) {
-        target.draw(bs, states);
+        sf::Sprite drawnBranch = bs;
+        drawnBranch.setColor(sf::Color(255, 255, 255, alpha));
+        target.draw(drawnBranch, states);
         profiler.drawCalls++;
     }
+
     if (dynamicMesh.getVertexCount() > 0) {
-        target.draw(dynamicMesh, states);
+        if (harvestState == TreeHarvestState::Fading) {
+            sf::VertexArray fadedMesh = dynamicMesh;
+            for (size_t i = 0; i < fadedMesh.getVertexCount(); ++i) {
+                fadedMesh[i].color.a = static_cast<sf::Uint8>(fadedMesh[i].color.a * (alpha / 255.f));
+            }
+            target.draw(fadedMesh, states);
+        } else {
+            target.draw(dynamicMesh, states);
+        }
         profiler.drawCalls++;
     }
 

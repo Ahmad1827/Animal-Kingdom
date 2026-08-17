@@ -1116,8 +1116,15 @@ void PlayState::update(float dt) {
     // SYNC TO SIMULATION CLOCK
     if (audioManager) audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), simulationManager->getClock().getTimeOfDay());
     
-    lightingManager->update(dt, cameraManager->getView(), simulationManager->getClock().getTimeOfDay(), weatherManager->getFogDensity());
-
+    bool isStorming = (weatherManager->getWeatherString() == "Storming");
+    lightingManager->update(
+        dt, 
+        cameraManager->getView(), 
+        simulationManager->getClock().getTimeOfDay(), 
+        weatherManager->getFogDensity(), 
+        weatherManager->getRainIntensity(), 
+        isStorming
+    );
     background->update(
         cameraManager->getViewBounds().left + cameraManager->getViewBounds().width / 2.f,
         cameraManager->getViewBounds().top + cameraManager->getViewBounds().height / 2.f,

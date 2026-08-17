@@ -1,0 +1,142 @@
+[33m74ce475[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{0}: reset: moving to HEAD~1
+[33m0e29f32[m HEAD@{1}: reset: moving to HEAD~1
+[33m5c78495[m[33m ([m[1;31morigin/main[m[33m)[m HEAD@{2}: commit: work on generation 2
+[33m0e29f32[m HEAD@{3}: commit: work on generation 1
+[33m74ce475[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m HEAD@{4}: commit: work on lightning 1
+[33mca7d7e3[m HEAD@{5}: commit: UI pop up fix
+[33m0d86e78[m HEAD@{6}: commit: work on tree cut 4
+[33md8f7ff0[m HEAD@{7}: commit: work on tree cut 3
+[33m50a82a2[m HEAD@{8}: commit: work on tree cut 2
+[33me22ddbe[m HEAD@{9}: commit: work on tree cut 1
+[33m9b46da4[m HEAD@{10}: commit: fix npcApe
+[33m6af5976[m HEAD@{11}: commit: FINALLY tree deletion works
+[33m1a56ecf[m HEAD@{12}: commit: ape identification
+[33m1d6f88d[m HEAD@{13}: commit: worked on the workers 3
+[33md6c8c3d[m HEAD@{14}: commit: worked on the workers 2
+[33m0793cf5[m HEAD@{15}: commit: worked on the workers
+[33m9ee0d49[m HEAD@{16}: commit: fix build speed
+[33mbff7718[m HEAD@{17}: commit: fix tree timing
+[33mda390bd[m HEAD@{18}: commit: build initial logic
+[33mf117203[m HEAD@{19}: commit: fix cut tree
+[33ma8474c0[m HEAD@{20}: commit: cut tree logic
+[33m9966378[m HEAD@{21}: commit: base UI 2
+[33mf431cf2[m HEAD@{22}: commit: base UI 1
+[33mc837347[m HEAD@{23}: commit: mouse fix
+[33mf3f6b90[m HEAD@{24}: commit: improved politics UI
+[33macbd98e[m HEAD@{25}: commit: faction logic
+[33mceaec96[m HEAD@{26}: commit: politics simulation implemented
+[33m43c8fc3[m HEAD@{27}: commit: politics simulation logic
+[33m448aa7e[m HEAD@{28}: commit: fix flat ground
+[33md435e0e[m HEAD@{29}: commit: flat ground
+[33m5952e25[m HEAD@{30}: commit: new resolution for placeholders and positioning
+[33md98c6d9[m HEAD@{31}: commit: new background placeholders
+[33m4850873[m HEAD@{32}: commit: change background layers
+[33mc20f8a0[m HEAD@{33}: commit: fix npc animations
+[33mc0cd766[m HEAD@{34}: commit: sun and moon implemented
+[33m713a7b6[m HEAD@{35}: commit: sun and moon logic
+[33m1036e0a[m HEAD@{36}: commit: changed for better placeholder for npc
+[33mcfd693a[m HEAD@{37}: commit: changed for improved placeholder ape 2
+[33mdd0a86b[m HEAD@{38}: commit: changed for improved placeholder ape
+[33m0678e79[m HEAD@{39}: commit: conversation impacts environment 5
+[33m72b04ee[m HEAD@{40}: commit: conversation impacts environment 4
+[33m9ba3604[m HEAD@{41}: commit: conversation impacts environment 3
+[33m5bff17e[m HEAD@{42}: commit: conversation impacts environment 2
+[33m7cf0392[m HEAD@{43}: commit: conversation impacts environment 1
+[33mdc68611[m HEAD@{44}: commit: conversation impacts opinions 3
+[33meb34f83[m HEAD@{45}: commit: conversation impacts opinions 2
+[33m9e72ae5[m HEAD@{46}: commit: conversation impacts opinions 1
+[33m91bff61[m HEAD@{47}: commit: profile 1
+[33m6e37eac[m HEAD@{48}: commit: improved dialogue 3
+[33m34ca105[m HEAD@{49}: commit: improved dialogue 2
+[33m93351e1[m HEAD@{50}: commit: improved dialogue
+[33mbc53cad[m HEAD@{51}: commit: integrating profile into map 3
+[33m66da758[m HEAD@{52}: commit: integrating profile into map 2
+[33md2e5b44[m HEAD@{53}: commit: integrating profile into map 1
+[33m2885e3e[m HEAD@{54}: commit: map selection kingdom
+[33m16fbb43[m HEAD@{55}: commit: improved map 1
+[33m22ea59a[m HEAD@{56}: commit: transformed map into minimap
+[33m89b7e87[m HEAD@{57}: commit: known world map logic
+[33mae9084f[m HEAD@{58}: commit: profile 2
+[33m5f08720[m HEAD@{59}: commit: profile start
+[33m3652b6b[m HEAD@{60}: commit: improved meeting dialogue
+[33m870feb7[m HEAD@{61}: commit: representative coming
+[33mdda7a3b[m HEAD@{62}: commit: final update text
+[33mf9f61b3[m HEAD@{63}: commit: text update 1
+[33m0d62a16[m HEAD@{64}: commit: fix meeting panel
+[33md361eb0[m HEAD@{65}: reset: moving to HEAD
+[33md361eb0[m HEAD@{66}: commit: meeting 3
+[33m57010b1[m HEAD@{67}: commit: fix border highlight movement
+[33m4078002[m HEAD@{68}: commit: meeting 2
+[33mc42305d[m HEAD@{69}: commit: meeting 1
+[33md728eb7[m HEAD@{70}: commit: final fix border
+[33ma42c07a[m HEAD@{71}: commit: fix border static
+[33m5bfed1f[m HEAD@{72}: commit: fix inter
+[33m4cdb0c6[m HEAD@{73}: commit: kingdom interactions logic
+[33m9a87169[m HEAD@{74}: commit: border fix
+[33m8d03faa[m HEAD@{75}: commit: fix border 1
+[33mfc8634a[m HEAD@{76}: commit: fix king interaction
+[33m604a2e7[m HEAD@{77}: commit: fix display border totem
+[33me39a759[m HEAD@{78}: commit: border and king logic implemented
+[33m3a0261b[m HEAD@{79}: commit: border logic added
+[33m5d52f90[m HEAD@{80}: commit: king info update
+[33m1e5ec50[m HEAD@{81}: commit: fix text render and position
+[33m21fb892[m HEAD@{82}: commit: more info table
+[33m89d3bf2[m HEAD@{83}: commit: info table
+[33m2560e1d[m HEAD@{84}: commit: final bonfire interaction
+[33m86ccde4[m HEAD@{85}: commit: further interactions
+[33m59faf1c[m HEAD@{86}: commit: added info screen
+[33md760933[m HEAD@{87}: commit: working logic
+[33m4f6892f[m HEAD@{88}: commit: further develop kingdom
+[33m7420060[m HEAD@{89}: commit: text added
+[33m19c82d7[m HEAD@{90}: commit: physical borders added
+[33m7ec8d0f[m HEAD@{91}: commit: physical representation
+[33m535dacd[m HEAD@{92}: commit: work on implementing real features 1
+[33mfca001f[m HEAD@{93}: commit: screen implementation 1
+[33ma9c52ca[m HEAD@{94}: commit: warfare implmented 2
+[33m38a1046[m HEAD@{95}: commit: warfare implemented 1
+[33m1c3cd80[m HEAD@{96}: commit: warfare logic
+[33m3d0afd7[m HEAD@{97}: commit: kingdom creation possibility
+[33m9b3e3d4[m HEAD@{98}: commit: history logic
+[33m7d30855[m HEAD@{99}: commit: advanced npc interactions with world
+[33me56841d[m HEAD@{100}: reset: moving to HEAD
+[33me56841d[m HEAD@{101}: commit: time fix 2
+[33m30e2d94[m HEAD@{102}: commit: time fix
+[33m0aa36b4[m HEAD@{103}: commit: NPC 1
+[33mcf82c42[m HEAD@{104}: commit: debug info
+[33m910d922[m HEAD@{105}: commit: grouping apes
+[33ma50f91a[m HEAD@{106}: commit: partial swing fix
+[33m074f691[m HEAD@{107}: commit: dynasty logic start
+[33m06967bb[m HEAD@{108}: commit: advance AI 1
+[33m862fbf2[m HEAD@{109}: commit: AI start
+[33m94d5b29[m HEAD@{110}: commit: simulation logic implemented
+[33mf077a07[m HEAD@{111}: commit: remove bad lightning
+[33ma67606e[m HEAD@{112}: commit: crt shader
+[33m49fddec[m HEAD@{113}: commit: advanced graphics start
+[33m04a5af3[m HEAD@{114}: commit: hand + climb + swing final fix
+[33m1f9473d[m HEAD@{115}: commit: hang fix 1
+[33md79b921[m HEAD@{116}: commit: climb fix
+[33m60d7244[m HEAD@{117}: commit: hang fix 1
+[33md2ae830[m HEAD@{118}: commit: swing fix (final for now)
+[33m1326911[m HEAD@{119}: commit: fix swing
+[33m0a8bdb4[m HEAD@{120}: commit: partial fix hang and swing 2
+[33m3897ffa[m HEAD@{121}: commit: partial fix hang and swing
+[33md32ac4d[m HEAD@{122}: commit: vine swinging (partial 1)
+[33m964f47c[m HEAD@{123}: commit: vine fix
+[33maee4fb3[m HEAD@{124}: commit: vine addition
+[33m94a6bfe[m HEAD@{125}: commit: landing normal
+[33m94dc4cf[m HEAD@{126}: commit: heavy landing
+[33maf7de9d[m HEAD@{127}: commit: environment change 1
+[33m68fea1a[m HEAD@{128}: commit: fix twitch on branch
+[33mc56029c[m HEAD@{129}: commit: partial hanging and swinging feature
+[33mf1853b6[m HEAD@{130}: commit: fix walk
+[33ma1bdc93[m HEAD@{131}: commit: succesfully put placeholder animations for the monkey using another tool of mine (spritesheetfixer integrated in another project of mine wisdomPark)
+[33m6e75e83[m HEAD@{132}: commit: Animation for player (not finished)
+[33m3d0810d[m HEAD@{133}: commit: README update
+[33ma704d0a[m HEAD@{134}: commit: fixed jittery background
+[33m0a1ddaf[m HEAD@{135}: commit: placeholder art + parallax
+[33mf83a1a0[m HEAD@{136}: commit: ready for real art
+[33me57c88d[m HEAD@{137}: commit: game atmosphere and engine developed
+[33mb7c596f[m HEAD@{138}: commit: optimization partially
+[33mdbb2e32[m HEAD@{139}: commit: world generator partially working
+[33mbbb791c[m HEAD@{140}: Branch: renamed refs/heads/master to refs/heads/main
+[33mbbb791c[m HEAD@{142}: commit (initial): first commit: infinite world - trees, ape and basic mechanics

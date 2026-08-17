@@ -388,7 +388,7 @@ void PlayState::processEvents(const sf::Event& event) {
 void PlayState::update(float dt) {
     static float targetRefreshTimer = 0.f;
     targetRefreshTimer += dt;
-    if (targetRefreshTimer >= 0.5f && !interactionManager.isInteracting() && !isDialogueActive) {
+    if (targetRefreshTimer >= 0.15f && !interactionManager.isInteracting() && !isDialogueActive) {
         targetRefreshTimer = 0.f;
         refreshInteractionTargets();
     }
@@ -1745,47 +1745,16 @@ void PlayState::refreshInteractionTargets() {
     sim::ApeData* controlledApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     if (pVillage && controlledApe && worldManager) {
         float playerX = controlledApe->worldX;
-
-        std::vector<Tree*> candidateTrees = worldManager->getNearbyTrees(playerX, 2000.f);
-
-        Tree* nearestLeft = nullptr;
-        float minLeftDist = std::numeric_limits<float>::max();
-
-        Tree* nearestRight = nullptr;
-        float minRightDist = std::numeric_limits<float>::max();
+        std::vector<Tree*> candidateTrees = worldManager->getNearbyTrees(playerX, 160.f);
 
         for (Tree* tree : candidateTrees) {
-            if (!tree) continue;
-            if (tree->getHarvestState() == TreeHarvestState::Harvested) continue;
+            if (!tree || tree->getHarvestState() == TreeHarvestState::Harvested) continue;
 
             float tx = tree->getTrunkCenter();
-
             if (tx < pVillage->borderMinX || tx > pVillage->borderMaxX) continue;
 
-            float dist = std::abs(playerX - tx);
-
-            if (tx <= playerX) {
-                if (dist < minLeftDist) {
-                    minLeftDist = dist;
-                    nearestLeft = tree;
-                }
-            } else {
-                if (dist < minRightDist) {
-                    minRightDist = dist;
-                    nearestRight = tree;
-                }
-            }
-        }
-
-        if (nearestLeft) {
             interactionManager.registerTarget(std::make_shared<TreeHarvestInteractionTarget>(
-                nearestLeft, pVillage->id, simulationManager->getRegistry(), worldManager.get()
-            ));
-        }
-
-        if (nearestRight) {
-            interactionManager.registerTarget(std::make_shared<TreeHarvestInteractionTarget>(
-                nearestRight, pVillage->id, simulationManager->getRegistry(), worldManager.get()
+                tree, pVillage->id, simulationManager->getRegistry(), worldManager.get()
             ));
         }
     }

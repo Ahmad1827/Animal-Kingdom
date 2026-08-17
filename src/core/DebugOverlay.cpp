@@ -1,4 +1,5 @@
 #include "core/DebugOverlay.h"
+#include "world/Biome.h"
 #include <sstream>
 #include <iomanip>
 #include <cmath>
@@ -49,7 +50,18 @@ void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32
         ss << std::fixed << std::setprecision(2);
         ss << "--- PERFORMANCE PROFILER (F10) ---\nFPS: " << profiler.fps << " | Frame: " << profiler.frameTime << " ms\n";
     } else {
-        ss << "FPS: " << static_cast<int>(profiler.fps) << "\nPos: " << static_cast<int>(px) << ", " << static_cast<int>(py) << "\nChunk: " << chunkIdx << " | Region: " << region << "\n";
+        EnvironmentalMetrics m = Biome::getMetrics(px, seed);
+        BiomeWeights bw = Biome::getWeights(px, seed);
+
+        ss << std::fixed << std::setprecision(2);
+        ss << "FPS: " << static_cast<int>(profiler.fps) << "\n";
+        ss << "Pos: " << static_cast<int>(px) << ", " << static_cast<int>(py) << "\n";
+        ss << "Chunk: " << chunkIdx << " | Dominant: " << region << "\n";
+        ss << "--- ECOSYSTEM FIELDS ---\n";
+        ss << "Moist: " << m.moisture << " | Temp: " << m.temperature << " | Elev: " << m.elevation << " | Fert: " << m.fertility << "\n";
+        ss << "--- BIOME BLEND WEIGHTS ---\n";
+        ss << "Jungle: " << bw.get(BiomeType::Jungle) << " | Field: " << bw.get(BiomeType::Field) << "\n";
+        ss << "Desert: " << bw.get(BiomeType::Desert) << " | Hills: " << bw.get(BiomeType::Hills) << "\n";
     }
     debugText.setString(ss.str());
 }

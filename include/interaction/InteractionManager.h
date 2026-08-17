@@ -24,6 +24,8 @@ private:
     float interactionTransitionTimer;
     const float transitionDuration = 0.5f;
 
+    sf::Vector2f lastPlayerPos;
+
     float getEase() const;
 
 public:

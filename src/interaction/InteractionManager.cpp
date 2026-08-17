@@ -5,8 +5,12 @@
 InteractionManager::InteractionManager() 
     : currentPromptTarget(nullptr), activeTarget(nullptr), 
       isMenuOpen(false), isClosing(false), selectedMenuIndex(0), fontLoaded(false),
-      preInteractionCenter(0.f, 0.f), preInteractionZoom(1.f), interactionTransitionTimer(0.f) {
-    fontLoaded = menuFont.loadFromFile("font.ttf");
+      preInteractionCenter(0.f, 0.f), preInteractionZoom(1.f), interactionTransitionTimer(0.f),
+      lastPlayerPos(0.f, 0.f) {
+    fontLoaded = menuFont.loadFromFile("font.ttf") ||
+                 menuFont.loadFromFile("assets/fonts/font.ttf") ||
+                 menuFont.loadFromFile("assets/fonts/PressStart2P-Regular.ttf") ||
+                 menuFont.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
 }
 
 void InteractionManager::registerTarget(std::shared_ptr<InteractionTarget> target) {
@@ -30,6 +34,8 @@ float InteractionManager::getEase() const {
 }
 
 void InteractionManager::update(float dt, const sf::Vector2f& playerPos, CameraManager& cameraManager) {
+    lastPlayerPos = playerPos;
+
     if (isMenuOpen || isClosing) {
         if (isClosing) {
             interactionTransitionTimer -= dt;
@@ -53,22 +59,19 @@ void InteractionManager::update(float dt, const sf::Vector2f& playerPos, CameraM
     }
 
     std::shared_ptr<InteractionTarget> bestTarget = nullptr;
-    float closestDistSq = 140.0f * 140.0f; 
-    int highestPriority = -999;
+    float closestDistSq = 125.0f * 125.0f;
 
     for (const auto& target : targets) {
         if (!target->canInteract()) continue;
 
         sf::Vector2f pos = target->getInteractionPosition();
-        float distSq = std::pow(pos.x - playerPos.x, 2) + std::pow(pos.y - playerPos.y, 2);
+        float dx = pos.x - playerPos.x;
+        float dy = pos.y - playerPos.y;
+        float distSq = (dx * dx) + (dy * dy);
 
-        if (distSq <= closestDistSq) {
-            int prio = target->getPriority();
-            if (prio > highestPriority || (prio == highestPriority && distSq < closestDistSq)) {
-                highestPriority = prio;
-                closestDistSq = distSq;
-                bestTarget = target;
-            }
+        if (distSq < closestDistSq) {
+            closestDistSq = distSq;
+            bestTarget = target;
         }
     }
 
@@ -131,53 +134,63 @@ void InteractionManager::draw(sf::RenderWindow& window) {
 
     if (!isMenuOpen && !isClosing && currentPromptTarget) {
         sf::Vector2f worldPos = currentPromptTarget->getInteractionPosition();
-        sf::Vector2i screenPos = window.mapCoordsToPixel(worldPos, originalView);
+        
+        sf::Vector2f promptWorldPos = worldPos;
+        float targetElevatedY = (worldPos.y >= 450.f) ? (worldPos.y - 120.f) : (worldPos.y - 40.f);
+        promptWorldPos.y = std::min(targetElevatedY, lastPlayerPos.y - 75.f);
+
+        sf::Vector2i screenPos = window.mapCoordsToPixel(promptWorldPos, originalView);
 
         std::string rawTitle = currentPromptTarget->getInteractionTitle();
 
-        sf::Text titleText(rawTitle, menuFont, 12);
-        titleText.setFillColor(sf::Color(245, 215, 120));
-        titleText.setStyle(sf::Text::Bold);
-
-        sf::Text keyText("[ E ]", menuFont, 11);
-        keyText.setFillColor(sf::Color(255, 255, 255));
+        sf::Text keyText("[E]", menuFont, 9);
+        keyText.setFillColor(sf::Color(255, 235, 170));
         keyText.setStyle(sf::Text::Bold);
 
-        sf::FloatRect tb = titleText.getLocalBounds();
+        sf::Text titleText(rawTitle, menuFont, 9);
+        titleText.setFillColor(sf::Color(240, 225, 190));
+        titleText.setStyle(sf::Text::Bold);
+
         sf::FloatRect kb = keyText.getLocalBounds();
+        sf::FloatRect tb = titleText.getLocalBounds();
 
-        float boxW = std::max(tb.width + 42.f, 150.f);
-        float boxH = 44.f;
+        float pillPaddingX = 7.f;
+        float spacing = 5.f;
+        float iconSize = 5.f;
+        float pillW = pillPaddingX * 2.f + iconSize + spacing + tb.width + spacing + kb.width + 6.f;
+        float pillH = 18.f;
 
-        sf::RectangleShape woodBorder(sf::Vector2f(boxW + 6.f, boxH + 6.f));
-        woodBorder.setOrigin((boxW + 6.f) / 2.f, (boxH + 6.f) / 2.f);
-        woodBorder.setPosition(static_cast<float>(screenPos.x), static_cast<float>(screenPos.y - 45.f));
-        woodBorder.setFillColor(sf::Color(45, 30, 18));
-        woodBorder.setOutlineColor(sf::Color(15, 10, 5));
-        woodBorder.setOutlineThickness(1.5f);
-        window.draw(woodBorder);
+        float promptX = static_cast<float>(screenPos.x);
+        float promptY = static_cast<float>(screenPos.y);
 
-        sf::RectangleShape promptBg(sf::Vector2f(boxW, boxH));
-        promptBg.setOrigin(boxW / 2.f, boxH / 2.f);
-        promptBg.setPosition(woodBorder.getPosition());
-        promptBg.setFillColor(sf::Color(28, 20, 14, 240));
-        promptBg.setOutlineColor(sf::Color(175, 135, 65));
-        promptBg.setOutlineThickness(1.5f);
-        window.draw(promptBg);
+        sf::RectangleShape pillBg(sf::Vector2f(pillW, pillH));
+        pillBg.setOrigin(pillW / 2.f, pillH / 2.f);
+        pillBg.setPosition(promptX, promptY);
+        pillBg.setFillColor(sf::Color(20, 14, 10, 225));
+        pillBg.setOutlineColor(sf::Color(175, 135, 65, 230));
+        pillBg.setOutlineThickness(1.f);
+        window.draw(pillBg);
 
-        sf::CircleShape crest(4.f, 4);
-        crest.setOrigin(4.f, 4.f);
-        crest.setPosition(promptBg.getPosition().x - boxW / 2.f + 14.f, promptBg.getPosition().y - 8.f);
-        crest.setFillColor(sf::Color(215, 175, 75));
-        window.draw(crest);
+        float leftX = promptX - pillW / 2.f + pillPaddingX;
 
-        titleText.setPosition(promptBg.getPosition().x - boxW / 2.f + 24.f, promptBg.getPosition().y - 16.f);
+        sf::CircleShape icon(2.5f, 4);
+        icon.setOrigin(2.5f, 2.5f);
+        icon.setPosition(leftX + 2.5f, promptY);
+        icon.setFillColor(sf::Color(225, 175, 55));
+        window.draw(icon);
+
+        titleText.setOrigin(tb.left, tb.top + tb.height / 2.f);
+        titleText.setPosition(leftX + iconSize + spacing, promptY);
         window.draw(titleText);
 
-        sf::RectangleShape keyBadge(sf::Vector2f(kb.width + 12.f, 16.f));
-        keyBadge.setOrigin((kb.width + 12.f) / 2.f, 8.f);
-        keyBadge.setPosition(promptBg.getPosition().x, promptBg.getPosition().y + 8.f);
-        keyBadge.setFillColor(sf::Color(65, 45, 26));
+        float keyBadgeW = kb.width + 5.f;
+        float keyBadgeH = 12.f;
+        float keyBadgeX = leftX + iconSize + spacing + tb.width + spacing + keyBadgeW / 2.f;
+
+        sf::RectangleShape keyBadge(sf::Vector2f(keyBadgeW, keyBadgeH));
+        keyBadge.setOrigin(keyBadgeW / 2.f, keyBadgeH / 2.f);
+        keyBadge.setPosition(keyBadgeX, promptY);
+        keyBadge.setFillColor(sf::Color(55, 38, 22, 240));
         keyBadge.setOutlineColor(sf::Color(140, 105, 50));
         keyBadge.setOutlineThickness(1.f);
         window.draw(keyBadge);

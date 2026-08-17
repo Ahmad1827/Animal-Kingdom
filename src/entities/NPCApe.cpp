@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <iostream>
+#include <limits>
 
 NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture) 
     : simId(id), physicalApe(x, y, texture, false), stateTimer(0.f), intendedMoveX(0.f), 
@@ -369,12 +370,36 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
             workTimer += dt;
             if (workTimer >= 5.0f) {
                 float fallDir = (myX < destX) ? 1.0f : -1.0f;
+                int targetTreeId = static_cast<int>(data->currentTargetNode);
 
-                std::vector<Tree*> nearby = worldManager->getNearbyTrees(destX, 200.f);
+                std::vector<Tree*> nearby = worldManager->getNearbyTrees(destX, 300.f);
+                Tree* targetTree = nullptr;
+                float minDist = std::numeric_limits<float>::max();
+
                 for (Tree* t : nearby) {
-                    if (t && t->getHarvestState() != TreeHarvestState::Harvested && t->getHarvestState() != TreeHarvestState::Falling) {
-                        t->startFalling(fallDir);
+                    if (!t || t->getHarvestState() == TreeHarvestState::Harvested || t->getHarvestState() == TreeHarvestState::Falling) {
+                        continue;
                     }
+
+                    if (targetTreeId != 0 && t->getId() == targetTreeId) {
+                        targetTree = t;
+                        break;
+                    }
+
+                    if (t->getHarvestState() == TreeHarvestState::Targeted) {
+                        targetTree = t;
+                        break;
+                    }
+
+                    float d = std::abs(t->getTrunkCenter() - destX);
+                    if (d < minDist) {
+                        minDist = d;
+                        targetTree = t;
+                    }
+                }
+
+                if (targetTree) {
+                    targetTree->startFalling(fallDir);
                 }
 
                 data->currentJob = sim::Job::Idle;
@@ -383,7 +408,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
                 workTimer = 0.f;
                 physicalApe.setState(ApeState::Grounded);
 
-                std::cout << "[WOODCUT SUCCESS] " << data->name << " finished chopping! Tree is falling." << std::endl << std::flush;
+                std::cout << "[WOODCUT SUCCESS] " << data->name << " finished chopping! Selected tree is falling." << std::endl << std::flush;
                 return;
             }
         }

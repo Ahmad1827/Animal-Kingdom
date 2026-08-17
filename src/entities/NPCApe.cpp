@@ -368,13 +368,14 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
 
             workTimer += dt;
             if (workTimer >= 5.0f) {
-                int targetTreeId = static_cast<int>(data->currentTargetNode);
+                float fallDir = (myX < destX) ? 1.0f : -1.0f;
 
-                if (targetTreeId != 0) {
-                    worldManager->harvestTree(targetTreeId);
+                std::vector<Tree*> nearby = worldManager->getNearbyTrees(destX, 200.f);
+                for (Tree* t : nearby) {
+                    if (t && t->getHarvestState() != TreeHarvestState::Harvested && t->getHarvestState() != TreeHarvestState::Falling) {
+                        t->startFalling(fallDir);
+                    }
                 }
-                worldManager->harvestTreeNear(destX, 200.f);
-                worldManager->harvestTreeNear(myX, 200.f);
 
                 data->currentJob = sim::Job::Idle;
                 data->currentTargetNode = 0;
@@ -382,7 +383,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
                 workTimer = 0.f;
                 physicalApe.setState(ApeState::Grounded);
 
-                std::cout << "[WOODCUT SUCCESS] " << data->name << " finished chopping after 5s! Tree removed." << std::endl << std::flush;
+                std::cout << "[WOODCUT SUCCESS] " << data->name << " finished chopping! Tree is falling." << std::endl << std::flush;
                 return;
             }
         }

@@ -13,6 +13,7 @@ enum class TreeHarvestState {
     Untouched,
     Targeted,
     BeingHarvested,
+    Falling,
     Harvested
 };
 
@@ -36,6 +37,10 @@ private:
     float harvestProgress = 0.0f;
     static constexpr float maxHarvestProgress = 10.0f;
     uint64_t assignedWorkerId = 0;
+
+    float fallAngle = 0.0f;
+    float fallAngularVelocity = 0.0f;
+    float fallDirection = 1.0f;
 
     void appendQuad(sf::VertexArray& mesh, const sf::FloatRect& rect, sf::Color color);
     void appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, float radius, sf::Color color);
@@ -69,6 +74,13 @@ public:
     void setAssignedWorkerId(uint64_t workerId) { assignedWorkerId = workerId; }
     float getHarvestProgress() const { return harvestProgress; }
     float getMaxHarvestProgress() const { return maxHarvestProgress; }
+    
+    void startFalling(float direction = 1.0f) {
+        harvestState = TreeHarvestState::Falling;
+        fallDirection = (direction >= 0.0f) ? 1.0f : -1.0f;
+        fallAngularVelocity = 15.0f * fallDirection;
+    }
+    
     bool advanceHarvest(float dt) {
         harvestProgress += dt;
         return harvestProgress >= maxHarvestProgress;
@@ -77,5 +89,7 @@ public:
         harvestProgress = 0.0f;
         harvestState = TreeHarvestState::Untouched;
         assignedWorkerId = 0;
+        fallAngle = 0.0f;
+        fallAngularVelocity = 0.0f;
     }
 };

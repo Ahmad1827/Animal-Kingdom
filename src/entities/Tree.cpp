@@ -114,7 +114,7 @@ void Tree::initDynamicMesh() {
 }
 
 void Tree::updateSway(float globalTime, const sf::Vector2f& windVector) {
-    if (dynamicMesh.getVertexCount() == 0) return;
+    if (dynamicMesh.getVertexCount() == 0 || harvestState == TreeHarvestState::Falling) return;
 
     size_t vIdx = 0;
     
@@ -156,25 +156,48 @@ void Tree::disturbVines(const sf::FloatRect& bounds, float velocityX) {
     }
 }
 
-void Tree::update(float dt) {}
+void Tree::update(float dt) {
+    if (harvestState == TreeHarvestState::Falling) {
+        fallAngularVelocity += 140.0f * fallDirection * dt;
+        fallAngle += fallAngularVelocity * dt;
+
+        if (std::abs(fallAngle) >= 88.0f) {
+            fallAngle = (fallDirection > 0.0f) ? 88.0f : -88.0f;
+            harvestState = TreeHarvestState::Harvested;
+        }
+    }
+}
+
 void Tree::draw(sf::RenderTarget& target) const {} 
 
 void Tree::drawCanopy(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
+    if (harvestState == TreeHarvestState::Harvested) return;
     target.draw(dynamicMesh);
     profiler.objectsRendered++;
     profiler.drawCalls++;
 }
 
 void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
-    target.draw(trunkSprite);
+    if (harvestState == TreeHarvestState::Harvested) return;
+
+    sf::Transform treeTransform;
+    if (harvestState == TreeHarvestState::Falling) {
+        sf::Vector2f basePivot(getTrunkCenter(), trunkBounds.top + trunkBounds.height);
+        treeTransform.rotate(fallAngle, basePivot);
+    }
+
+    sf::RenderStates states;
+    states.transform = treeTransform;
+
+    target.draw(trunkSprite, states);
     profiler.drawCalls++;
     
     for (const auto& bs : branchSprites) {
-        target.draw(bs);
+        target.draw(bs, states);
         profiler.drawCalls++;
     }
     if (dynamicMesh.getVertexCount() > 0) {
-        target.draw(dynamicMesh);
+        target.draw(dynamicMesh, states);
         profiler.drawCalls++;
     }
 

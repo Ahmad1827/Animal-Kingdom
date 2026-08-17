@@ -12,13 +12,24 @@ NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture)
     baseSpeedMultiplier = 1.0f;
     personalOffset = ((id * 37) % 100) - 50.f; 
 
-    if (nameFont.loadFromFile("assets/fonts/PressStart2P-Regular.ttf") ||
-        nameFont.loadFromFile("assets/fonts/font.ttf") ||
-        nameFont.loadFromFile("assets/fonts/Cinzel-Regular.ttf") ||
-        nameFont.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")) {
+    static sf::Font sharedFont;
+    static bool sharedFontLoaded = false;
+    static bool fontAttempted = false;
+
+    if (!fontAttempted) {
+        fontAttempted = true;
+        if (sharedFont.loadFromFile("assets/fonts/PressStart2P-Regular.ttf") ||
+            sharedFont.loadFromFile("assets/fonts/font.ttf") ||
+            sharedFont.loadFromFile("assets/fonts/Cinzel-Regular.ttf") ||
+            sharedFont.loadFromFile("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")) {
+            sharedFontLoaded = true;
+        }
+    }
+
+    if (sharedFontLoaded) {
         fontLoaded = true;
-        nameText.setFont(nameFont);
-        nameText.setCharacterSize(11);
+        nameText.setFont(sharedFont);
+        nameText.setCharacterSize(10);
         nameText.setFillColor(sf::Color::Yellow);
         nameText.setOutlineColor(sf::Color::Black);
         nameText.setOutlineThickness(1.5f);
@@ -36,7 +47,8 @@ void NPCApe::fireAudioHook(const std::string& soundEvent) {
 }
 
 void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId) {
-    if (data->currentJob == sim::Job::Woodcutter) {
+    // If sent to harvest, don't execute normal wander AI
+    if (data->currentJob == sim::Job::Woodcutter || data->currentTargetNode != 0) {
         return;
     }
 
@@ -125,22 +137,19 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
         nameText.setPosition(bounds.left + bounds.width / 2.f, bounds.top - 8.f);
     }
 
-    if (data->currentJob == sim::Job::Woodcutter && worldManager) {
+    // Bulletproof trigger: Even if JobSystem clears the Woodcutter job, targetNode survives.
+    bool isHarvestingMission = (data->currentJob == sim::Job::Woodcutter || data->currentTargetNode != 0);
+
+    if (isHarvestingMission && data->hasTravelDestination && worldManager) {
         float myX = physicalApe.getPosition().x;
-        float destX = (data->travelDestinationX != 0.f) ? data->travelDestinationX : myX;
+        float destX = data->travelDestinationX;
         float distToDest = std::abs(myX - destX);
 
-        woodcutLogTimer += dt;
-        if (woodcutLogTimer >= 0.5f) {
-            woodcutLogTimer = 0.f;
-            std::cout << "[WOODCUTTER " << data->id << " (" << data->name << ")] CurrentX=" 
-                      << myX << " | TargetTreeX=" << destX << " | Dist=" << distToDest << std::endl << std::flush;
-        }
-
-        if (distToDest > 80.f) {
+        if (distToDest > 120.f) {
             physicalApe.setState(ApeState::Grounded);
             intendedMoveX = (myX < destX) ? 1.f : -1.f;
         } else {
+            // Worker has arrived -> Nuke the tree instantly
             intendedMoveX = 0.f;
             physicalApe.setVelocity(0.f, 0.f);
 
@@ -149,15 +158,18 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
             if (targetTreeId != 0) {
                 worldManager->harvestTree(targetTreeId);
             }
-            worldManager->harvestTreeNear(destX, 150.f);
-            worldManager->harvestTreeNear(myX, 150.f);
+            
+            // Redundancy: Delete anything near the arrival point
+            worldManager->harvestTreeNear(destX, 200.f);
+            worldManager->harvestTreeNear(myX, 200.f);
 
+            // Cleanly reset worker state
             data->currentJob = sim::Job::Idle;
             data->currentTargetNode = 0;
             data->hasTravelDestination = false;
             physicalApe.setState(ApeState::Grounded);
 
-            std::cout << "[WOODCUT SUCCESS] Worker " << data->id << " reached Tree at X=" << destX << ". Tree deleted! Worker returning to IDLE." << std::endl << std::flush;
+            std::cout << "[WOODCUT SUCCESS] " << data->name << " deleted the tree!" << std::endl << std::flush;
             return;
         }
     } else {

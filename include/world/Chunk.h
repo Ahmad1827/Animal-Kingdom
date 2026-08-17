@@ -36,9 +36,12 @@ public:
     const std::vector<Decoration>& getDecorations() const { return decorations; }
     const std::vector<Tree>& getTrees() const;
     std::vector<Tree>& getMutableTrees() { return trees; }
-    bool removeTree(int treeId) {
-        auto it = std::remove_if(trees.begin(), trees.end(), [treeId](const Tree& t) {
-            return (treeId != 0 && t.getId() == treeId) || t.getHarvestState() == TreeHarvestState::Harvested;
+    bool removeTree(int treeId, float worldX = -999999.f) {
+        auto it = std::remove_if(trees.begin(), trees.end(), [treeId, worldX](const Tree& t) {
+            bool idMatch = (treeId != 0 && t.getId() == treeId);
+            bool harvestedState = (t.getHarvestState() == TreeHarvestState::Harvested);
+            bool posMatch = (worldX > -900000.f && std::abs(t.getTrunkCenter() - worldX) <= 120.f);
+            return idMatch || harvestedState || posMatch;
         });
         if (it != trees.end()) {
             trees.erase(it, trees.end());
@@ -46,7 +49,6 @@ public:
         }
         return false;
     }
-
     bool removeTreeNear(float worldX, float radius) {
         auto it = std::remove_if(trees.begin(), trees.end(), [worldX, radius](const Tree& t) {
             return std::abs(t.getTrunkCenter() - worldX) <= radius || t.getHarvestState() == TreeHarvestState::Harvested;

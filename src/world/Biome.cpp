@@ -2,14 +2,21 @@
 #include "world/SeedManager.h"
 #include <cmath>
 
+static float sampleSmoothNoise(float x, uint32_t seed) {
+    float s = static_cast<float>(seed % 10000);
+    return std::sin(x * 0.00035f + s) * 0.6f + 
+           std::sin(x * 0.00095f + s * 1.3f) * 0.3f + 
+           std::sin(x * 0.0025f + s * 0.7f) * 0.1f;
+}
+
 RegionType Biome::determineRegion(int chunkX, uint32_t worldSeed) {
-    // Smooth coherent noise to ensure gradual region transitions
-    float noise = std::sin(chunkX * 0.1f + (worldSeed % 100)) + std::sin(chunkX * 0.05f);
+    float worldX = chunkX * 2000.f + 1000.f;
+    float n = sampleSmoothNoise(worldX, worldSeed);
     
-    if (noise > 1.2f) return RegionType::OldGrowth;
-    if (noise > 0.5f) return RegionType::DenseJungle;
-    if (noise > -0.2f) return RegionType::YoungForest;
-    if (noise > -1.0f) return RegionType::Clearing;
+    if (n > 0.45f) return RegionType::OldGrowth;
+    if (n > 0.15f) return RegionType::DenseJungle;
+    if (n > -0.15f) return RegionType::YoungForest;
+    if (n > -0.45f) return RegionType::Clearing;
     return RegionType::RockyArea;
 }
 
@@ -22,73 +29,77 @@ BiomeProperties Biome::getProperties(RegionType type) {
         case RegionType::OldGrowth:
             props.name = "Old Growth";
             props.debugColor = sf::Color(0, 100, 0, 100);
-            props.minTreeSpacing = 600.f;
-            props.maxTreeSpacing = 1200.f;
-            props.treeSizeMultiplier = 2.5f;
-            props.treeWidthBase = 120.f;
+            props.minTreeSpacing = 320.f;
+            props.maxTreeSpacing = 750.f;
+            props.treeSizeMultiplier = 1.45f;
+            props.treeWidthBase = 95.f;
             props.branchCountMin = 6;
             props.branchCountMax = 10;
             props.branchVerticalSpacing = 220.f;
             props.canopyBaseRadius = 150.f;
-            props.decorationDensity = 3;
-            props.preferredDecorationType = 4; // Logs
+            props.decorationDensity = 18;
+            props.preferredDecorationType = 4;
             break;
+
         case RegionType::DenseJungle:
             props.name = "Dense Jungle";
             props.debugColor = sf::Color(0, 150, 50, 100);
-            props.minTreeSpacing = 150.f;
-            props.maxTreeSpacing = 350.f;
-            props.treeSizeMultiplier = 1.2f;
-            props.treeWidthBase = 50.f;
+            props.minTreeSpacing = 95.f;
+            props.maxTreeSpacing = 240.f;
+            props.treeSizeMultiplier = 1.1f;
+            props.treeWidthBase = 75.f;
             props.branchCountMin = 4;
             props.branchCountMax = 7;
             props.branchVerticalSpacing = 150.f;
             props.canopyBaseRadius = 90.f;
-            props.decorationDensity = 8;
-            props.preferredDecorationType = 2; // Ferns
+            props.decorationDensity = 24;
+            props.preferredDecorationType = 2;
             break;
+
         case RegionType::YoungForest:
             props.name = "Young Forest";
             props.debugColor = sf::Color(100, 200, 100, 100);
-            props.minTreeSpacing = 200.f;
-            props.maxTreeSpacing = 400.f;
-            props.treeSizeMultiplier = 0.8f;
-            props.treeWidthBase = 30.f;
+            props.minTreeSpacing = 180.f;
+            props.maxTreeSpacing = 420.f;
+            props.treeSizeMultiplier = 0.9f;
+            props.treeWidthBase = 65.f;
             props.branchCountMin = 2;
-            props.branchCountMax = 4;
+            props.branchCountMax = 5;
             props.branchVerticalSpacing = 120.f;
-            props.canopyBaseRadius = 60.f;
-            props.decorationDensity = 5;
-            props.preferredDecorationType = 0; // Grass
+            props.canopyBaseRadius = 65.f;
+            props.decorationDensity = 14;
+            props.preferredDecorationType = 0;
             break;
+
         case RegionType::Clearing:
             props.name = "Clearing";
             props.debugColor = sf::Color(200, 255, 150, 100);
-            props.minTreeSpacing = 800.f;
-            props.maxTreeSpacing = 2000.f;
-            props.treeSizeMultiplier = 0.6f;
-            props.treeWidthBase = 20.f;
+            props.minTreeSpacing = 650.f;
+            props.maxTreeSpacing = 1500.f;
+            props.treeSizeMultiplier = 0.75f;
+            props.treeWidthBase = 55.f;
             props.branchCountMin = 1;
-            props.branchCountMax = 2;
+            props.branchCountMax = 3;
             props.branchVerticalSpacing = 100.f;
-            props.canopyBaseRadius = 40.f;
-            props.decorationDensity = 10;
-            props.preferredDecorationType = 1; // Flowers
+            props.canopyBaseRadius = 45.f;
+            props.decorationDensity = 16;
+            props.preferredDecorationType = 1;
             break;
+
         case RegionType::RockyArea:
             props.name = "Rocky Area";
             props.groundColor = sf::Color(100, 100, 100);
             props.debugColor = sf::Color(150, 150, 150, 100);
-            props.minTreeSpacing = 500.f;
-            props.maxTreeSpacing = 1000.f;
-            props.treeSizeMultiplier = 1.0f;
-            props.treeWidthBase = 40.f;
+            props.minTreeSpacing = 400.f;
+            props.maxTreeSpacing = 900.f;
+            props.treeSizeMultiplier = 0.85f;
+            props.treeWidthBase = 60.f;
             props.branchCountMin = 2;
-            props.branchCountMax = 5;
+            props.branchCountMax = 4;
             props.branchVerticalSpacing = 160.f;
-            props.canopyBaseRadius = 70.f;
-            props.decorationDensity = 6;
-            props.preferredDecorationType = 3; // Rocks
+            props.canopyBaseRadius = 60.f;
+            props.decorationDensity = 20;
+            props.preferredDecorationType = 3;
             break;
     }
     return props;

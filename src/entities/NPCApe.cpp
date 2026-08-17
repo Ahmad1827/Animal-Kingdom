@@ -357,28 +357,34 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
         float destX = (data->travelDestinationX != 0.f) ? data->travelDestinationX : myX;
         float distToDest = std::abs(myX - destX);
 
-        if (distToDest > 120.f) {
+        if (distToDest > 45.f) {
             physicalApe.setState(ApeState::Grounded);
             intendedMoveX = (myX < destX) ? 1.f : -1.f;
+            workTimer = 0.f;
         } else {
             intendedMoveX = 0.f;
-            physicalApe.setVelocity(0.f, 0.f);
+            physicalApe.setVelocity(0.f, physicalApe.getVelocity().y);
+            physicalApe.setState(ApeState::Working);
 
-            int targetTreeId = static_cast<int>(data->currentTargetNode);
+            workTimer += dt;
+            if (workTimer >= 5.0f) {
+                int targetTreeId = static_cast<int>(data->currentTargetNode);
 
-            if (targetTreeId != 0) {
-                worldManager->harvestTree(targetTreeId);
+                if (targetTreeId != 0) {
+                    worldManager->harvestTree(targetTreeId);
+                }
+                worldManager->harvestTreeNear(destX, 200.f);
+                worldManager->harvestTreeNear(myX, 200.f);
+
+                data->currentJob = sim::Job::Idle;
+                data->currentTargetNode = 0;
+                data->hasTravelDestination = false;
+                workTimer = 0.f;
+                physicalApe.setState(ApeState::Grounded);
+
+                std::cout << "[WOODCUT SUCCESS] " << data->name << " finished chopping after 5s! Tree removed." << std::endl << std::flush;
+                return;
             }
-            worldManager->harvestTreeNear(destX, 200.f);
-            worldManager->harvestTreeNear(myX, 200.f);
-
-            data->currentJob = sim::Job::Idle;
-            data->currentTargetNode = 0;
-            data->hasTravelDestination = false;
-            physicalApe.setState(ApeState::Grounded);
-
-            std::cout << "[WOODCUT SUCCESS] " << data->name << " deleted the tree!" << std::endl << std::flush;
-            return;
         }
     }
     else if (data->currentJob == sim::Job::Builder && worldManager) {
@@ -412,6 +418,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
                     data->currentJob = sim::Job::Idle;
                     data->currentTargetStructure = 0;
                     data->hasTravelDestination = false;
+                    workTimer = 0.f;
                     physicalApe.setState(ApeState::Grounded);
                 }
             } else {
@@ -422,6 +429,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
             data->currentJob = sim::Job::Idle;
             data->currentTargetStructure = 0;
             data->hasTravelDestination = false;
+            workTimer = 0.f;
             physicalApe.setState(ApeState::Grounded);
         }
     } else {

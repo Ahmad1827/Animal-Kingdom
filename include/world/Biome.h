@@ -3,34 +3,38 @@
 #include <SFML/Graphics.hpp>
 
 enum class RegionType {
-    YoungForest,
     OldGrowth,
-    Clearing,
+    DenseJungle,
+    RiverBasin,
+    YoungForest,
     RockyArea,
-    DenseJungle
+    Clearing
 };
 
 struct BiomeProperties {
     std::string name;
+    RegionType type;
     sf::Color groundColor;
     sf::Color undergroundColor;
     sf::Color debugColor;
     
-    // Tuning Constants
     float minTreeSpacing;
     float maxTreeSpacing;
-    float treeSizeMultiplier;
+    float treeScaleMin;
+    float treeScaleMax;
     float treeWidthBase;
     int branchCountMin;
     int branchCountMax;
     float branchVerticalSpacing;
     float canopyBaseRadius;
     int decorationDensity;
-    int preferredDecorationType; // 0=Grass, 1=Flower, 2=Fern, 3=Rock, 4=Log
+    int primaryDecorType;
+    int secondaryDecorType;
 };
 
 class Biome {
 public:
     static RegionType determineRegion(int chunkX, uint32_t worldSeed);
+    static RegionType determineRegionAtWorldX(float worldX, uint32_t worldSeed);
     static BiomeProperties getProperties(RegionType type);
 };

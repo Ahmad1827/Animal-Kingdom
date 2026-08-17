@@ -44,7 +44,6 @@ void PlayState::init() {
     dayNightCycle = std::make_unique<DayNightCycle>();
     debugOverlay = std::make_unique<DebugOverlay>();
     
-    
     simulationManager = std::make_unique<sim::SimulationManager>();
     simulationManager->getRegistry().setWorldManager(worldManager.get());
     structureManager = std::make_unique<StructureManager>();
@@ -67,6 +66,7 @@ void PlayState::init() {
     dynastyUI.init(cinematicFont);
     initDynastySimulation();
 }
+
 void PlayState::initDynastySimulation() {
     sim::SimulationRegistry& reg = simulationManager->getRegistry();
 
@@ -156,13 +156,14 @@ void PlayState::processEvents(const sf::Event& event) {
             isMapDetached = false;
         } else if (mapMode == MapMode::Mini) {
             mapMode = MapMode::Expanded;
-            targetViewport = sf::FloatRect(0.15f, 0.10f, 0.70f, 0.75f); // Large centered map
-            targetMapZoom = 12.0f; // Zoom out to see the realm
+            targetViewport = sf::FloatRect(0.15f, 0.10f, 0.70f, 0.75f);
+            targetMapZoom = 12.0f;
         } else {
             mapMode = MapMode::Hidden;
         }
         return; 
     }
+
     if (event.type == sf::Event::KeyPressed) {
         if (event.key.code == sf::Keyboard::Escape && dynastyUI.isOpen()) {
             dynastyUI.close();
@@ -199,30 +200,28 @@ void PlayState::processEvents(const sf::Event& event) {
             }
         }
     }
+
     if (mapMode != MapMode::Hidden) {
-        // Handle "Close" logic for Map Profiles (Escape key always backs out of the deepest view)
         if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
             if (isInspectingCharacter) {
-                isInspectingCharacter = false; // Back to Village/Kingdom Profile
+                isInspectingCharacter = false;
                 return;
             } else if (selectedVillageId != 0 || selectedKingdomId != 0) {
-                selectedVillageId = 0; // Clear selection to close profile
+                selectedVillageId = 0;
                 selectedKingdomId = 0;
                 return;
             } else {
-                mapMode = MapMode::Hidden; // Close map
+                mapMode = MapMode::Hidden;
                 return;
             }
         }
         
-        // Calculate the map's pixel boundaries
         sf::Vector2f winSize(game->getWindow().getSize().x, game->getWindow().getSize().y);
         sf::FloatRect vpPixels(
             currentViewport.left * winSize.x, currentViewport.top * winSize.y,
             currentViewport.width * winSize.x, currentViewport.height * winSize.y
         );
 
-        // --- PROFILE DRAG & CLICK LOGIC ---
         sf::FloatRect profileRect(0, 0, 0, 0);
         bool profileOpen = false;
         if (isInspectingCharacter) { profileRect = {profilePanelPos.x, profilePanelPos.y, 320.f, 500.f}; profileOpen = true; }
@@ -230,20 +229,18 @@ void PlayState::processEvents(const sf::Event& event) {
         else if (selectedVillageId != 0) { profileRect = {profilePanelPos.x, profilePanelPos.y, 340.f, 500.f}; profileOpen = true; }
 
         if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
-            // Check if clicking inside the floating profile panel
             if (profileOpen && profileRect.contains(event.mouseButton.x, event.mouseButton.y)) {
                 isDraggingProfile = true;
                 lastMousePos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
                 dragStartMousePos = lastMousePos;
-                return; // Consume
+                return;
             }
-            // Check if clicking the map
             if (vpPixels.contains(event.mouseButton.x, event.mouseButton.y)) {
                 isDraggingMap = true;
                 isMapDetached = true;
                 lastMousePos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
                 dragStartMousePos = lastMousePos;
-                return; // Consume
+                return;
             }
         }
         if (event.type == sf::Event::MouseMoved) {
@@ -268,7 +265,6 @@ void PlayState::processEvents(const sf::Event& event) {
                 int dx = event.mouseButton.x - dragStartMousePos.x;
                 int dy = event.mouseButton.y - dragStartMousePos.y;
                 if (dx * dx + dy * dy < 25) {
-                    // Clicked inside the profile (check button bounds dynamically)
                     float btnTop = profilePanelPos.y + profileRect.height - 80.f;
                     float btnBottom = profilePanelPos.y + profileRect.height - 40.f;
                     float btnLeft = profilePanelPos.x + profileRect.width / 2.f - 100.f;
@@ -276,8 +272,8 @@ void PlayState::processEvents(const sf::Event& event) {
                     
                     if (event.mouseButton.x >= btnLeft && event.mouseButton.x <= btnRight &&
                         event.mouseButton.y >= btnTop && event.mouseButton.y <= btnBottom) {
-                        if (isInspectingCharacter) isInspectingCharacter = false; // "Back"
-                        else isInspectingCharacter = true; // "View Leader"
+                        if (isInspectingCharacter) isInspectingCharacter = false;
+                        else isInspectingCharacter = true;
                     }
                 }
                 return;
@@ -308,12 +304,11 @@ void PlayState::processEvents(const sf::Event& event) {
 
     if (isDialogueActive) {
         if (event.type == sf::Event::KeyPressed) {
-            // If inspecting, ANY interaction key returns to the conversation seamlessly
             if (isInspectingCharacter) {
                 if (event.key.code == sf::Keyboard::Escape || event.key.code == sf::Keyboard::E || event.key.code == sf::Keyboard::Enter || event.key.code == sf::Keyboard::Space) {
                     isInspectingCharacter = false;
                 }
-                return; // Consume event so we don't trigger anything else
+                return;
             }
 
             if (event.key.code == sf::Keyboard::Escape) {
@@ -332,21 +327,19 @@ void PlayState::processEvents(const sf::Event& event) {
                 }
             }
         }
-        return; // Consume ALL events while locked in dialogue
+        return;
     }
 
-    // 2. Safely cancel the WAIT state if ESC is pressed BEFORE they arrive
     if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
         sim::ApeData* pWaitCheck = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
         if (pWaitCheck && pWaitCheck->isWaitingForAudience) {
-            endDiplomaticDialogue(); // Reuses our clean exit function
+            endDiplomaticDialogue();
             interactionManager.clearTargets();
             refreshInteractionTargets(); 
             return;
         }
     }
 
-    // Normal interaction manager handling
     interactionManager.handleEvent(event, *cameraManager);
 
     if (event.type == sf::Event::KeyPressed) {
@@ -412,12 +405,11 @@ void PlayState::update(float dt) {
     
     sf::Clock updateClock;
     
-    // --- SINGLE SOURCE OF TRUTH: TIME SPEED ---
     float currentSimSpeed = 30.f;
     if (sf::Keyboard::isKeyPressed(sf::Keyboard::T)) {
-        currentSimSpeed = 6000.f; // Fast-forward
+        currentSimSpeed = 6000.f;
     } else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Y)) {
-        currentSimSpeed = 30.f;   // Normal speed
+        currentSimSpeed = 30.f;
     }
     
     worldClock->setMultiplier(currentSimSpeed);
@@ -515,13 +507,12 @@ void PlayState::update(float dt) {
 
     sim::ApeData* pDataCheck = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     bool isCinematicWait = false;
-    // --- AUDIENCE ARRIVAL TRIGGER & PRESENTATION ---
+
     if (pDataCheck && pDataCheck->scheduledAudienceHost != 0 && !isDialogueActive && !isTransitioning) {
         sim::ApeData* host = simulationManager->getRegistry().getApe(pDataCheck->scheduledAudienceHost);
         if (host && host->alive) {
             float dist = std::abs(pDataCheck->worldX - host->worldX);
             
-            // Check if player has actively entered the host's territory
             bool insideTerritory = false;
             sim::VillageData* hv = simulationManager->getRegistry().getVillage(host->villageId);
             sim::KingdomData* hk = (host->currentKingdom != 0) ? simulationManager->getRegistry().getKingdom(host->currentKingdom) : nullptr;
@@ -533,17 +524,14 @@ void PlayState::update(float dt) {
             }
 
             if (insideTerritory && dist < 150.f) {
-                // Halt player movement and begin the scene
                 playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
-                startDiplomaticDialogue(host->id, 600); // 600 = Audience Root
+                startDiplomaticDialogue(host->id, 600);
             }
         } else if (host && !host->alive) {
-            // Cancel appointment if the host died before arrival
             pDataCheck->scheduledAudienceHost = 0;
         }
     }
 
-    // --- CROWD REACTION PRESENTATION ---
     if (isDialogueActive && currentDialogueNode >= 600 && currentDialogueNode < 700) {
         crowdSpawnTimer -= dt;
         sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
@@ -567,15 +555,12 @@ void PlayState::update(float dt) {
         bool isFriendly = (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || op >= 30);
         bool isHostile = (status == sim::DiplomacyStatus::War || status == sim::DiplomacyStatus::Rival || op <= -30);
 
-        // Controlled spawn via timer, not per-frame randomness
         if ((isFriendly || isHostile) && crowdSpawnTimer <= 0.f) {
-            crowdSpawnTimer = 0.8f + (std::rand() % 15) / 10.f; // Random 0.8s to 2.3s cooldown
+            crowdSpawnTimer = 0.8f + (std::rand() % 15) / 10.f;
             
-            sim::EntityID throwerId = 0;
             sf::Vector2f throwerPos;
             std::vector<sim::ApeData*> potentialThrowers;
             
-            // Find an actual NPC standing in the aisle to throw it
             for(auto& pair : simulationManager->getRegistry().getAllApes()) {
                 if(pair.second.villageId == rep->villageId && pair.first != rep->id && pair.second.alive) {
                     if (std::abs(pair.second.worldX - pDataCheck->worldX) < 900.f) {
@@ -586,9 +571,8 @@ void PlayState::update(float dt) {
             
             if (!potentialThrowers.empty()) {
                 int rIdx = std::rand() % potentialThrowers.size();
-                throwerPos = sf::Vector2f(potentialThrowers[rIdx]->worldX, potentialThrowers[rIdx]->worldY - 60.f); // Above their head
+                throwerPos = sf::Vector2f(potentialThrowers[rIdx]->worldX, potentialThrowers[rIdx]->worldY - 60.f);
             } else {
-                // Fallback if no villagers are near
                 throwerPos = cameraManager->getView().getCenter();
                 throwerPos.x += (std::rand() % 2 == 0 ? -400.f : 400.f);
                 throwerPos.y -= 100.f;
@@ -596,23 +580,21 @@ void PlayState::update(float dt) {
             
             CrowdProjectile p;
             p.pos = throwerPos;
-            // Throw in an arc exactly towards the player
             float distX = pDataCheck->worldX - p.pos.x;
             p.vel = sf::Vector2f(distX * 0.8f, -250.f - (std::rand() % 150));
             p.life = 2.0f;
             
             if (isFriendly) {
-                p.color = (std::rand() % 2 == 0) ? sf::Color(255, 100, 150) : sf::Color(255, 255, 100); // Flowers
+                p.color = (std::rand() % 2 == 0) ? sf::Color(255, 100, 150) : sf::Color(255, 255, 100);
             } else {
-                p.color = sf::Color(220, 40, 40); // Tomatoes
+                p.color = sf::Color(220, 40, 40);
             }
             crowdProjectiles.push_back(p);
         }
     } else {
-        crowdSpawnTimer = 0.f; // Ensure clean state upon exit
+        crowdSpawnTimer = 0.f;
     }
 
-    // Process Projectile Physics
     for (auto it = crowdProjectiles.begin(); it != crowdProjectiles.end(); ) {
         it->vel.y += 600.f * dt; 
         it->pos += it->vel * dt;
@@ -623,6 +605,7 @@ void PlayState::update(float dt) {
             ++it;
         }
     }
+
     if (pDataCheck && pDataCheck->isWaitingForAudience) {
         sim::ApeData* repCheck = simulationManager->getRegistry().getApe(pDataCheck->summonedRepId);
         if (repCheck) {
@@ -630,7 +613,6 @@ void PlayState::update(float dt) {
             if (dist > 150.f) {
                 isCinematicWait = true;
             } else if (!isDialogueActive) {
-                // REPRESENTATIVE ARRIVED! Instantly hand off to the dialogue state!
                 startDiplomaticDialogue(repCheck->id);
             }
         }
@@ -641,7 +623,6 @@ void PlayState::update(float dt) {
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
         else cameraManager->setZoom(1.35f);
     } else if (isCinematicWait || isDialogueActive) {
-        // Enforce cinematic zoom during BOTH the waiting phase AND the active dialogue phase
         cameraManager->setZoom(0.8f); 
     }
 
@@ -685,23 +666,18 @@ void PlayState::update(float dt) {
             playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
         }
 
-        // Minimap actively tracks the player as they move
-        // --- MAP ANIMATION AND LERPING ---
         if (mapMode != MapMode::Hidden) {
-            float lerp = 1.0f - std::exp(-8.0f * dt); // Smooth interpolation
+            float lerp = 1.0f - std::exp(-8.0f * dt);
             
-            // 1. Animate the UI Viewport expanding/shrinking
             currentViewport.left += (targetViewport.left - currentViewport.left) * lerp;
             currentViewport.top += (targetViewport.top - currentViewport.top) * lerp;
             currentViewport.width += (targetViewport.width - currentViewport.width) * lerp;
             currentViewport.height += (targetViewport.height - currentViewport.height) * lerp;
             mapView.setViewport(currentViewport);
 
-            // 2. Animate the Zoom level
             currentMapZoom += (targetMapZoom - currentMapZoom) * lerp;
             mapView.setSize(1280.f * currentMapZoom, 720.f * currentMapZoom);
 
-            // 3. Track player ONLY if the map is not manually detached
             if (!isMapDetached && playerWrapper) {
                 sf::Vector2f targetCenter(playerWrapper->getPosition().x, playerWrapper->getPosition().y - 1000.f);
                 mapCenter += (targetCenter - mapCenter) * lerp;
@@ -959,7 +935,6 @@ void PlayState::update(float dt) {
         profiler.cameraTime = cameraClock.getElapsedTime().asSeconds();
         
         if (dayNightCycle) {
-            // SYNC TO SIMULATION CLOCK: Guarantees sun/moon exactly matches the Darkness filter and UI
             dayNightCycle->update(simulationManager->getClock().getTimeOfDay(), cameraManager->getView());
         }
 
@@ -984,7 +959,6 @@ void PlayState::update(float dt) {
                 bool isKingdomTerritory = false;
                 sim::KingdomData* kData = nullptr;
 
-                // Expand borders to the Kingdom level if applicable
                 if (v.kingdomId != 0) {
                     kData = simulationManager->getRegistry().getKingdom(v.kingdomId);
                     if (kData && kData->territoryMaxX > kData->territoryMinX) {
@@ -994,21 +968,17 @@ void PlayState::update(float dt) {
                     }
                 }
 
-                // CHECK BOUNDARIES
                 if (playerX >= minX && playerX <= maxX) {
                     bool allowed = false;
                     
-                    // 1. Own territory?
                     if (controlledApe->villageId == v.id || (controlledApe->currentKingdom != 0 && controlledApe->currentKingdom == v.kingdomId)) {
                         allowed = true;
                     } 
-                    // 2. Explicit permission?
                     else if (isKingdomTerritory && kData && kData->permittedApes.count(controlledApe->id)) {
                         allowed = true;
                     } else if (!isKingdomTerritory && v.permittedApes.count(controlledApe->id)) {
                         allowed = true;
                     } 
-                    // 3. War exception?
                     else if (isKingdomTerritory && kData && controlledApe->currentKingdom != 0) {
                         sim::KingdomData* myK = simulationManager->getRegistry().getKingdom(controlledApe->currentKingdom);
                         if (myK && myK->relations.count(kData->id) && myK->relations[kData->id] == sim::DiplomacyStatus::War) {
@@ -1018,7 +988,6 @@ void PlayState::update(float dt) {
 
                     if (!allowed) {
                         blocked = true;
-                        // Clamp position and halt velocity
                         if (playerVelX > 0.f || (playerVelX == 0.f && playerX - minX < maxX - playerX)) {
                             playerWrapper->setPosition(minX - playerWrapper->getBounds().width - 1.f, playerWrapper->getPosition().y);
                         } else {
@@ -1026,7 +995,6 @@ void PlayState::update(float dt) {
                         }
                         playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
                         
-                        // Show warning safely without spamming
                         if (cinematicTextTimer <= 0.f || cinematicText.find("not permitted") == std::string::npos) {
                             cinematicText = "You are not permitted to enter the lands of " + (isKingdomTerritory ? kData->name : v.name) + ".";
                             cinematicTextTimer = 3.0f;
@@ -1035,7 +1003,7 @@ void PlayState::update(float dt) {
                         foundKingdomId = v.kingdomId;
                         foundKingdomName = isKingdomTerritory ? kData->name : v.name;
                     }
-                    break; // Handle one enclosing territory at a time
+                    break;
                 }
             }
         }
@@ -1066,7 +1034,6 @@ void PlayState::update(float dt) {
     }
 
     if (npcManager) {
-        // SYNC TO SIMULATION CLOCK
         npcManager->update(dt, preloadBounds, unloadBounds, *simulationManager, worldManager.get(), simulationManager->getClock().getTimeOfDay());
     }
 
@@ -1113,7 +1080,6 @@ void PlayState::update(float dt) {
     particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), simulationManager->getClock().getTimeOfDay());
     profiler.particleTime = pClock.getElapsedTime().asSeconds();
     
-    // SYNC TO SIMULATION CLOCK
     if (audioManager) audioManager->update(dt, weatherManager->getWindIntensity(), weatherManager->getRainIntensity(), simulationManager->getClock().getTimeOfDay());
     
     bool isStorming = (weatherManager->getWeatherString() == "Storming");
@@ -1125,6 +1091,7 @@ void PlayState::update(float dt) {
         weatherManager->getRainIntensity(), 
         isStorming
     );
+
     background->update(
         cameraManager->getViewBounds().left + cameraManager->getViewBounds().width / 2.f,
         cameraManager->getViewBounds().top + cameraManager->getViewBounds().height / 2.f,
@@ -1291,7 +1258,6 @@ void PlayState::draw(sf::RenderWindow& window) {
     window.setView(cameraManager->getView());
     window.clear();
 
-    // Establish the authoritative ground baseline to pass to the parallax backgrounds
     float groundY = 500.0f;
     if (worldManager) {
         groundY = worldManager->getTerrainHeight(cameraManager->getView().getCenter().x);
@@ -1300,12 +1266,12 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (background && dayNightCycle) {
         background->drawSky(window, dayNightCycle->getSkyColor());
         dayNightCycle->draw(window);
-        background->drawDistant(window, groundY); // Passing groundY here
+        background->drawDistant(window, groundY);
     } else {
         if (dayNightCycle) dayNightCycle->draw(window);
         if (background) {
             background->drawSky(window, sf::Color::White);
-            background->drawDistant(window, groundY); // Passing groundY here
+            background->drawDistant(window, groundY);
         }
     }
 
@@ -1389,7 +1355,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                     midX = overlapStart + ((overlapEnd - overlapStart) / 2.f);
                 }
 
-                if (gap >= 0.f && gap <= 4000.f) {
+                if (gap >= 0.f && gap <= 4500.f) {
                     float midY = worldManager->getTerrainHeight(midX);
                     
                     sf::Color color1 = sf::Color(40, 140, 40); 
@@ -1447,7 +1413,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                     rightPole.setPosition(midX + 60.f, midY);
                     rightPole.setFillColor(sf::Color(90, 60, 40));
                     window.draw(rightPole);
-
+                    
                     sf::RectangleShape rightFlag(sf::Vector2f(30.f, 40.f));
                     rightFlag.setOrigin(0.f, 0.f); 
                     rightFlag.setPosition(midX + 60.f, midY - 75.f);
@@ -1465,13 +1431,13 @@ void PlayState::draw(sf::RenderWindow& window) {
             worldManager->drawDebug(window, 
                 cameraManager->getViewBounds(), 
                 preB, 
-                cameraManager->getUnloadBounds(),
+                cameraManager->getUnloadBounds(), 
                 debugOverlay.get());
         }
     }
 
     if (background) {
-        background->drawForeground(window, groundY); // Passing groundY here
+        background->drawForeground(window, groundY);
     }
     
     if (npcManager) npcManager->draw(window);
@@ -1631,7 +1597,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         interactionManager.draw(window);
     }
 
-    // Switch to UI/Screen view so all overlays and mouse tracking align 1:1
     window.setView(window.getDefaultView());
 
     if (mapMode != MapMode::Hidden) {
@@ -1696,7 +1661,6 @@ void PlayState::refreshInteractionTargets() {
             v.id, simulationManager->getRegistry(), v.centerX + 65.f, groundY, audioManager.get(), particleSystem.get()
         ));
 
-        // Register interactive build nodes / unbuilt plots & structures
         for (const auto& sPair : simulationManager->getRegistry().getAllStructures()) {
             const sim::StructureData& s = sPair.second;
             if (s.villageId == v.id) {
@@ -1768,7 +1732,7 @@ void PlayState::refreshInteractionTargets() {
                 midX = overlapStart + ((overlapEnd - overlapStart) / 2.f);
             }
 
-            if (gap >= 0.f && gap <= 4000.f) {
+            if (gap >= 0.f && gap <= 4500.f) {
                 float midY = 500.0f;
                 interactionManager.registerTarget(std::make_shared<DiplomaticMeetingInteractionTarget>(
                     p1.id, p1.isKingdom, p2.id, p2.isKingdom, midX, midY, simulationManager->getRegistry(), simulationManager->getControlledApe()
@@ -1776,12 +1740,12 @@ void PlayState::refreshInteractionTargets() {
             }
         }
     }
+
     sim::VillageData* pVillage = simulationManager->getRegistry().getVillage(activeClanId);
     sim::ApeData* controlledApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     if (pVillage && controlledApe && worldManager) {
         float playerX = controlledApe->worldX;
 
-        // Search wide enough across loaded chunks to find the closest trees in each direction
         std::vector<Tree*> candidateTrees = worldManager->getNearbyTrees(playerX, 2000.f);
 
         Tree* nearestLeft = nullptr;
@@ -1796,7 +1760,6 @@ void PlayState::refreshInteractionTargets() {
 
             float tx = tree->getTrunkCenter();
 
-            // Ignore trees outside clan territory
             if (tx < pVillage->borderMinX || tx > pVillage->borderMaxX) continue;
 
             float dist = std::abs(playerX - tx);
@@ -1814,14 +1777,12 @@ void PlayState::refreshInteractionTargets() {
             }
         }
 
-        // Register ONLY the single nearest tree on the left (if one exists)
         if (nearestLeft) {
             interactionManager.registerTarget(std::make_shared<TreeHarvestInteractionTarget>(
                 nearestLeft, pVillage->id, simulationManager->getRegistry(), worldManager.get()
             ));
         }
 
-        // Register ONLY the single nearest tree on the right (if one exists)
         if (nearestRight) {
             interactionManager.registerTarget(std::make_shared<TreeHarvestInteractionTarget>(
                 nearestRight, pVillage->id, simulationManager->getRegistry(), worldManager.get()
@@ -1836,7 +1797,6 @@ void PlayState::endDiplomaticDialogue() {
     sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     
     if (pData) {
-        // Prevent repeated audience triggers if exiting an active audience manually
         if (currentDialogueNode >= 600 && currentDialogueNode < 700) {
             pData->scheduledAudienceHost = 0;
         }
@@ -1886,7 +1846,6 @@ void PlayState::loadDialogueNode(int nodeId) {
     sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
     if (!player || !rep) { endDiplomaticDialogue(); return; }
 
-    // Fetch the latest diplomacy status and border tension
     sim::DiplomacyStatus status = sim::DiplomacyStatus::Neutral;
     float tension = 0.0f;
     sim::KingdomID pKID = player->currentKingdom;
@@ -1930,7 +1889,6 @@ bool PlayState::loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float te
     sim::KingdomData* pKData = (pKID != 0) ? simulationManager->getRegistry().getKingdom(pKID) : nullptr;
     sim::KingdomData* rKData = isKingdomTarget ? simulationManager->getRegistry().getKingdom(rKID) : nullptr;
 
-    // --- KINGDOM FIRST CONTACT CHECK ---
     if (isKingdomTarget && pKData && rKData) {
         if (pKData->knownKingdoms.find(rKID) == pKData->knownKingdoms.end()) {
             isFirstMeeting = true;
@@ -1946,7 +1904,6 @@ bool PlayState::loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float te
             simulationManager->getRegistry().addHistory(rec);
         }
     }
-    // --- VILLAGE MEMORY CHECK ---
     else if (!isKingdomTarget && rep->villageId != 0) {
         vTarget = simulationManager->getRegistry().getVillage(rep->villageId);
         if (vTarget) {
@@ -1965,7 +1922,7 @@ bool PlayState::loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float te
     }
 
     switch(nodeId) {
-        case 0: // STATE-AWARE MEETING OPENING
+        case 0:
             if (isKingdomTarget) {
                 if (isFirstMeeting) {
                     dialogueText = "\"We do not recognize your banners. Who are you, and what is your purpose here?\"";
@@ -2022,9 +1979,8 @@ bool PlayState::loadIntroNodes(int nodeId, sim::DiplomacyStatus status, float te
             dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
             break;
 
-        case 10: // MAIN HUB
+        case 10:
             if (isKingdomTarget) {
-                
                 dialogueText = "\"What else would you discuss?\"";
                 dialogueOptions.push_back({"\"I have questions about your realm.\"", [this]() { loadDialogueNode(100); }});
                 if (pKID != 0) {
@@ -2071,7 +2027,6 @@ bool PlayState::loadDiscoveryNodes(int nodeId, sim::KingdomID pKID, sim::Kingdom
     sim::KingdomData* rK = (rep->currentKingdom != 0) ? simulationManager->getRegistry().getKingdom(rep->currentKingdom) : nullptr;
     sim::VillageData* rV = (rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
 
-    // Evaluate attitude
     sim::DiplomacyStatus status = sim::DiplomacyStatus::Neutral;
     float tension = 0.0f;
     if (pKID != 0 && rKID != 0) {
@@ -2138,27 +2093,21 @@ bool PlayState::loadDiscoveryNodes(int nodeId, sim::KingdomID pKID, sim::Kingdom
     return true;
 }
 
-
-// ====================================================
-// DIALOGUE BRANCH: NEGOTIATION & DE-ESCALATION (200 - 299)
-// ====================================================
 bool PlayState::loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 200 || nodeId >= 300) return false;
 
-    // Upgraded Consequence Lambda: Fully Syncs Simulation State
     auto applyConsequence = [this](sim::KingdomID p, sim::KingdomID r, float tensionAmount, int opinionAmount, const std::string& hist) {
         sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
         sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
         if (!player || !rep) return;
 
-        if (p != 0 && r != 0) { // Kingdom Logic
+        if (p != 0 && r != 0) {
             sim::KingdomData* pkData = simulationManager->getRegistry().getKingdom(p);
             sim::KingdomData* rkData = simulationManager->getRegistry().getKingdom(r);
             if (pkData && rkData) {
                 pkData->borderTension[r] = std::max(0.0f, pkData->borderTension[r] + tensionAmount);
                 rkData->borderTension[p] = std::max(0.0f, rkData->borderTension[p] + tensionAmount);
                 
-                // Dynamic Status Sync
                 if (pkData->relations[r] != sim::DiplomacyStatus::War) {
                     if (pkData->borderTension[r] >= 50.0f && pkData->relations[r] != sim::DiplomacyStatus::Rival) {
                         pkData->relations[r] = sim::DiplomacyStatus::Rival;
@@ -2182,13 +2131,12 @@ bool PlayState::loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::Kingd
                     simulationManager->getRegistry().addHistory(rec);
                 }
             }
-        } else if (rep->villageId != 0) { // Village Logic
+        } else if (rep->villageId != 0) {
             sim::VillageData* vTarget = simulationManager->getRegistry().getVillage(rep->villageId);
             if (vTarget) {
                 vTarget->personalOpinions[player->id] += opinionAmount;
                 int op = vTarget->personalOpinions[player->id];
                 
-                // Sync to VillageData::relations
                 sim::VillageID pVidKey = player->villageId;
                 if (player->currentKingdom != 0) {
                     sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(player->currentKingdom);
@@ -2232,9 +2180,6 @@ bool PlayState::loadNegotiationNodes(int nodeId, sim::KingdomID pKID, sim::Kingd
     return true;
 }
 
-// ====================================================
-// DIALOGUE BRANCH: GRIEVANCES & TENSION (300 - 399)
-// ====================================================
 bool PlayState::loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 300 || nodeId >= 400) return false;
 
@@ -2327,9 +2272,6 @@ bool PlayState::loadGrievanceNodes(int nodeId, sim::KingdomID pKID, sim::Kingdom
     return true;
 }
 
-// ====================================================
-// DIALOGUE BRANCH: ESCALATION & WAR (400 - 499)
-// ====================================================
 bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
     if (nodeId < 400 || nodeId >= 500) return false;
 
@@ -2421,7 +2363,7 @@ bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::Kingdo
                 loadDialogueNode(200); 
             }});
             break;
-        case 402: // Post-War Declaration Resolution
+        case 402:
             dialogueText = "\"So be it. The meeting is over.\nOur armies will meet on the field.\"";
             dialogueOptions.push_back({"[ End Meeting ]", [this]() { endDiplomaticDialogue(); }});
             break;
@@ -2429,12 +2371,187 @@ bool PlayState::loadEscalationNodes(int nodeId, sim::KingdomID pKID, sim::Kingdo
     return true;
 }
 
+bool PlayState::loadVisitNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
+    if (nodeId < 500 || nodeId >= 600) return false;
+
+    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+    if (!player || !rep) return false;
+
+    sim::KingdomData* rKData = (rKID != 0) ? simulationManager->getRegistry().getKingdom(rKID) : nullptr;
+    sim::VillageData* rVData = (rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
+
+    bool hasPermission = false;
+    if (rKData && rKData->permittedApes.count(player->id)) hasPermission = true;
+    else if (rVData && rKID == 0 && rVData->permittedApes.count(player->id)) hasPermission = true;
+
+    bool isFriendly = false;
+    if (rKData && pKID != 0) {
+        sim::KingdomData* pKData = simulationManager->getRegistry().getKingdom(pKID);
+        if (pKData && pKData->relations.count(rKID)) {
+            auto status = pKData->relations[rKID];
+            if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || status == sim::DiplomacyStatus::Trade) isFriendly = true;
+        }
+    } else if (rVData && rKID == 0) {
+        int op = rVData->personalOpinions.count(player->id) ? rVData->personalOpinions[player->id] : 0;
+        if (op >= 30) isFriendly = true;
+    }
+
+    switch(nodeId) {
+        case 500:
+            if (hasPermission) {
+                dialogueText = "\"You already have permission to enter our lands. You are welcome among us.\"";
+                if (player->scheduledAudienceHost == 0) {
+                    dialogueOptions.push_back({"\"I would like to speak with you in your homeland.\"", [this]() { loadDialogueNode(510); }});
+                }
+                dialogueOptions.push_back({"\"Thank you. Let us discuss other matters.\"", [this]() { loadDialogueNode(10); }});
+            } else {
+                dialogueText = "\"You wish to enter our territory? That is not a request we grant lightly.\"";
+                dialogueOptions.push_back({"\"May I visit your homeland?\"", [this, isFriendly]() { 
+                    if (isFriendly) loadDialogueNode(501); 
+                    else loadDialogueNode(502); 
+                }});
+                dialogueOptions.push_back({"\"Nevermind. Let us return to other topics.\"", [this]() { loadDialogueNode(10); }});
+            }
+            break;
+
+        case 501:
+            dialogueText = "\"You have proven yourself trustworthy. You may enter our lands in peace.\"";
+            dialogueOptions.push_back({"\"I appreciate this honor.\"", [this, rKData, rVData, player]() {
+                if (rKData) rKData->permittedApes.insert(player->id);
+                else if (rVData) rVData->permittedApes.insert(player->id);
+
+                sim::HistoricalRecord rec;
+                rec.year = simulationManager->getRegistry().getYear();
+                rec.day = simulationManager->getRegistry().getDay();
+                rec.description = player->name + " was granted permission to enter " + (rKData ? rKData->name : rVData->name) + ".";
+                simulationManager->getRegistry().addHistory(rec);
+                
+                loadDialogueNode(500);
+            }});
+            break;
+
+        case 502:
+            dialogueText = "\"We are not yet comfortable opening our borders to you. Prove your intentions first.\"";
+            dialogueOptions.push_back({"\"I understand. I will earn your trust.\"", [this]() { loadDialogueNode(10); }});
+            dialogueOptions.push_back({"\"This is an insult!\"", [this]() { loadDialogueNode(400); }});
+            break;
+
+        case 510:
+            if (isFriendly) {
+                dialogueText = "\"We would be honored to host you in our halls. Come to our homeland. I will receive you there.\"";
+                dialogueOptions.push_back({"\"I will see you there.\"", [this, player, rep]() {
+                    player->scheduledAudienceHost = rep->id;
+                    
+                    sim::HistoricalRecord rec;
+                    rec.year = simulationManager->getRegistry().getYear();
+                    rec.day = simulationManager->getRegistry().getDay();
+                    rec.description = player->name + " was granted an audience with " + rep->name + ".";
+                    simulationManager->getRegistry().addHistory(rec);
+                    
+                    loadDialogueNode(10);
+                }});
+            } else {
+                dialogueText = "\"You may travel our lands, but I have no time for a formal audience right now.\"";
+                dialogueOptions.push_back({"\"Very well.\"", [this]() { loadDialogueNode(10); }});
+            }
+            break;
+    }
+    return true;
+}
+
+bool PlayState::loadAudienceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
+    if (nodeId < 600 || nodeId >= 700) return false;
+
+    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
+    if (!player || !rep) return false;
+
+    sim::KingdomData* rKData = (rKID != 0) ? simulationManager->getRegistry().getKingdom(rKID) : nullptr;
+    sim::VillageData* rVData = (rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
+
+    bool isFriendly = false;
+    bool isHostile = false;
+
+    if (rKData && pKID != 0) {
+        sim::KingdomData* pKData = simulationManager->getRegistry().getKingdom(pKID);
+        if (pKData && pKData->relations.count(rKID)) {
+            auto status = pKData->relations[rKID];
+            if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || status == sim::DiplomacyStatus::Trade) isFriendly = true;
+            if (status == sim::DiplomacyStatus::War || status == sim::DiplomacyStatus::Rival) isHostile = true;
+        }
+    } else if (rVData && rKID == 0) {
+        int op = rVData->personalOpinions.count(player->id) ? rVData->personalOpinions[player->id] : 0;
+        if (op >= 30) isFriendly = true;
+        if (op <= -30) isHostile = true;
+    }
+
+    switch(nodeId) {
+        case 600:
+            if (isHostile) {
+                dialogueText = "\"You have nerve showing your face in my hall. Speak quickly before my guards remove you.\"";
+            } else if (isFriendly) {
+                dialogueText = "\"Welcome to our lands, friend! We honor the agreements made at the meeting grounds. What would you discuss?\"";
+            } else {
+                dialogueText = "\"You have made the journey. I am listening. What political matters bring you to my seat?\"";
+            }
+
+            dialogueOptions.push_back({"\"I would like to propose an alliance.\"", [this]() { loadDialogueNode(610); }});
+            dialogueOptions.push_back({"\"Can we strengthen trade between our peoples?\"", [this]() { loadDialogueNode(620); }});
+            dialogueOptions.push_back({"\"There are matters concerning our borders.\"", [this]() { loadDialogueNode(630); }});
+            dialogueOptions.push_back({"\"That is all. Thank you for receiving me.\"", [this]() { loadDialogueNode(699); }});
+            break;
+
+        case 610:
+            if (isHostile) {
+                dialogueText = "\"An alliance with you? Don't make me laugh. We are closer to war than friendship.\"";
+                dialogueOptions.push_back({"\"I see. I have another matter to discuss.\"", [this]() { loadDialogueNode(600); }});
+            } else if (isFriendly) {
+                dialogueText = "\"Our peoples already stand close. An alliance is the natural next step.\n(Alliance functionality to be implemented in a future phase).\"";
+                dialogueOptions.push_back({"\"Excellent. Let us discuss other things.\"", [this]() { loadDialogueNode(600); }});
+            } else {
+                dialogueText = "\"An alliance is a heavy commitment. You have not yet earned that level of trust.\"";
+                dialogueOptions.push_back({"\"I understand. Perhaps another time.\"", [this]() { loadDialogueNode(600); }});
+            }
+            break;
+
+        case 620:
+            if (isHostile) {
+                dialogueText = "\"We do not share our resources with enemies.\"";
+            } else {
+                dialogueText = "\"Trade benefits us all.\n(Economy & Caravan logistics to be expanded in future phase).\"";
+            }
+            dialogueOptions.push_back({"\"Let us return to other matters.\"", [this]() { loadDialogueNode(600); }});
+            break;
+
+        case 630:
+            dialogueText = "\"If you wish to dispute borders or file grievances, you must do so at the neutral meeting ground. My hall is for internal affairs and high treaties.\"";
+            dialogueOptions.push_back({"\"Understood.\"", [this]() { loadDialogueNode(600); }});
+            break;
+
+        case 699:
+            dialogueText = "\"Safe travels back to your own lands.\"";
+            dialogueOptions.push_back({"[ End Audience ]", [this, player, rep, rKData, rVData]() { 
+                player->scheduledAudienceHost = 0;
+                
+                sim::HistoricalRecord rec;
+                rec.year = simulationManager->getRegistry().getYear();
+                rec.day = simulationManager->getRegistry().getDay();
+                std::string pName = rKData ? rKData->name : (rVData ? rVData->name : "Unknown");
+                rec.description = player->name + " completed a formal audience with " + rep->name + " of " + pName + ".";
+                simulationManager->getRegistry().addHistory(rec);
+
+                endDiplomaticDialogue(); 
+            }});
+            break;
+    }
+    return true;
+}
 
 void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId) {
     sim::ApeData* ape = simulationManager->getRegistry().getApe(apeId);
     if (!ape) return;
 
-    // --- 1. DATA EXTRACTION ---
     std::string name = ape->name;
     std::string ageHealth = "Age: " + std::to_string(static_cast<int>(ape->age));
     
@@ -2445,7 +2562,7 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
     std::string realm = "Unknown Lands";
     
     sim::KingdomData* kData = nullptr;
-    sim::VillageData* vData = nullptr; // Elevated scope so the UI block can read it
+    sim::VillageData* vData = nullptr;
     
     if (ape->currentKingdom != 0) {
         kData = simulationManager->getRegistry().getKingdom(ape->currentKingdom);
@@ -2461,7 +2578,6 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
         }
     }
 
-    // Process Traits
     std::string traitsStr = "Traits:\n";
     for (auto t : ape->traits) {
         switch(t) {
@@ -2480,7 +2596,6 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
     }
     if (ape->traits.empty()) traitsStr += "- None\n";
 
-    // --- 2. DIPLOMATIC RELATIONSHIP DISPLAY ---
     std::string relDisplay = "";
     sf::Color relColor = sf::Color(200, 200, 200);
 
@@ -2511,7 +2626,7 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
                 }
 
                 int tensionInt = static_cast<int>(tensionRaw);
-                int opinionScore = -tensionInt; // Direct 1:1 reflection of tension as requested
+                int opinionScore = -tensionInt;
                 
                 std::string opinionDesc = "Neutral";
                 if (statusStr == "At War") { opinionDesc = "Hostile"; relColor = sf::Color(255, 100, 100); }
@@ -2520,7 +2635,7 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
                 else if (statusStr == "Trade Partner" || statusStr == "Friendly" || statusStr == "Alliance") { 
                     opinionDesc = "Friendly"; 
                     relColor = sf::Color(120, 255, 120); 
-                    if (tensionInt == 0) opinionScore = 15; // Small positive bump if friendly and no tension
+                    if (tensionInt == 0) opinionScore = 15;
                 }
 
                 relDisplay = "Opinion of Us: " + std::to_string(opinionScore) + "  " + opinionDesc + "\n\n";
@@ -2575,21 +2690,18 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
         relColor = sf::Color(150, 150, 150);
     }
 
-    // --- 3. RENDERING ---
     float panelW = 320.f;
     float panelH = 500.f;
     float startX = profilePanelPos.x; 
     float startY = profilePanelPos.y;
 
-    // Panel Background
     sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
     panel.setPosition(startX, startY);
-    panel.setFillColor(sf::Color(35, 25, 20, 245)); // Dark wood/parchment
-    panel.setOutlineColor(sf::Color(180, 140, 70, 220)); // Dim gold outline
+    panel.setFillColor(sf::Color(35, 25, 20, 245));
+    panel.setOutlineColor(sf::Color(180, 140, 70, 220));
     panel.setOutlineThickness(2.f);
     window.draw(panel);
 
-    // Lambda to easily draw aligned text inside the panel
     auto drawText = [&](const std::string& text, float x, float y, int size, sf::Color col, bool center) {
         sf::Text t(text, cinematicFont, size);
         t.setFillColor(col);
@@ -2605,37 +2717,31 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
         window.draw(t);
     };
 
-    // Header Info
     float curY = startY + 25.f;
-    drawText(name, startX, curY, 28, sf::Color(255, 215, 100), true); // Gold Name
+    drawText(name, startX, curY, 28, sf::Color(255, 215, 100), true);
     curY += 35.f;
-    drawText(dynastyName, startX, curY, 16, sf::Color(180, 180, 180), true); // Silver Dynasty
+    drawText(dynastyName, startX, curY, 16, sf::Color(180, 180, 180), true);
     curY += 40.f;
-    drawText(title, startX, curY, 20, sf::Color(220, 220, 220), true); // White Title
+    drawText(title, startX, curY, 20, sf::Color(220, 220, 220), true);
     curY += 35.f;
-    drawText(ageHealth, startX, curY, 16, sf::Color(150, 200, 150), true); // Soft Green Stats
+    drawText(ageHealth, startX, curY, 16, sf::Color(150, 200, 150), true);
     curY += 40.f;
 
-    // Decorative Divider
     sf::RectangleShape div(sf::Vector2f(panelW - 60.f, 2.f));
     div.setPosition(startX + 30.f, curY);
     div.setFillColor(sf::Color(120, 90, 50, 200));
     window.draw(div);
     curY += 20.f;
 
-    // Traits
     drawText(traitsStr, startX + 30.f, curY, 16, sf::Color(200, 200, 200), false);
     curY += 130.f;
 
-    // Decorative Divider
     div.setPosition(startX + 30.f, curY);
     window.draw(div);
     curY += 20.f;
 
-    // Relationship/Opinion
     drawText(relDisplay, startX + 30.f, curY, 16, relColor, false);
 
-    // Button
     curY = startY + panelH - 60.f;
     drawText("[ Back ]", startX, curY, 18, sf::Color(255, 255, 150), true);
 }
@@ -2644,14 +2750,12 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
     sf::View originalView = window.getView();
     window.setView(mapView);
 
-    // Deep Parchment/Ocean Background
     sf::RectangleShape bg(sf::Vector2f(mapView.getSize().x, mapView.getSize().y));
     bg.setOrigin(bg.getSize().x / 2.f, bg.getSize().y / 2.f);
     bg.setPosition(mapView.getCenter());
     bg.setFillColor(sf::Color(210, 195, 160)); 
     window.draw(bg);
 
-    // EXTRACT KNOWLEDGE
     std::unordered_set<sim::KingdomID> kKnown;
     std::unordered_set<sim::VillageID> vKnown;
     sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
@@ -2678,18 +2782,16 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
         }
     }
 
-    // DRAW TERRAIN TOPOGRAPHY
     float viewLeft = mapView.getCenter().x - (mapView.getSize().x / 2.f);
     float viewRight = mapView.getCenter().x + (mapView.getSize().x / 2.f);
     sf::VertexArray ground(sf::TriangleStrip);
     for (float x = viewLeft - 2000.f; x <= viewRight + 2000.f; x += 500.f) {
         float y = worldManager->getTerrainHeight(x);
-        ground.append(sf::Vertex(sf::Vector2f(x, y), sf::Color(160, 140, 100))); // Ground top
-        ground.append(sf::Vertex(sf::Vector2f(x, y + 8000.f), sf::Color(110, 95, 70))); // Ground depth
+        ground.append(sf::Vertex(sf::Vector2f(x, y), sf::Color(160, 140, 100)));
+        ground.append(sf::Vertex(sf::Vector2f(x, y + 8000.f), sf::Color(110, 95, 70)));
     }
     window.draw(ground);
 
-    // RENDER KINGDOM TERRITORIES
     for (auto kId : kKnown) {
         sim::KingdomData* k = simulationManager->getRegistry().getKingdom(kId);
         if (!k) continue;
@@ -2699,11 +2801,10 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
             rect.setOrigin(0.f, 5000.f);
             rect.setPosition(k->territoryMinX, worldManager->getTerrainHeight(k->territoryMinX));
             sf::Color c = k->color;
-            c.a = 90; // Soft painted map territory
+            c.a = 90;
             rect.setFillColor(c);
             window.draw(rect);
 
-            // Kingdom Banner Label
             sf::Text kLabel("Realm of " + k->name, cinematicFont, 240);
             kLabel.setFillColor(sf::Color(255, 255, 255, 220));
             kLabel.setOutlineColor(sf::Color::Black);
@@ -2717,8 +2818,8 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
                 sf::RectangleShape highlight(sf::Vector2f(width, 10000.f));
                 highlight.setOrigin(0.f, 5000.f);
                 highlight.setPosition(k->territoryMinX, rect.getPosition().y);
-                highlight.setFillColor(sf::Color(255, 255, 255, 40)); // Bright overlay
-                highlight.setOutlineColor(sf::Color(255, 215, 0)); // Gold border
+                highlight.setFillColor(sf::Color(255, 255, 255, 40));
+                highlight.setOutlineColor(sf::Color(255, 215, 0));
                 highlight.setOutlineThickness(30.f);
                 window.draw(highlight);
             }
@@ -2741,13 +2842,11 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
         }
     }
 
-    // RENDER VILLAGES & STRUCTURES
     for (auto vId : vKnown) {
         sim::VillageData* v = simulationManager->getRegistry().getVillage(vId);
         if (!v) continue;
         float terrainY = worldManager->getTerrainHeight(v->centerX);
         
-        // Draw Structures (Detail Pass)
         for (auto sId : v->finishedStructures) {
             sim::StructureData* s = simulationManager->getRegistry().getStructure(sId);
             if (s) {
@@ -2761,19 +2860,15 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
             }
         }
 
-        // Draw Village Marker
-        // Draw Village Marker
         bool isCapital = (v->kingdomId != 0 && kKnown.count(v->kingdomId) && simulationManager->getRegistry().getKingdom(v->kingdomId)->capitalVillageId == v->id);
-        
         float radius = isCapital ? 200.f : 120.f;
         
-        // Selection Highlight for Village
         if (vId == selectedVillageId) {
             sf::CircleShape selMarker(radius + 40.f, isCapital ? 4 : 30);
             selMarker.setOrigin(selMarker.getRadius(), selMarker.getRadius());
             selMarker.setPosition(v->centerX, terrainY - radius);
             selMarker.setFillColor(sf::Color::Transparent);
-            selMarker.setOutlineColor(sf::Color(255, 255, 0)); // Bright Yellow/Gold
+            selMarker.setOutlineColor(sf::Color(255, 255, 0));
             selMarker.setOutlineThickness(25.f);
             window.draw(selMarker);
         }
@@ -2786,7 +2881,6 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
         marker.setOutlineThickness(20.f);
         window.draw(marker);
 
-        // Village Label
         sf::Text vLabel(v->name, cinematicFont, isCapital ? 180 : 130);
         vLabel.setFillColor(sf::Color(250, 240, 220));
         vLabel.setOutlineColor(sf::Color(20, 15, 10));
@@ -2797,7 +2891,6 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
         window.draw(vLabel);
     }
 
-    // DRAW PLAYER
     if (pData) {
         sf::CircleShape pMarker(150.f, 3);
         pMarker.setOrigin(150.f, 150.f);
@@ -2808,7 +2901,6 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
         window.draw(pMarker);
     }
 
-    // DRAW UI BORDER & HINTS
     window.setView(window.getDefaultView());
     sf::Vector2f winSize(window.getSize().x, window.getSize().y);
     sf::FloatRect vp = mapView.getViewport();
@@ -2820,7 +2912,6 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
     border.setOutlineThickness(8.f);
     window.draw(border);
 
-    // If fully expanded or detached, show controls
     if (mapMode == MapMode::Expanded || isMapDetached) {
         sf::Text controls("[Mouse Drag] Pan   [Scroll] Zoom   [C] Recenter Player   [Tab] Resize Map", cinematicFont, 16);
         controls.setFillColor(sf::Color::White);
@@ -2834,7 +2925,6 @@ void PlayState::drawWorldMap(sf::RenderWindow& window) {
 }
 
 void PlayState::handleMapClick(sf::Vector2f worldPos) {
-    // 1. EXTRACT STRICT FOG OF WAR KNOWLEDGE (Same as rendering)
     std::unordered_set<sim::KingdomID> kKnown;
     std::unordered_set<sim::VillageID> vKnown;
     sim::ApeData* pData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
@@ -2861,21 +2951,17 @@ void PlayState::handleMapClick(sf::Vector2f worldPos) {
         }
     }
 
-    // 2. CHECK SELECTION
     sim::VillageID hitVillage = 0;
     sim::KingdomID hitKingdom = 0;
 
-    // Prioritize Villages (Smaller targets)
     for (auto vId : vKnown) {
         sim::VillageData* v = simulationManager->getRegistry().getVillage(vId);
-        // 400.f is a generous click radius in world-space for the map markers
         if (v && std::abs(worldPos.x - v->centerX) < 400.f) {
             hitVillage = vId;
             break;
         }
     }
 
-    // If no village hit, check Kingdom territories
     if (hitVillage == 0) {
         for (auto kId : kKnown) {
             sim::KingdomData* k = simulationManager->getRegistry().getKingdom(kId);
@@ -2886,7 +2972,6 @@ void PlayState::handleMapClick(sf::Vector2f worldPos) {
         }
     }
 
-    // Apply Selection (Clicking empty space clears selection)
     selectedVillageId = hitVillage;
     selectedKingdomId = hitKingdom;
 }
@@ -2910,7 +2995,6 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
     float startX = profilePanelPos.x;
     float startY = profilePanelPos.y;
 
-    // Outer Wooden Rim
     sf::RectangleShape woodBorder(sf::Vector2f(panelW + 12.f, panelH + 12.f));
     woodBorder.setPosition(startX - 6.f, startY - 6.f);
     woodBorder.setFillColor(sf::Color(45, 30, 20));
@@ -2918,7 +3002,6 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
     woodBorder.setOutlineThickness(2.f);
     window.draw(woodBorder);
 
-    // Parchment Body
     sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
     panel.setPosition(startX, startY);
     panel.setFillColor(sf::Color(220, 205, 172));
@@ -2926,7 +3009,6 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
     panel.setOutlineThickness(2.f);
     window.draw(panel);
 
-    // Header Plaque
     sf::RectangleShape hPlate(sf::Vector2f(panelW - 16.f, 42.f));
     hPlate.setPosition(startX + 8.f, startY + 8.f);
     hPlate.setFillColor(sf::Color(65, 45, 28));
@@ -2959,7 +3041,6 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
     drawField("Population", std::to_string(v->members.size()) + " clan members", curY);
     curY += 42.f;
 
-    // Resource Stores Sub-Panel
     sf::RectangleShape resBox(sf::Vector2f(panelW - 32.f, 60.f));
     resBox.setPosition(startX + 16.f, curY);
     resBox.setFillColor(sf::Color(200, 182, 145));
@@ -2982,7 +3063,6 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
 
     curY += 75.f;
 
-    // Structures List
     sf::Text structH("SETTLEMENT STRUCTURES (" + std::to_string(v->finishedStructures.size()) + ")", cinematicFont, 12);
     structH.setFillColor(sf::Color(80, 55, 30));
     structH.setStyle(sf::Text::Bold);
@@ -2996,7 +3076,6 @@ void PlayState::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId)
     sList.setPosition(startX + 18.f, curY);
     window.draw(sList);
 
-    // View Leader Button
     curY = startY + panelH - 45.f;
     sf::RectangleShape btn(sf::Vector2f(200.f, 30.f));
     btn.setOrigin(100.f, 15.f);
@@ -3019,7 +3098,6 @@ void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId)
     sim::KingdomData* k = simulationManager->getRegistry().getKingdom(kId);
     if (!k) return;
 
-    // --- DATA EXTRACTION ---
     std::string rulerName = "Unknown Ruler";
     sim::ApeData* ruler = simulationManager->getRegistry().getApe(k->currentKingId);
     if (ruler) rulerName = ruler->name;
@@ -3039,7 +3117,6 @@ void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId)
     std::string woodStr = std::to_string(k->treasuryWood);
     std::string stoneStr = std::to_string(k->treasuryStone);
 
-    // Relationship extraction
     std::string relStr = "Neutral";
     sf::Color relCol = sf::Color(200, 200, 200);
     sim::ApeData* pApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
@@ -3122,190 +3199,6 @@ void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId)
     curY += 40.f;
     drawText("Relationship: " + relStr, curY, 20, relCol, true);
 
-    // Button
     curY = startY + panelH - 60.f;
     drawText("[ View Ruler ]", curY, 18, sf::Color(255, 255, 150), true);
-}
-
-// ====================================================
-// DIALOGUE BRANCH: VISITS & AUDIENCES (500 - 599)
-// ====================================================
-bool PlayState::loadVisitNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
-    if (nodeId < 500 || nodeId >= 600) return false;
-
-    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-    sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
-    if (!player || !rep) return false;
-
-    sim::KingdomData* rKData = (rKID != 0) ? simulationManager->getRegistry().getKingdom(rKID) : nullptr;
-    sim::VillageData* rVData = (rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
-
-    bool hasPermission = false;
-    if (rKData && rKData->permittedApes.count(player->id)) hasPermission = true;
-    else if (rVData && rKID == 0 && rVData->permittedApes.count(player->id)) hasPermission = true;
-
-    bool isFriendly = false;
-    if (rKData && pKID != 0) {
-        sim::KingdomData* pKData = simulationManager->getRegistry().getKingdom(pKID);
-        if (pKData && pKData->relations.count(rKID)) {
-            auto status = pKData->relations[rKID];
-            if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || status == sim::DiplomacyStatus::Trade) isFriendly = true;
-        }
-    } else if (rVData && rKID == 0) {
-        int op = rVData->personalOpinions.count(player->id) ? rVData->personalOpinions[player->id] : 0;
-        if (op >= 30) isFriendly = true;
-    }
-
-    switch(nodeId) {
-        case 500:
-            if (hasPermission) {
-                dialogueText = "\"You already have permission to enter our lands. You are welcome among us.\"";
-                if (player->scheduledAudienceHost == 0) {
-                    dialogueOptions.push_back({"\"I would like to speak with you in your homeland.\"", [this]() { loadDialogueNode(510); }});
-                }
-                dialogueOptions.push_back({"\"Thank you. Let us discuss other matters.\"", [this]() { loadDialogueNode(10); }});
-            } else {
-                dialogueText = "\"You wish to enter our territory? That is not a request we grant lightly.\"";
-                dialogueOptions.push_back({"\"May I visit your homeland?\"", [this, isFriendly]() { 
-                    if (isFriendly) loadDialogueNode(501); 
-                    else loadDialogueNode(502); 
-                }});
-                dialogueOptions.push_back({"\"Nevermind. Let us return to other topics.\"", [this]() { loadDialogueNode(10); }});
-            }
-            break;
-
-        case 501: // Granted
-            dialogueText = "\"You have proven yourself trustworthy. You may enter our lands in peace.\"";
-            dialogueOptions.push_back({"\"I appreciate this honor.\"", [this, rKData, rVData, player]() {
-                if (rKData) rKData->permittedApes.insert(player->id);
-                else if (rVData) rVData->permittedApes.insert(player->id);
-
-                sim::HistoricalRecord rec;
-                rec.year = simulationManager->getRegistry().getYear();
-                rec.day = simulationManager->getRegistry().getDay();
-                rec.description = player->name + " was granted permission to enter " + (rKData ? rKData->name : rVData->name) + ".";
-                simulationManager->getRegistry().addHistory(rec);
-                
-                loadDialogueNode(500); // Route back to check if they want an audience now
-            }});
-            break;
-
-        case 502: // Denied
-            dialogueText = "\"We are not yet comfortable opening our borders to you. Prove your intentions first.\"";
-            dialogueOptions.push_back({"\"I understand. I will earn your trust.\"", [this]() { loadDialogueNode(10); }});
-            dialogueOptions.push_back({"\"This is an insult!\"", [this]() { loadDialogueNode(400); }}); // Route to escalation
-            break;
-
-        case 510: // Audience Request
-            if (isFriendly) {
-                dialogueText = "\"We would be honored to host you in our halls. Come to our homeland. I will receive you there.\"";
-                dialogueOptions.push_back({"\"I will see you there.\"", [this, player, rep]() {
-                    player->scheduledAudienceHost = rep->id; // Persistently tracks the appointment
-                    
-                    sim::HistoricalRecord rec;
-                    rec.year = simulationManager->getRegistry().getYear();
-                    rec.day = simulationManager->getRegistry().getDay();
-                    rec.description = player->name + " was granted an audience with " + rep->name + ".";
-                    simulationManager->getRegistry().addHistory(rec);
-                    
-                    loadDialogueNode(10);
-                }});
-            } else {
-                dialogueText = "\"You may travel our lands, but I have no time for a formal audience right now.\"";
-                dialogueOptions.push_back({"\"Very well.\"", [this]() { loadDialogueNode(10); }});
-            }
-            break;
-    }
-    return true;
-}
-
-// ====================================================
-// DIALOGUE BRANCH: AUDIENCE & POLITICS (600 - 699)
-// ====================================================
-bool PlayState::loadAudienceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomID rKID) {
-    if (nodeId < 600 || nodeId >= 700) return false;
-
-    sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-    sim::ApeData* rep = simulationManager->getRegistry().getApe(currentDialogueRepId);
-    if (!player || !rep) return false;
-
-    sim::KingdomData* rKData = (rKID != 0) ? simulationManager->getRegistry().getKingdom(rKID) : nullptr;
-    sim::VillageData* rVData = (rep->villageId != 0) ? simulationManager->getRegistry().getVillage(rep->villageId) : nullptr;
-
-    bool isFriendly = false;
-    bool isHostile = false;
-
-    if (rKData && pKID != 0) {
-        sim::KingdomData* pKData = simulationManager->getRegistry().getKingdom(pKID);
-        if (pKData && pKData->relations.count(rKID)) {
-            auto status = pKData->relations[rKID];
-            if (status == sim::DiplomacyStatus::Friendly || status == sim::DiplomacyStatus::Alliance || status == sim::DiplomacyStatus::Trade) isFriendly = true;
-            if (status == sim::DiplomacyStatus::War || status == sim::DiplomacyStatus::Rival) isHostile = true;
-        }
-    } else if (rVData && rKID == 0) {
-        int op = rVData->personalOpinions.count(player->id) ? rVData->personalOpinions[player->id] : 0;
-        if (op >= 30) isFriendly = true;
-        if (op <= -30) isHostile = true;
-    }
-
-    switch(nodeId) {
-        case 600: // AUDIENCE ROOT
-            if (isHostile) {
-                dialogueText = "\"You have nerve showing your face in my hall. Speak quickly before my guards remove you.\"";
-            } else if (isFriendly) {
-                dialogueText = "\"Welcome to our lands, friend! We honor the agreements made at the meeting grounds. What would you discuss?\"";
-            } else {
-                dialogueText = "\"You have made the journey. I am listening. What political matters bring you to my seat?\"";
-            }
-
-            dialogueOptions.push_back({"\"I would like to propose an alliance.\"", [this]() { loadDialogueNode(610); }});
-            dialogueOptions.push_back({"\"Can we strengthen trade between our peoples?\"", [this]() { loadDialogueNode(620); }});
-            dialogueOptions.push_back({"\"There are matters concerning our borders.\"", [this]() { loadDialogueNode(630); }});
-            dialogueOptions.push_back({"\"That is all. Thank you for receiving me.\"", [this]() { loadDialogueNode(699); }});
-            break;
-
-        case 610: // ALLIANCE PROPOSAL
-            if (isHostile) {
-                dialogueText = "\"An alliance with you? Don't make me laugh. We are closer to war than friendship.\"";
-                dialogueOptions.push_back({"\"I see. I have another matter to discuss.\"", [this]() { loadDialogueNode(600); }});
-            } else if (isFriendly) {
-                dialogueText = "\"Our peoples already stand close. An alliance is the natural next step.\n(Alliance functionality to be implemented in a future phase).\"";
-                dialogueOptions.push_back({"\"Excellent. Let us discuss other things.\"", [this]() { loadDialogueNode(600); }});
-            } else {
-                dialogueText = "\"An alliance is a heavy commitment. You have not yet earned that level of trust.\"";
-                dialogueOptions.push_back({"\"I understand. Perhaps another time.\"", [this]() { loadDialogueNode(600); }});
-            }
-            break;
-
-        case 620: // TRADE PROPOSAL
-            if (isHostile) {
-                dialogueText = "\"We do not share our resources with enemies.\"";
-            } else {
-                dialogueText = "\"Trade benefits us all.\n(Economy & Caravan logistics to be expanded in future phase).\"";
-            }
-            dialogueOptions.push_back({"\"Let us return to other matters.\"", [this]() { loadDialogueNode(600); }});
-            break;
-
-        case 630: // BORDER MATTERS
-            dialogueText = "\"If you wish to dispute borders or file grievances, you must do so at the neutral meeting ground. My hall is for internal affairs and high treaties.\"";
-            dialogueOptions.push_back({"\"Understood.\"", [this]() { loadDialogueNode(600); }});
-            break;
-
-        case 699: // AUDIENCE COMPLETION
-            dialogueText = "\"Safe travels back to your own lands.\"";
-            dialogueOptions.push_back({"[ End Audience ]", [this, player, rep, rKData, rVData]() { 
-                player->scheduledAudienceHost = 0; // Clear the appointment safely
-                
-                sim::HistoricalRecord rec;
-                rec.year = simulationManager->getRegistry().getYear();
-                rec.day = simulationManager->getRegistry().getDay();
-                std::string pName = rKData ? rKData->name : (rVData ? rVData->name : "Unknown");
-                rec.description = player->name + " completed a formal audience with " + rep->name + " of " + pName + ".";
-                simulationManager->getRegistry().addHistory(rec);
-
-                endDiplomaticDialogue(); 
-            }});
-            break;
-    }
-    return true;
 }

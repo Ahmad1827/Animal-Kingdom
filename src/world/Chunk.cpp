@@ -3,6 +3,7 @@
 #include "world/WorldGenerator.h"
 #include "world/SeedManager.h"
 #include <cmath>
+#include <iostream>
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
 static constexpr float DIRT_DEPTH = 1200.0f;
@@ -15,6 +16,11 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
     regionType = Biome::determineRegion(pos.x, worldSeed);
     BiomeProperties props = Biome::getProperties(regionType);
     
+    std::cout << "[CHUNK] Chunk generated at X=" << pos.x << " Y=" << pos.y 
+              << " | Biome=" << props.name 
+              << " | Bounds=[" << bounds.left << ", " << (bounds.left + bounds.width) << "]" 
+              << std::endl;
+
     sf::Clock stepClock;
 
     undergroundMesh.setPrimitiveType(sf::Triangles);
@@ -55,7 +61,7 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
     
     float step = 8.f; 
     int segments = static_cast<int>(std::ceil(bounds.width / step));
-    for(int i = 0; i < segments; ++i) {
+    for (int i = 0; i < segments; ++i) {
         float xL = bounds.left + i * step;
         float xR = std::min(xL + step, bounds.left + bounds.width);
         
@@ -74,22 +80,17 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
     
     terrainGenTime = stepClock.restart().asSeconds();
     
-    float genStartX = bounds.left - 1000.f;
-    float genWidth = bounds.width + 2000.f;
-    
-    trees.reserve(20);
-    std::vector<Tree> candidateTrees = WorldGenerator::generateTrees(genStartX, genWidth, SeedManager::getChunkSeed(worldSeed, pos.x), worldSeed, props, decorTex);
+    trees.reserve(25);
+    std::vector<Tree> candidateTrees = WorldGenerator::generateTrees(bounds.left, bounds.width, chunkSeed, worldSeed, props, decorTex);
     for (auto& tree : candidateTrees) {
-        if (tree.getBounds().intersects(bounds)) {
-            trees.push_back(std::move(tree));
-        }
+        trees.push_back(std::move(tree));
     }
     treeGenTime = stepClock.restart().asSeconds();
     
     decorations.reserve(30);
     std::vector<Decoration> candidateDecs = WorldGenerator::generateDecorations(bounds.left, bounds.width, chunkSeed, worldSeed, props, decorTex);
     for (auto& dec : candidateDecs) {
-        if (dec.getBounds().intersects(bounds)) decorations.push_back(std::move(dec));
+        decorations.push_back(std::move(dec));
     }
     
     totalGenTime = totalClock.getElapsedTime().asSeconds();
@@ -156,6 +157,8 @@ void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBoun
             tree.getHarvestState() == TreeHarvestState::Fading) {
             tree.drawGeometry(target, viewBounds, profiler);
             profiler.visibleTrees++;
-        } else profiler.objectsCulled++;
+        } else {
+            profiler.objectsCulled++;
+        }
     }
 }

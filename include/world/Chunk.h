@@ -33,11 +33,11 @@ public:
     const std::vector<Tree>& getTrees() const;
     std::vector<Tree>& getMutableTrees() { return trees; }
     
-    bool removeTree(int treeId, float worldX = -999999.f) {
+    bool removeTree(int treeId, float worldX = -999999.0f) {
         auto it = std::remove_if(trees.begin(), trees.end(), [treeId, worldX](const Tree& t) {
             bool idMatch = (treeId != 0 && t.getId() == treeId);
             bool harvestedState = (t.getHarvestState() == TreeHarvestState::Harvested);
-            bool posMatch = (worldX > -900000.f && std::abs(t.getTrunkCenter() - worldX) <= 120.f);
+            bool posMatch = (worldX > -900000.0f && std::abs(t.getTrunkCenter() - worldX) <= 120.0f);
             return idMatch || harvestedState || posMatch;
         });
         if (it != trees.end()) {
@@ -62,7 +62,7 @@ public:
     ChunkPos getPos() const;
     sf::FloatRect getBounds() const;
     
-    float getTerrainGenTime() const { return 0.f; }
-    float getTreeGenTime() const { return 0.f; }
-    float getTotalGenTime() const { return 0.f; }
+    float getTerrainGenTime() const { return 0.0f; }
+    float getTreeGenTime() const { return 0.0f; }
+    float getTotalGenTime() const { return 0.0f; }
 };

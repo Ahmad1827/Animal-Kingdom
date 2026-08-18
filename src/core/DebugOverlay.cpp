@@ -41,23 +41,29 @@ bool DebugOverlay::getShowKinematicsDebug() const { return showKinematicsDebug; 
 bool DebugOverlay::getShowVillageDebug() const { return showVillageDebug; }
 bool DebugOverlay::getShowKingdomDebug() const { return showKingdomDebug; }
 
-void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32_t seed, const std::string& region, const ProfilerStats& profiler) {
-    BiomeType currentType = Biome::determineRegionAtWorldX(px, seed);
-    BiomeProperties bp = Biome::getProperties(currentType);
+void DebugOverlay::updateInfo(float, int chunkIdx, float px, float py, uint32_t, const std::string&, const ProfilerStats& profiler) {
+    BiomeTransitionInfo t = Biome::getTransitionInfo(px);
+    BiomeProperties bp = Biome::getProperties(t.currentBiome);
+    BiomeProperties nextBp = Biome::getProperties(t.nextBiome);
 
     std::ostringstream ss;
-    ss << std::fixed << std::setprecision(0);
-    ss << "=== BIOME DEBUG ===\n";
-    ss << "CURRENT BIOME:   " << bp.name << " (ID: " << static_cast<int>(currentType) << ")\n";
-    ss << "VEGETATION MODE: " << bp.vegetationMode << "\n\n";
-    ss << "--- WORLD POSITION ---\n";
+    ss << std::fixed << std::setprecision(1);
+    ss << "=== BIOME TRANSITION DEBUG ===\n";
+    ss << "CURRENT BIOME: " << bp.name << "\n";
+    if (t.currentBiome != t.nextBiome && t.blendFactor > 0.01f) {
+        ss << "NEXT BIOME:    " << nextBp.name << " (" << static_cast<int>(t.blendFactor * 100.0f) << "%)\n";
+    } else {
+        ss << "STATUS:        CORE REGION (100%)\n";
+    }
+    ss << "WEIGHTS -> Jungle: " << (t.jungleWeight * 100.0f) << "% | Field: " << (t.fieldWeight * 100.0f) << "% | Desert: " << (t.desertWeight * 100.0f) << "%\n\n";
+    ss << "--- POSITION ---\n";
     ss << "Player X: " << static_cast<int>(px) << " | Y: " << static_cast<int>(py) << "\n";
     ss << "Chunk: " << chunkIdx << " | FPS: " << static_cast<int>(profiler.fps) << "\n";
 
     debugText.setString(ss.str());
 }
 
-void DebugOverlay::updateSimStats(int simApes, int loadedNPCs, int loadedChunks, uint64_t simTick, int hour, int min, int day, int season, int year, int activeEvents) {
+void DebugOverlay::updateSimStats(int simApes, int loadedNPCs, int loadedChunks, uint64_t, int hour, int min, int day, int season, int year, int activeEvents) {
     if (!isVisible) return;
     std::string sName = (season == 0) ? "Spring" : (season == 1) ? "Summer" : (season == 2) ? "Autumn" : "Winter";
     char timeStr[256];
@@ -65,17 +71,17 @@ void DebugOverlay::updateSimStats(int simApes, int loadedNPCs, int loadedChunks,
     simText.setString(std::string(timeStr));
 }
 
-void DebugOverlay::updateDynastyStats(const std::string& name, float age, float health, const std::string& dynName, uint64_t id, uint64_t heirId, int livingCount) {
+void DebugOverlay::updateDynastyStats(const std::string& name, float, float health, const std::string& dynName, uint64_t, uint64_t, int) {
     if (!isVisible) return;
     std::string info = "--- CONTROLLED ENTITY ---\nName: " + name + "\nDynasty: " + dynName + "\nHealth: " + std::to_string(static_cast<int>(health));
     dynText.setString(info);
 }
 
-void DebugOverlay::updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int builders, int sleep, int queueSize, int knownTribes, float radius, int tools, bool migrating) {
+void DebugOverlay::updateVillageStats(const std::string& vName, int pop, int food, int wood, int stone, int idle, int working, int builders, int sleep, int queueSize, int knownTribes, float radius, int, bool migrating) {
     if (!showVillageDebug || !isVisible) { villText.setString(""); return; }
     std::string info = "--- VILLAGE OVERLAY (V) ---\n";
     info += "Name: " + vName + (migrating ? " [MIGRATING]" : "") + " | Pop: " + std::to_string(pop) + " | Radius: " + std::to_string(static_cast<int>(radius)) + "\n";
-    info += "Storage -> Food: " + std::to_string(food) + " | Wood: " + std::to_string(wood) + " | Stone: " + std::to_string(stone) + " | Tools: " + std::to_string(tools) + "\n";
+    info += "Storage -> Food: " + std::to_string(food) + " | Wood: " + std::to_string(wood) + " | Stone: " + std::to_string(stone) + "\n";
     info += "Activity -> Work: " + std::to_string(working) + " | Build: " + std::to_string(builders) + " | Idle: " + std::to_string(idle) + " | Sleep: " + std::to_string(sleep) + "\n";
     info += "Projects: " + std::to_string(queueSize) + " | Known Tribes: " + std::to_string(knownTribes) + "\n";
     villText.setString(info);
@@ -103,23 +109,35 @@ void DebugOverlay::draw(sf::RenderTarget& target) const {
 
     if (showRegions) {
         float centerX = currentView.getCenter().x;
-        BiomeType currentBiome = Biome::determineRegionAtWorldX(centerX, 0);
-        BiomeProperties bp = Biome::getProperties(currentBiome);
+        BiomeTransitionInfo t = Biome::getTransitionInfo(centerX);
+        BiomeProperties bp = Biome::getProperties(t.currentBiome);
+        BiomeProperties nextBp = Biome::getProperties(t.nextBiome);
+
+        sf::Color cJ = Biome::getProperties(BiomeType::Jungle).debugColor;
+        sf::Color cF = Biome::getProperties(BiomeType::Field).debugColor;
+        sf::Color cD = Biome::getProperties(BiomeType::Desert).debugColor;
+
+        float r = cJ.r * t.jungleWeight + cF.r * t.fieldWeight + cD.r * t.desertWeight;
+        float g = cJ.g * t.jungleWeight + cF.g * t.fieldWeight + cD.g * t.desertWeight;
+        float b = cJ.b * t.jungleWeight + cF.b * t.fieldWeight + cD.b * t.desertWeight;
 
         sf::RectangleShape screenShade(sf::Vector2f(static_cast<float>(target.getSize().x), static_cast<float>(target.getSize().y)));
-        screenShade.setPosition(0.f, 0.f);
-        sf::Color tint = bp.debugColor;
-        tint.a = 85;
-        screenShade.setFillColor(tint);
+        screenShade.setPosition(0.0f, 0.0f);
+        screenShade.setFillColor(sf::Color(static_cast<sf::Uint8>(r), static_cast<sf::Uint8>(g), static_cast<sf::Uint8>(b), 80));
         target.draw(screenShade);
 
-        sf::Text banner("[" + bp.name + "]", font, 26);
+        std::string labelText = "[" + bp.name + "]";
+        if (t.currentBiome != t.nextBiome && t.blendFactor > 0.01f) {
+            labelText += " -> [" + nextBp.name + " " + std::to_string(static_cast<int>(t.blendFactor * 100.0f)) + "%]";
+        }
+
+        sf::Text banner(labelText, font, 24);
         banner.setFillColor(sf::Color::White);
         banner.setOutlineColor(sf::Color::Black);
-        banner.setOutlineThickness(2.f);
-        sf::FloatRect b = banner.getLocalBounds();
-        banner.setOrigin(b.left + b.width / 2.f, 0.f);
-        banner.setPosition(target.getSize().x / 2.f, 20.f);
+        banner.setOutlineThickness(2.0f);
+        sf::FloatRect bounds = banner.getLocalBounds();
+        banner.setOrigin(bounds.left + bounds.width / 2.0f, 0.0f);
+        banner.setPosition(target.getSize().x / 2.0f, 20.0f);
         target.draw(banner);
     }
 

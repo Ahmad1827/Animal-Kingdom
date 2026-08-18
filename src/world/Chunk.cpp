@@ -11,76 +11,82 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
     bounds = sf::FloatRect(pos.x * width, pos.y * height, width, height);
     uint32_t chunkSeed = SeedManager::getChunkSeed(worldSeed, pos.x) + pos.y;
     
-    // Core Biome identity
     regionType = Biome::determineRegion(pos.x, worldSeed);
     BiomeProperties props = Biome::getProperties(regionType);
 
     undergroundMesh.setPrimitiveType(sf::Triangles);
     undergroundMesh.clear();
 
-    float x1 = bounds.left;
-    float x2 = bounds.left + bounds.width;
+    const float subStep = 50.0f;
+    int slices = static_cast<int>(std::ceil(bounds.width / subStep));
 
-    float yGrassBase = FLAT_GROUND_Y - 4.0f;
-    float yGrassBot  = FLAT_GROUND_Y + 8.0f;
-    float yDirt1     = FLAT_GROUND_Y + 24.0f;
-    float yDirt2     = FLAT_GROUND_Y + 80.0f;
-    float yDirtDeep  = FLAT_GROUND_Y + DIRT_DEPTH;
+    for (int s = 0; s < slices; ++s) {
+        float x1 = bounds.left + s * subStep;
+        float x2 = std::min(x1 + subStep, bounds.left + bounds.width);
 
-    sf::Color cGrassBase = props.groundColor;
-    sf::Color cGrassBot(static_cast<sf::Uint8>(props.groundColor.r * 0.7f),
-                        static_cast<sf::Uint8>(props.groundColor.g * 0.7f),
-                        static_cast<sf::Uint8>(props.groundColor.b * 0.7f));
-    sf::Color cDirt1 = props.undergroundColor;
-    sf::Color cDirt2(static_cast<sf::Uint8>(props.undergroundColor.r * 0.5f),
-                     static_cast<sf::Uint8>(props.undergroundColor.g * 0.5f),
-                     static_cast<sf::Uint8>(props.undergroundColor.b * 0.5f));
-    sf::Color cDirtDeep(0, 0, 0);
+        sf::Color cGrassBase1 = Biome::getBlendedGroundColor(x1, worldSeed);
+        sf::Color cGrassBase2 = Biome::getBlendedGroundColor(x2, worldSeed);
 
-    auto addQuad = [&](float topY, float botY, sf::Color topC, sf::Color botC) {
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, topY), topC));
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, topY), topC));
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, botY), botC));
+        sf::Color cUnder1 = Biome::getBlendedUndergroundColor(x1, worldSeed);
+        sf::Color cUnder2 = Biome::getBlendedUndergroundColor(x2, worldSeed);
 
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, topY), topC));
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, botY), botC));
-        undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, botY), botC));
-    };
+        sf::Color cGrassBot1(static_cast<sf::Uint8>(cGrassBase1.r * 0.7f), static_cast<sf::Uint8>(cGrassBase1.g * 0.7f), static_cast<sf::Uint8>(cGrassBase1.b * 0.7f));
+        sf::Color cGrassBot2(static_cast<sf::Uint8>(cGrassBase2.r * 0.7f), static_cast<sf::Uint8>(cGrassBase2.g * 0.7f), static_cast<sf::Uint8>(cGrassBase2.b * 0.7f));
 
-    addQuad(yGrassBase, yGrassBot, cGrassBase, cGrassBot);
-    addQuad(yGrassBot, yDirt1, cGrassBot, cDirt1);
-    addQuad(yDirt1, yDirt2, cDirt1, cDirt2);
-    addQuad(yDirt2, yDirtDeep, cDirt2, cDirtDeep);
+        sf::Color cDirt2_1(static_cast<sf::Uint8>(cUnder1.r * 0.5f), static_cast<sf::Uint8>(cUnder1.g * 0.5f), static_cast<sf::Uint8>(cUnder1.b * 0.5f));
+        sf::Color cDirt2_2(static_cast<sf::Uint8>(cUnder2.r * 0.5f), static_cast<sf::Uint8>(cUnder2.g * 0.5f), static_cast<sf::Uint8>(cUnder2.b * 0.5f));
+
+        sf::Color cDirtDeep(0, 0, 0);
+
+        float yGrassBase = FLAT_GROUND_Y - 4.0f;
+        float yGrassBot  = FLAT_GROUND_Y + 8.0f;
+        float yDirt1     = FLAT_GROUND_Y + 24.0f;
+        float yDirt2     = FLAT_GROUND_Y + 80.0f;
+        float yDirtDeep  = FLAT_GROUND_Y + DIRT_DEPTH;
+
+        auto addBlendedQuad = [&](float topY, float botY, sf::Color topC1, sf::Color topC2, sf::Color botC1, sf::Color botC2) {
+            undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, topY), topC1));
+            undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, topY), topC2));
+            undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, botY), botC1));
+
+            undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, topY), topC2));
+            undergroundMesh.append(sf::Vertex(sf::Vector2f(x2, botY), botC2));
+            undergroundMesh.append(sf::Vertex(sf::Vector2f(x1, botY), botC1));
+        };
+
+        addBlendedQuad(yGrassBase, yGrassBot, cGrassBase1, cGrassBase2, cGrassBot1, cGrassBot2);
+        addBlendedQuad(yGrassBot, yDirt1, cGrassBot1, cGrassBot2, cUnder1, cUnder2);
+        addBlendedQuad(yDirt1, yDirt2, cUnder1, cUnder2, cDirt2_1, cDirt2_2);
+        addBlendedQuad(yDirt2, yDirtDeep, cDirt2_1, cDirt2_2, cDirtDeep, cDirtDeep);
+    }
 
     terrainMesh.setPrimitiveType(sf::Triangles);
     terrainMesh.clear();
 
-    float step = 8.f;
+    float step = 8.0f;
     int segments = static_cast<int>(std::ceil(bounds.width / step));
     for (int i = 0; i < segments; ++i) {
         float xL = bounds.left + i * step;
         float xR = std::min(xL + step, bounds.left + bounds.width);
 
-        float hash = std::fmod(std::abs(xL) * 37.1f, 7.f);
-        float bladeHeight = 3.f + hash;
+        float hash = std::fmod(std::abs(xL) * 37.1f, 7.0f);
+        float bladeHeight = 3.0f + hash;
 
-        terrainMesh.append(sf::Vertex(sf::Vector2f(xL + step / 2.f, yGrassBase - bladeHeight), props.grassTipColor));
-        terrainMesh.append(sf::Vertex(sf::Vector2f(xR, yGrassBase), props.groundColor));
-        terrainMesh.append(sf::Vertex(sf::Vector2f(xL, yGrassBase), props.groundColor));
+        sf::Color tipColor = Biome::getBlendedGrassTipColor(xL + step * 0.5f, worldSeed);
+        sf::Color baseColor = Biome::getBlendedGroundColor(xL + step * 0.5f, worldSeed);
+
+        terrainMesh.append(sf::Vertex(sf::Vector2f(xL + step / 2.0f, FLAT_GROUND_Y - 4.0f - bladeHeight), tipColor));
+        terrainMesh.append(sf::Vertex(sf::Vector2f(xR, FLAT_GROUND_Y - 4.0f), baseColor));
+        terrainMesh.append(sf::Vertex(sf::Vector2f(xL, FLAT_GROUND_Y - 4.0f), baseColor));
     }
 
     waterMesh.setPrimitiveType(sf::Quads);
     waterMesh.clear();
 
-    // Generate Environment
     trees.reserve(40);
     std::vector<Tree> candidateTrees = WorldGenerator::generateTrees(bounds.left, bounds.width, chunkSeed, worldSeed, props, decorTex);
     for (auto& tree : candidateTrees) {
         trees.push_back(std::move(tree));
-    }
-
-    if (regionType == BiomeType::Jungle) {
-        std::cout << "[CHUNK TREE STORAGE] Chunk=" << pos.x << " TreesStored=" << trees.size() << "\n";
     }
 
     decorations.reserve(60);
@@ -104,7 +110,7 @@ BiomeType Chunk::getRegionType() const { return regionType; }
 ChunkPos Chunk::getPos() const { return pos; }
 sf::FloatRect Chunk::getBounds() const { return bounds; }
 
-void Chunk::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
+void Chunk::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool, ProfilerStats& profiler, sf::Texture&) const {
     if (!bounds.intersects(viewBounds)) return;
 
     if (undergroundMesh.getVertexCount() > 0) {
@@ -133,7 +139,6 @@ void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBoun
         }
     }
 
-    int renderedCount = 0;
     for (auto& tree : const_cast<std::vector<Tree>&>(trees)) {
         tree.update(1.0f / 60.0f);
         if (tree.getBounds().intersects(viewBounds) ||
@@ -141,15 +146,8 @@ void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBoun
             tree.getHarvestState() == TreeHarvestState::Fading) {
             tree.drawGeometry(target, viewBounds, profiler);
             profiler.visibleTrees++;
-            renderedCount++;
         } else {
             profiler.objectsCulled++;
         }
-    }
-
-    static sf::Clock renderDebugClock;
-    if (regionType == BiomeType::Jungle && renderDebugClock.getElapsedTime().asSeconds() > 2.0f) {
-        std::cout << "[CHUNK RENDER] Chunk=" << pos.x << " TreesRendered=" << renderedCount << "\n";
-        renderDebugClock.restart();
     }
 }

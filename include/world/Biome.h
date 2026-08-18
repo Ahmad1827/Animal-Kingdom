@@ -10,6 +10,15 @@ enum class BiomeType {
 
 using RegionType = BiomeType;
 
+struct BiomeTransitionInfo {
+    BiomeType currentBiome;
+    BiomeType nextBiome;
+    float blendFactor;
+    float jungleWeight;
+    float fieldWeight;
+    float desertWeight;
+};
+
 struct BiomeProperties {
     std::string name;
     BiomeType type;
@@ -24,7 +33,11 @@ struct BiomeProperties {
 
 class Biome {
 public:
-    static BiomeType determineRegionAtWorldX(float worldX, uint32_t worldSeed);
-    static BiomeType determineRegion(int chunkX, uint32_t worldSeed);
+    static BiomeTransitionInfo getTransitionInfo(float worldX);
+    static BiomeType determineRegionAtWorldX(float worldX, uint32_t worldSeed = 0);
+    static BiomeType determineRegion(int chunkX, uint32_t worldSeed = 0);
     static BiomeProperties getProperties(BiomeType type);
+    static sf::Color getBlendedGroundColor(float worldX, uint32_t worldSeed = 0);
+    static sf::Color getBlendedUndergroundColor(float worldX, uint32_t worldSeed = 0);
+    static sf::Color getBlendedGrassTipColor(float worldX, uint32_t worldSeed = 0);
 };

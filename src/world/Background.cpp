@@ -30,10 +30,10 @@ Background::Background(AssetManager& assets) {
     layer3_hills.scale = 0.32f;
     layer4_foreground.scale = 0.16f;
 
-    layer1_sky.yOffset = 0.f;
-    layer2_mountains.yOffset = 25.f; 
-    layer3_hills.yOffset = 25.f;
-    layer4_foreground.yOffset = -10.f;
+    layer1_sky.yOffset = 0.0f;
+    layer2_mountains.yOffset = 25.0f;
+    layer3_hills.yOffset = 25.0f;
+    layer4_foreground.yOffset = -10.0f;
 
     blendedMountColor = sf::Color::White;
     blendedHillColor = sf::Color::White;
@@ -43,8 +43,8 @@ Background::Background(AssetManager& assets) {
     findVisibleBottom(layer3_hills);
     findVisibleBottom(layer4_foreground);
 
-    camX = 0.f; camY = 0.f;
-    vSize = sf::Vector2f(1280.f, 720.f);
+    camX = 0.0f; camY = 0.0f;
+    vSize = sf::Vector2f(1280.0f, 720.0f);
 }
 
 void Background::findVisibleBottom(Layer& layer) {
@@ -67,20 +67,38 @@ void Background::findVisibleBottom(Layer& layer) {
     layer.visibleBottomY = (lastY != -1) ? lastY : static_cast<int>(height);
 }
 
-void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, float /*dt*/, uint32_t worldSeed) {
+void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, float, uint32_t) {
     camX = cameraX; camY = cameraY; vSize = viewSize;
 
-    BiomeType b = Biome::determineRegionAtWorldX(cameraX, worldSeed);
-    if (b == BiomeType::Jungle) {
-        blendedMountColor = sf::Color(130, 200, 140);
-        blendedHillColor = sf::Color(120, 190, 130);
-    } else if (b == BiomeType::Field) {
-        blendedMountColor = sf::Color(255, 255, 255);
-        blendedHillColor = sf::Color(255, 255, 255);
-    } else {
-        blendedMountColor = sf::Color(255, 215, 140);
-        blendedHillColor = sf::Color(255, 200, 120);
-    }
+    BiomeTransitionInfo t = Biome::getTransitionInfo(cameraX);
+
+    sf::Color mJungle(130, 200, 140);
+    sf::Color mField(255, 255, 255);
+    sf::Color mDesert(255, 215, 140);
+
+    sf::Color hJungle(120, 190, 130);
+    sf::Color hField(255, 255, 255);
+    sf::Color hDesert(255, 200, 120);
+
+    float mR = mJungle.r * t.jungleWeight + mField.r * t.fieldWeight + mDesert.r * t.desertWeight;
+    float mG = mJungle.g * t.jungleWeight + mField.g * t.fieldWeight + mDesert.g * t.desertWeight;
+    float mB = mJungle.b * t.jungleWeight + mField.b * t.fieldWeight + mDesert.b * t.desertWeight;
+
+    float hR = hJungle.r * t.jungleWeight + hField.r * t.fieldWeight + hDesert.r * t.desertWeight;
+    float hG = hJungle.g * t.jungleWeight + hField.g * t.fieldWeight + hDesert.g * t.desertWeight;
+    float hB = hJungle.b * t.jungleWeight + hField.b * t.fieldWeight + hDesert.b * t.desertWeight;
+
+    blendedMountColor = sf::Color(
+        static_cast<sf::Uint8>(std::clamp(mR, 0.0f, 255.0f)),
+        static_cast<sf::Uint8>(std::clamp(mG, 0.0f, 255.0f)),
+        static_cast<sf::Uint8>(std::clamp(mB, 0.0f, 255.0f))
+    );
+
+    blendedHillColor = sf::Color(
+        static_cast<sf::Uint8>(std::clamp(hR, 0.0f, 255.0f)),
+        static_cast<sf::Uint8>(std::clamp(hG, 0.0f, 255.0f)),
+        static_cast<sf::Uint8>(std::clamp(hB, 0.0f, 255.0f))
+    );
 }
 
 void Background::renderTiledLayer(sf::RenderTarget& target, Layer& layer, float targetWorldGroundY, bool isSky) {
@@ -97,13 +115,13 @@ void Background::renderTiledLayer(sf::RenderTarget& target, Layer& layer, float 
 
     float rawOffset = camX * layer.parallaxX;
     float modX = std::fmod(rawOffset, overlapTexW);
-    if (modX < 0.f) modX += overlapTexW;
+    if (modX < 0.0f) modX += overlapTexW;
 
-    float startX = std::floor(camX - (vSize.x / 2.f) - modX);
-    float drawY = 0.f;
+    float startX = std::floor(camX - (vSize.x / 2.0f) - modX);
+    float drawY = 0.0f;
 
     if (isSky) {
-        drawY = std::floor(camY - (vSize.y / 2.f));
+        drawY = std::floor(camY - (vSize.y / 2.0f));
     } else {
         float visibleBottomOffset = static_cast<float>(layer.visibleBottomY) * currentScale;
         drawY = std::floor(targetWorldGroundY - visibleBottomOffset + layer.yOffset);
@@ -130,5 +148,5 @@ void Background::drawDistant(sf::RenderTarget& target, float worldGroundY) {
     renderTiledLayer(target, layer3_hills, worldGroundY, false);
 }
 
-void Background::drawForeground(sf::RenderTarget& /*target*/, float /*worldGroundY*/) {
+void Background::drawForeground(sf::RenderTarget&, float) {
 }

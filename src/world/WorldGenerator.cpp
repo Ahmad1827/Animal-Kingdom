@@ -164,13 +164,8 @@ std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t world
         float rightBorderA = settlements[i].borderMaxX;
         float leftBorderB = settlements[i + 1].borderMinX;
 
-        if (rightBorderA < leftBorderB) {
-            float midX = (rightBorderA + leftBorderB) * 0.5f;
-            zones.push_back({midX - 140.0f, midX + 140.0f, ClearanceType::MeetingGround, "MeetingGround"});
-        } else {
-            float midX = (settlements[i].centerX + settlements[i + 1].centerX) * 0.5f;
-            zones.push_back({midX - 140.0f, midX + 140.0f, ClearanceType::MeetingGround, "MeetingGround"});
-        }
+        float midX = (rightBorderA < leftBorderB) ? ((rightBorderA + leftBorderB) * 0.5f) : ((settlements[i].centerX + settlements[i + 1].centerX) * 0.5f);
+        zones.push_back({midX - 180.0f, midX + 180.0f, ClearanceType::MeetingGround, "MeetingGround"});
     }
 
     return zones;
@@ -292,14 +287,6 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
 
         newTree.initDynamicMesh();
         result.push_back(std::move(newTree));
-
-        float actualGap = (prevTreeX > -900000.0f) ? ((treeX - prevTreeX) - (prevTrunkWidth * 0.5f + arch.trunkWidth * 0.5f)) : 999.0f;
-        std::cout << "[TREE SPACING]\n"
-                  << "PreviousX=" << static_cast<int>(prevTreeX) << "\n"
-                  << "CurrentX=" << static_cast<int>(treeX) << "\n"
-                  << "ActualGap=" << static_cast<int>(actualGap) << "\n"
-                  << "MinimumAllowed=" << static_cast<int>(MIN_APE_BODY_GAP) << "\n"
-                  << "VALID\n\n";
 
         prevTreeX = treeX;
         prevTrunkWidth = arch.trunkWidth;

@@ -474,10 +474,8 @@ void PlayState::update(float dt) {
             
             if (nearestTree) {
                 int tid = nearestTree->getId();
-                std::cout << "[F9 DEBUG] Immediate removal of Tree ID=" << tid << " at X=" << nearestTree->getTrunkCenter() << std::endl;
                 nearestTree->setHarvestState(TreeHarvestState::Harvested);
                 worldManager->harvestTree(tid);
-                std::cout << "[F9 DEBUG] Tree ID=" << tid << " removed from authoritative chunk storage." << std::endl;
             }
         }
     }
@@ -487,7 +485,6 @@ void PlayState::update(float dt) {
     if (f10Pressed && !f10PressedLastFrame) {
         for (auto& pair : simulationManager->getRegistry().getAllApes()) {
             if (pair.second.currentJob == sim::Job::Woodcutter && pair.second.alive) {
-                std::cout << "[F10 DEBUG] Forcing Worker " << pair.first << " into CHOPPING position." << std::endl;
                 pair.second.hasTravelDestination = false;
             }
         }
@@ -496,7 +493,6 @@ void PlayState::update(float dt) {
 
     bool f11Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::F11);
     if (f11Pressed && !f11PressedLastFrame) {
-        std::cout << "\n=== [F11 DIAGNOSTIC DUMP] ===" << std::endl;
         for (const auto& pair : simulationManager->getRegistry().getAllApes()) {
             if (pair.second.currentJob == sim::Job::Woodcutter) {
                 std::cout << "WORKER ID=" << pair.first << " (" << pair.second.name << ")"
@@ -506,7 +502,6 @@ void PlayState::update(float dt) {
                           << " | DEST_X=" << pair.second.travelDestinationX << std::endl;
             }
         }
-        std::cout << "==============================\n" << std::endl;
     }
     f11PressedLastFrame = f11Pressed;
 
@@ -821,8 +816,6 @@ void PlayState::update(float dt) {
 
         float trunkCenter = 0.f;
         float trunkTop = 0.f;
-        uint64_t tChunk = 0;
-        int tVine = -1, tSeg = -1;
         
         bool touchingTrunk = worldManager->checkTrunkCollision(playerBounds, trunkCenter, trunkTop);
         
@@ -882,17 +875,15 @@ void PlayState::update(float dt) {
             }
         } 
         else if (!interactionManager.isInteracting() && sf::Keyboard::isKeyPressed(sf::Keyboard::G) && playerWrapper->getState() != ApeState::ClimbingVine) {
-            if (worldManager->checkVineCollision(playerBounds, tChunk, tVine, tSeg)) {
+            if (worldManager->checkVineCollision(playerBounds, grabbedChunk, grabbedVine, grabbedSeg)) {
                 playerWrapper->setState(ApeState::ClimbingVine);
-                grabbedChunk = tChunk;
-                grabbedVine = tVine;
                 isDroppingToHang = false;
 
                 int bestSeg = 1;
                 float bestDist = 99999.f;
-                int segCount = worldManager->getVineSegmentCount(tChunk, tVine);
+                int segCount = worldManager->getVineSegmentCount(grabbedChunk, grabbedVine);
                 for (int i = 1; i < segCount; ++i) {
-                    float sY = worldManager->getVineSegmentPosition(tChunk, tVine, i).y;
+                    float sY = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, i).y;
                     float expectedY = sY + 120.f;
                     float dist = std::abs(expectedY - playerBounds.top);
                     if (dist < bestDist) {
@@ -902,7 +893,7 @@ void PlayState::update(float dt) {
                 }
 
                 while (bestSeg > 1) {
-                    float sY = worldManager->getVineSegmentPosition(tChunk, tVine, bestSeg).y;
+                    float sY = worldManager->getVineSegmentPosition(grabbedChunk, grabbedVine, bestSeg).y;
                     if (sY + 120.f + playerBounds.height >= groundHeight - 5.f) {
                         bestSeg--;
                     } else {
@@ -1335,107 +1326,107 @@ void PlayState::draw(sf::RenderWindow& window) {
             window.draw(rightTotem);
         }
 
-        struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; };
+        struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; float centerX; };
         std::vector<Polity> polities;
         for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
             if (pair.second.kingdomId == 0) {
-                polities.push_back({pair.first, false, pair.second.borderMinX, pair.second.borderMaxX});
+                polities.push_back({pair.first, false, pair.second.borderMinX, pair.second.borderMaxX, pair.second.centerX});
             }
         }
         for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
-            if (pair.second.territoryMaxX != 0.f) {
-                polities.push_back({pair.first, true, pair.second.territoryMinX, pair.second.territoryMaxX});
+            if (pair.second.territoryMaxX > pair.second.territoryMinX) {
+                polities.push_back({pair.first, true, pair.second.territoryMinX, pair.second.territoryMaxX, (pair.second.territoryMinX + pair.second.territoryMaxX) * 0.5f});
             }
         }
-        for (size_t i = 0; i < polities.size(); ++i) {
-            for (size_t j = i + 1; j < polities.size(); ++j) {
-                const Polity& p1 = polities[i];
-                const Polity& p2 = polities[j];
-                
-                float gap = 0.f;
-                float midX = 0.f;
 
-                if (p1.maxX < p2.minX) {
-                    gap = p2.minX - p1.maxX;
-                    midX = p1.maxX + (gap / 2.f);
-                } else if (p2.maxX < p1.minX) {
-                    gap = p1.minX - p2.maxX;
-                    midX = p2.maxX + (gap / 2.f);
-                } else {
-                    gap = 0.f;
-                    float overlapStart = std::max(p1.minX, p2.minX);
-                    float overlapEnd = std::min(p1.maxX, p2.maxX);
-                    midX = overlapStart + ((overlapEnd - overlapStart) / 2.f);
-                }
+        std::sort(polities.begin(), polities.end(), [](const auto& a, const auto& b) {
+            return a.centerX < b.centerX;
+        });
 
-                if (gap >= 0.f && gap <= 4500.f) {
-                    float midY = worldManager->getTerrainHeight(midX);
-                    
-                    sf::Color color1 = sf::Color(40, 140, 40); 
-                    if (p1.isKingdom) {
-                        sim::KingdomData* k1 = simulationManager->getRegistry().getKingdom(p1.id);
-                        if (k1) color1 = k1->color;
-                    }
-                    
-                    sf::Color color2 = sf::Color(40, 140, 40); 
-                    if (p2.isKingdom) {
-                        sim::KingdomData* k2 = simulationManager->getRegistry().getKingdom(p2.id);
-                        if (k2) color2 = k2->color;
-                    }
-                    
-                    sf::RectangleShape firePit(sf::Vector2f(60.f, 15.f));
-                    firePit.setOrigin(30.f, 15.f);
-                    firePit.setPosition(midX, midY);
-                    firePit.setFillColor(sf::Color(100, 100, 100));
-                    firePit.setOutlineColor(sf::Color::Black);
-                    firePit.setOutlineThickness(2.f);
-                    window.draw(firePit);
-                    
-                    sf::ConvexShape flameOuter(3);
-                    flameOuter.setPoint(0, sf::Vector2f(0.f, -30.f));
-                    flameOuter.setPoint(1, sf::Vector2f(15.f, 0.f));
-                    flameOuter.setPoint(2, sf::Vector2f(-15.f, 0.f));
-                    flameOuter.setPosition(midX, midY - 15.f);
-                    flameOuter.setFillColor(sf::Color(220, 80, 20));
-                    window.draw(flameOuter);
-                    
-                    sf::ConvexShape flameInner(3);
-                    flameInner.setPoint(0, sf::Vector2f(0.f, -15.f));
-                    flameInner.setPoint(1, sf::Vector2f(8.f, 0.f));
-                    flameInner.setPoint(2, sf::Vector2f(-8.f, 0.f));
-                    flameInner.setPosition(midX, midY - 15.f);
-                    flameInner.setFillColor(sf::Color(240, 200, 40));
-                    window.draw(flameInner);
+        for (size_t i = 0; i + 1 < polities.size(); ++i) {
+            const Polity& p1 = polities[i];
+            const Polity& p2 = polities[i + 1];
 
-                    sf::RectangleShape leftPole(sf::Vector2f(4.f, 80.f));
-                    leftPole.setOrigin(2.f, 80.f);
-                    leftPole.setPosition(midX - 60.f, midY);
-                    leftPole.setFillColor(sf::Color(90, 60, 40));
-                    window.draw(leftPole);
-                    
-                    sf::RectangleShape leftFlag(sf::Vector2f(30.f, 40.f));
-                    leftFlag.setOrigin(30.f, 0.f); 
-                    leftFlag.setPosition(midX - 60.f, midY - 75.f);
-                    leftFlag.setFillColor(color1);
-                    leftFlag.setOutlineColor(sf::Color::Black);
-                    leftFlag.setOutlineThickness(1.f);
-                    window.draw(leftFlag);
-
-                    sf::RectangleShape rightPole(sf::Vector2f(4.f, 80.f));
-                    rightPole.setOrigin(2.f, 80.f);
-                    rightPole.setPosition(midX + 60.f, midY);
-                    rightPole.setFillColor(sf::Color(90, 60, 40));
-                    window.draw(rightPole);
-                    
-                    sf::RectangleShape rightFlag(sf::Vector2f(30.f, 40.f));
-                    rightFlag.setOrigin(0.f, 0.f); 
-                    rightFlag.setPosition(midX + 60.f, midY - 75.f);
-                    rightFlag.setFillColor(color2);
-                    rightFlag.setOutlineColor(sf::Color::Black);
-                    rightFlag.setOutlineThickness(1.f);
-                    window.draw(rightFlag);
-                }
+            float midX = 0.f;
+            if (p1.maxX < p2.minX) {
+                midX = (p1.maxX + p2.minX) * 0.5f;
+            } else {
+                midX = (p1.centerX + p2.centerX) * 0.5f;
             }
+
+            float midY = worldManager->getTerrainHeight(midX);
+
+            sf::Color color1 = sf::Color(40, 140, 40); 
+            if (p1.isKingdom) {
+                sim::KingdomData* k1 = simulationManager->getRegistry().getKingdom(p1.id);
+                if (k1) color1 = k1->color;
+            } else {
+                if (p1.id % 3 == 1) color1 = sf::Color(50, 100, 200);
+                else if (p1.id % 3 == 2) color1 = sf::Color(200, 150, 20);
+                else color1 = sf::Color(200, 50, 50);
+            }
+
+            sf::Color color2 = sf::Color(40, 140, 40); 
+            if (p2.isKingdom) {
+                sim::KingdomData* k2 = simulationManager->getRegistry().getKingdom(p2.id);
+                if (k2) color2 = k2->color;
+            } else {
+                if (p2.id % 3 == 1) color2 = sf::Color(50, 100, 200);
+                else if (p2.id % 3 == 2) color2 = sf::Color(200, 150, 20);
+                else color2 = sf::Color(200, 50, 50);
+            }
+
+            sf::RectangleShape firePit(sf::Vector2f(60.f, 15.f));
+            firePit.setOrigin(30.f, 15.f);
+            firePit.setPosition(midX, midY);
+            firePit.setFillColor(sf::Color(100, 100, 100));
+            firePit.setOutlineColor(sf::Color::Black);
+            firePit.setOutlineThickness(2.f);
+            window.draw(firePit);
+
+            sf::ConvexShape flameOuter(3);
+            flameOuter.setPoint(0, sf::Vector2f(0.f, -30.f));
+            flameOuter.setPoint(1, sf::Vector2f(15.f, 0.f));
+            flameOuter.setPoint(2, sf::Vector2f(-15.f, 0.f));
+            flameOuter.setPosition(midX, midY - 15.f);
+            flameOuter.setFillColor(sf::Color(220, 80, 20));
+            window.draw(flameOuter);
+
+            sf::ConvexShape flameInner(3);
+            flameInner.setPoint(0, sf::Vector2f(0.f, -15.f));
+            flameInner.setPoint(1, sf::Vector2f(8.f, 0.f));
+            flameInner.setPoint(2, sf::Vector2f(-8.f, 0.f));
+            flameInner.setPosition(midX, midY - 15.f);
+            flameInner.setFillColor(sf::Color(240, 200, 40));
+            window.draw(flameInner);
+
+            sf::RectangleShape leftPole(sf::Vector2f(4.f, 80.f));
+            leftPole.setOrigin(2.f, 80.f);
+            leftPole.setPosition(midX - 60.f, midY);
+            leftPole.setFillColor(sf::Color(90, 60, 40));
+            window.draw(leftPole);
+
+            sf::RectangleShape leftFlag(sf::Vector2f(30.f, 40.f));
+            leftFlag.setOrigin(30.f, 0.f); 
+            leftFlag.setPosition(midX - 60.f, midY - 75.f);
+            leftFlag.setFillColor(color1);
+            leftFlag.setOutlineColor(sf::Color::Black);
+            leftFlag.setOutlineThickness(1.f);
+            window.draw(leftFlag);
+
+            sf::RectangleShape rightPole(sf::Vector2f(4.f, 80.f));
+            rightPole.setOrigin(2.f, 80.f);
+            rightPole.setPosition(midX + 60.f, midY);
+            rightPole.setFillColor(sf::Color(90, 60, 40));
+            window.draw(rightPole);
+
+            sf::RectangleShape rightFlag(sf::Vector2f(30.f, 40.f));
+            rightFlag.setOrigin(0.f, 0.f); 
+            rightFlag.setPosition(midX + 60.f, midY - 75.f);
+            rightFlag.setFillColor(color2);
+            rightFlag.setOutlineColor(sf::Color::Black);
+            rightFlag.setOutlineThickness(1.f);
+            window.draw(rightFlag);
         }
 
         if (particleSystem) particleSystem->draw(window);
@@ -1709,49 +1700,40 @@ void PlayState::refreshInteractionTargets() {
         }
     }
 
-    struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; };
+    struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; float centerX; };
     std::vector<Polity> polities;
 
     for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
         if (pair.second.kingdomId == 0) {
-            polities.push_back({pair.first, false, pair.second.borderMinX, pair.second.borderMaxX});
+            polities.push_back({pair.first, false, pair.second.borderMinX, pair.second.borderMaxX, pair.second.centerX});
         }
     }
 
     for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {
-        if (pair.second.territoryMaxX != 0.f) {
-            polities.push_back({pair.first, true, pair.second.territoryMinX, pair.second.territoryMaxX});
+        if (pair.second.territoryMaxX > pair.second.territoryMinX) {
+            polities.push_back({pair.first, true, pair.second.territoryMinX, pair.second.territoryMaxX, (pair.second.territoryMinX + pair.second.territoryMaxX) * 0.5f});
         }
     }
 
-    for (size_t i = 0; i < polities.size(); ++i) {
-        for (size_t j = i + 1; j < polities.size(); ++j) {
-            const Polity& p1 = polities[i];
-            const Polity& p2 = polities[j];
+    std::sort(polities.begin(), polities.end(), [](const auto& a, const auto& b) {
+        return a.centerX < b.centerX;
+    });
 
-            float gap = 0.f;
-            float midX = 0.f;
+    for (size_t i = 0; i + 1 < polities.size(); ++i) {
+        const Polity& p1 = polities[i];
+        const Polity& p2 = polities[i + 1];
 
-            if (p1.maxX < p2.minX) {
-                gap = p2.minX - p1.maxX;
-                midX = p1.maxX + (gap / 2.f);
-            } else if (p2.maxX < p1.minX) {
-                gap = p1.minX - p2.maxX;
-                midX = p2.maxX + (gap / 2.f);
-            } else {
-                gap = 0.f;
-                float overlapStart = std::max(p1.minX, p2.minX);
-                float overlapEnd = std::min(p1.maxX, p2.maxX);
-                midX = overlapStart + ((overlapEnd - overlapStart) / 2.f);
-            }
-
-            if (gap >= 0.f && gap <= 4500.f) {
-                float midY = 500.0f;
-                interactionManager.registerTarget(std::make_shared<DiplomaticMeetingInteractionTarget>(
-                    p1.id, p1.isKingdom, p2.id, p2.isKingdom, midX, midY, simulationManager->getRegistry(), simulationManager->getControlledApe()
-                ));
-            }
+        float midX = 0.f;
+        if (p1.maxX < p2.minX) {
+            midX = (p1.maxX + p2.minX) * 0.5f;
+        } else {
+            midX = (p1.centerX + p2.centerX) * 0.5f;
         }
+
+        float midY = worldManager->getTerrainHeight(midX);
+        interactionManager.registerTarget(std::make_shared<DiplomaticMeetingInteractionTarget>(
+            p1.id, p1.isKingdom, p2.id, p2.isKingdom, midX, midY, simulationManager->getRegistry(), simulationManager->getControlledApe()
+        ));
     }
 
     sim::VillageData* pVillage = simulationManager->getRegistry().getVillage(activeClanId);
@@ -1759,7 +1741,6 @@ void PlayState::refreshInteractionTargets() {
     if (pVillage && controlledApe && worldManager) {
         float playerX = controlledApe->worldX;
 
-        // Query only trees within immediate reach (100px)
         std::vector<Tree*> candidateTrees = worldManager->getNearbyTrees(playerX, 100.f);
 
         for (Tree* tree : candidateTrees) {
@@ -2522,7 +2503,7 @@ bool PlayState::loadAudienceNodes(int nodeId, sim::KingdomID pKID, sim::KingdomI
                 rec.year = simulationManager->getRegistry().getYear();
                 rec.day = simulationManager->getRegistry().getDay();
                 std::string pName = rKData ? rKData->name : (rVData ? rVData->name : "Unknown");
-                rec.description = player->name + " completed a formal audience with " + rep->name + " of " + pName + ".";
+                rec.description = player->name + " completed a formal audience with " + rep->name + ".";
                 simulationManager->getRegistry().addHistory(rec);
 
                 endDiplomaticDialogue(); 

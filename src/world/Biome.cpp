@@ -79,8 +79,8 @@ BiomeProperties Biome::getProperties(BiomeType type) {
             p.undergroundColor = sf::Color(24, 15, 8);
             p.grassTipColor = sf::Color(36, 105, 30);
             p.debugColor = sf::Color(0, 140, 45, 100);
-            p.minTreeSpacing = 140.0f;
-            p.maxTreeSpacing = 140.0f;
+            p.minTreeSpacing = 65.0f;
+            p.maxTreeSpacing = 160.0f;
             break;
 
         case BiomeType::Field:

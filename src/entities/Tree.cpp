@@ -39,8 +39,17 @@ void Tree::appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, floa
 }
 
 void Tree::addBranch(float yOffset, float width, bool rightSide, sf::Color, sf::Texture& decorTexture) {
-    float startX = trunkBounds.left + (rightSide ? (trunkBounds.width * 0.75f) : (trunkBounds.width * 0.25f));
-    float bHeight = 45.f; 
+    float scale = trunkSprite.getScale().y;
+    if (scale <= 0.001f) scale = 1.0f;
+
+    float bushW = static_cast<float>(VisualConfig::DECOR_BUSH.width);
+    float bushH = static_cast<float>(VisualConfig::DECOR_BUSH.height);
+    float uniformScale = scale * 0.60f;
+    float drawnW = bushW * uniformScale;
+    float bHeight = bushH * uniformScale;
+
+    float trunkCenterX = trunkBounds.left + (trunkBounds.width * 0.5f);
+    float startX = rightSide ? (trunkCenterX + trunkBounds.width * 0.18f) : (trunkCenterX - trunkBounds.width * 0.18f);
 
     sf::FloatRect branchRect(rightSide ? startX : (startX - width), trunkBounds.top + trunkBounds.height - yOffset, width, bHeight);
     branchData.push_back({branchRect}); 
@@ -53,12 +62,7 @@ void Tree::addBranch(float yOffset, float width, bool rightSide, sf::Color, sf::
         totalBounds.width = (branchRect.left + branchRect.width) - totalBounds.left;
     }
 
-    float bushW = static_cast<float>(VisualConfig::DECOR_BUSH.width);
-    float bushH = static_cast<float>(VisualConfig::DECOR_BUSH.height);
-    float uniformScale = bHeight / bushH;
-    float drawnW = bushW * uniformScale;
-
-    int count = std::max(1, static_cast<int>(std::ceil(width / (drawnW * 0.7f)))); 
+    int count = std::max(1, static_cast<int>(std::ceil(width / (drawnW * 0.65f)))); 
     float step = (count > 1) ? (width - drawnW) / (count - 1) : 0.f;
 
     branchSprites.reserve(branchSprites.size() + count);

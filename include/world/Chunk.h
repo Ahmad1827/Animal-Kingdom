@@ -24,10 +24,6 @@ private:
     BiomeType regionType;
     sf::VertexArray undergroundMesh;
 
-    float terrainGenTime;
-    float treeGenTime;
-    float totalGenTime;
-
 public:
     Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Texture& decorTex);
     void drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const;
@@ -66,7 +62,7 @@ public:
     ChunkPos getPos() const;
     sf::FloatRect getBounds() const;
     
-    float getTerrainGenTime() const;
-    float getTreeGenTime() const;
-    float getTotalGenTime() const;
+    float getTerrainGenTime() const { return 0.f; }
+    float getTreeGenTime() const { return 0.f; }
+    float getTotalGenTime() const { return 0.f; }
 };

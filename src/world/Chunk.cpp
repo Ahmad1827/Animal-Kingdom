@@ -2,19 +2,18 @@
 #include "world/WorldGenerator.h"
 #include "world/SeedManager.h"
 #include <cmath>
+#include <iostream>
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
 static constexpr float DIRT_DEPTH = 1200.0f;
 
 Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Texture& decorTex) : pos(pos) {
-    sf::Clock totalClock;
-    
     bounds = sf::FloatRect(pos.x * width, pos.y * height, width, height);
     uint32_t chunkSeed = SeedManager::getChunkSeed(worldSeed, pos.x) + pos.y;
+    
+    // Core Biome identity
     regionType = Biome::determineRegion(pos.x, worldSeed);
     BiomeProperties props = Biome::getProperties(regionType);
-
-    sf::Clock stepClock;
 
     undergroundMesh.setPrimitiveType(sf::Triangles);
     undergroundMesh.clear();
@@ -62,7 +61,7 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
         float xL = bounds.left + i * step;
         float xR = std::min(xL + step, bounds.left + bounds.width);
 
-        float hash = std::fmod(xL * 37.1f, 7.f);
+        float hash = std::fmod(std::abs(xL) * 37.1f, 7.f);
         float bladeHeight = 3.f + hash;
 
         terrainMesh.append(sf::Vertex(sf::Vector2f(xL + step / 2.f, yGrassBase - bladeHeight), props.grassTipColor));
@@ -73,22 +72,22 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
     waterMesh.setPrimitiveType(sf::Quads);
     waterMesh.clear();
 
-    terrainGenTime = stepClock.restart().asSeconds();
-
+    // Generate Environment
     trees.reserve(40);
     std::vector<Tree> candidateTrees = WorldGenerator::generateTrees(bounds.left, bounds.width, chunkSeed, worldSeed, props, decorTex);
     for (auto& tree : candidateTrees) {
         trees.push_back(std::move(tree));
     }
-    treeGenTime = stepClock.restart().asSeconds();
+
+    if (regionType == BiomeType::Jungle) {
+        std::cout << "[CHUNK TREE STORAGE] Chunk=" << pos.x << " TreesStored=" << trees.size() << "\n";
+    }
 
     decorations.reserve(60);
     std::vector<Decoration> candidateDecs = WorldGenerator::generateDecorations(bounds.left, bounds.width, chunkSeed, worldSeed, props, decorTex);
     for (auto& dec : candidateDecs) {
         decorations.push_back(std::move(dec));
     }
-
-    totalGenTime = totalClock.getElapsedTime().asSeconds();
 }
 
 void Chunk::updateSway(float globalTime, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector) {
@@ -100,9 +99,6 @@ void Chunk::updateSway(float globalTime, const sf::FloatRect& viewBounds, const 
     }
 }
 
-float Chunk::getTerrainGenTime() const { return terrainGenTime; }
-float Chunk::getTreeGenTime() const { return treeGenTime; }
-float Chunk::getTotalGenTime() const { return totalGenTime; }
 const std::vector<Tree>& Chunk::getTrees() const { return trees; }
 BiomeType Chunk::getRegionType() const { return regionType; }
 ChunkPos Chunk::getPos() const { return pos; }
@@ -124,14 +120,6 @@ void Chunk::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBo
         profiler.drawCalls++;
         profiler.objectsRendered++;
     }
-
-    if (waterMesh.getVertexCount() > 0) {
-        sf::RenderStates waterStates;
-        waterStates.texture = nullptr;
-        target.draw(waterMesh, waterStates);
-        profiler.drawCalls++;
-        profiler.objectsRendered++;
-    }
 }
 
 void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
@@ -145,6 +133,7 @@ void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBoun
         }
     }
 
+    int renderedCount = 0;
     for (auto& tree : const_cast<std::vector<Tree>&>(trees)) {
         tree.update(1.0f / 60.0f);
         if (tree.getBounds().intersects(viewBounds) ||
@@ -152,8 +141,15 @@ void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBoun
             tree.getHarvestState() == TreeHarvestState::Fading) {
             tree.drawGeometry(target, viewBounds, profiler);
             profiler.visibleTrees++;
+            renderedCount++;
         } else {
             profiler.objectsCulled++;
         }
+    }
+
+    static sf::Clock renderDebugClock;
+    if (regionType == BiomeType::Jungle && renderDebugClock.getElapsedTime().asSeconds() > 2.0f) {
+        std::cout << "[CHUNK RENDER] Chunk=" << pos.x << " TreesRendered=" << renderedCount << "\n";
+        renderDebugClock.restart();
     }
 }

@@ -67,7 +67,7 @@ void Background::findVisibleBottom(Layer& layer) {
     layer.visibleBottomY = (lastY != -1) ? lastY : static_cast<int>(height);
 }
 
-void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt, uint32_t worldSeed) {
+void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, float /*dt*/, uint32_t worldSeed) {
     camX = cameraX; camY = cameraY; vSize = viewSize;
 
     BiomeType b = Biome::determineRegionAtWorldX(cameraX, worldSeed);
@@ -130,5 +130,5 @@ void Background::drawDistant(sf::RenderTarget& target, float worldGroundY) {
     renderTiledLayer(target, layer3_hills, worldGroundY, false);
 }
 
-void Background::drawForeground(sf::RenderTarget& target, float worldGroundY) {
+void Background::drawForeground(sf::RenderTarget& /*target*/, float /*worldGroundY*/) {
 }

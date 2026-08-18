@@ -42,23 +42,17 @@ bool DebugOverlay::getShowVillageDebug() const { return showVillageDebug; }
 bool DebugOverlay::getShowKingdomDebug() const { return showKingdomDebug; }
 
 void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32_t seed, const std::string& region, const ProfilerStats& profiler) {
-    BiomeWeights bw = Biome::getWeights(px, seed);
-    BiomeType dominant = bw.getDominantBiome();
-    BiomeProperties bp = Biome::getProperties(dominant);
+    BiomeType currentType = Biome::determineRegionAtWorldX(px, seed);
+    BiomeProperties bp = Biome::getProperties(currentType);
 
     std::ostringstream ss;
-    ss << std::fixed << std::setprecision(2);
+    ss << std::fixed << std::setprecision(0);
     ss << "=== BIOME DEBUG ===\n";
-    ss << "Current Biome: " << bp.name << " (ID: " << static_cast<int>(dominant) << ")\n";
-    ss << "Mode:          " << bp.vegetationMode << "\n";
-    ss << "--- INFLUENCE WEIGHTS ---\n";
-    ss << "Jungle: " << bw.get(BiomeType::Jungle) * 100.f << "%\n";
-    ss << "Field:  " << bw.get(BiomeType::Field) * 100.f << "%\n";
-    ss << "Desert: " << bw.get(BiomeType::Desert) * 100.f << "%\n";
-    ss << "Hills:  " << bw.get(BiomeType::Hills) * 100.f << "%\n";
-    ss << "Mount:  " << bw.get(BiomeType::Mountain) * 100.f << "%\n\n";
+    ss << "CURRENT BIOME:   " << bp.name << " (ID: " << static_cast<int>(currentType) << ")\n";
+    ss << "VEGETATION MODE: " << bp.vegetationMode << "\n\n";
+    ss << "--- WORLD POSITION ---\n";
     ss << "Player X: " << static_cast<int>(px) << " | Y: " << static_cast<int>(py) << "\n";
-    ss << "FPS: " << static_cast<int>(profiler.fps) << "\n";
+    ss << "Chunk: " << chunkIdx << " | FPS: " << static_cast<int>(profiler.fps) << "\n";
 
     debugText.setString(ss.str());
 }

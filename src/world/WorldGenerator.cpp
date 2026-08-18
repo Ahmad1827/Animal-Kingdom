@@ -1,51 +1,22 @@
 #include "world/WorldGenerator.h"
-#include "world/SeedManager.h"
 #include <cmath>
-#include <algorithm>
+#include <iostream>
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
 
-std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t worldSeed) {
+std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t /*worldSeed*/) {
     std::vector<WorldClearanceZone> zones;
+    
+    // Player Base at X = 1000 (Clearance: 650 to 1350)
+    zones.push_back({1000.f - 350.f, 1000.f + 350.f, ClearanceType::Base, "PlayerBase"});
+    
+    // Hardcoded neighboring clearings for simplicity
+    zones.push_back({-5000.f - 350.f, -5000.f + 350.f, ClearanceType::Base, "WestBase"});
+    zones.push_back({7000.f - 350.f, 7000.f + 350.f, ClearanceType::Base, "EastBase"});
 
-    struct SettlementBounds {
-        float centerX;
-        float borderMinX;
-        float borderMaxX;
-    };
-
-    std::vector<SettlementBounds> settlements;
-    settlements.push_back({1000.0f, 1000.0f - 3000.0f, 1000.0f + 3000.0f});
-
-    uint32_t popSeed = worldSeed;
-    int numVillages = 3 + (popSeed % 3);
-
-    for (int v = 0; v < numVillages; ++v) {
-        int offset = (v % 2 == 0 ? 1 : -1) * (v + 1) * 3;
-        float cX = offset * 2000.f + 1000.f;
-        settlements.push_back({cX, cX - 2500.0f, cX + 2500.0f});
-    }
-
-    std::sort(settlements.begin(), settlements.end(), [](const auto& a, const auto& b) {
-        return a.centerX < b.centerX;
-    });
-
-    for (const auto& s : settlements) {
-        zones.push_back({s.centerX - 350.0f, s.centerX + 350.0f, ClearanceType::Base, "VillageBase"});
-    }
-
-    for (size_t i = 0; i + 1 < settlements.size(); ++i) {
-        float rightBorderA = settlements[i].borderMaxX;
-        float leftBorderB = settlements[i + 1].borderMinX;
-
-        if (rightBorderA < leftBorderB) {
-            float midX = (rightBorderA + leftBorderB) * 0.5f;
-            zones.push_back({midX - 140.0f, midX + 140.0f, ClearanceType::MeetingGround, "MeetingGround"});
-        } else {
-            float midX = (settlements[i].centerX + settlements[i + 1].centerX) * 0.5f;
-            zones.push_back({midX - 140.0f, midX + 140.0f, ClearanceType::MeetingGround, "MeetingGround"});
-        }
-    }
+    // Meeting Grounds exactly halfway between
+    zones.push_back({-2000.f - 150.f, -2000.f + 150.f, ClearanceType::MeetingGround, "WestMeeting"});
+    zones.push_back({4000.f - 150.f, 4000.f + 150.f, ClearanceType::MeetingGround, "EastMeeting"});
 
     return zones;
 }
@@ -53,111 +24,52 @@ std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t world
 bool WorldGenerator::isPositionClear(float worldX, uint32_t worldSeed) {
     auto zones = getClearanceZones(worldSeed);
     for (const auto& z : zones) {
-        if (worldX >= z.minX && worldX <= z.maxX) {
-            return true;
-        }
+        if (worldX >= z.minX && worldX <= z.maxX) return true;
     }
     return false;
 }
 
-static uint32_t hashCoord(uint32_t worldSeed, int gridPos) {
-    uint32_t h = worldSeed ^ static_cast<uint32_t>(gridPos * 73856093);
-    h = (h ^ (h >> 13)) * 0x5bd1e995;
-    h = (h ^ (h >> 15)) * 0x1b873593;
-    h = h ^ (h >> 16);
-    return h;
-}
-
 std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint32_t chunkSeed, uint32_t worldSeed, const BiomeProperties& props, sf::Texture& decorTex) {
     std::vector<Tree> result;
-    result.reserve(60);
 
-    float currentX = startX + 15.f;
-    float endX = startX + width - 15.f;
+    if (props.type != BiomeType::Jungle) {
+        return result; // Explicitly NO JUNGLE TREES outside of Jungle
+    }
+
+    std::cout << "[JUNGLE GENERATION] Chunk X=" << startX << " Biome=TropicalJungle Generating trees...\n";
+
+    float currentX = startX + 50.f;
+    float endX = startX + width;
     int treeCounter = 1;
 
+    // Deterministic loop. Guaranteed to place a tree every 140 pixels if clear.
     while (currentX < endX) {
         if (isPositionClear(currentX, worldSeed)) {
-            currentX += 30.f;
+            currentX += 30.f; // Small step through clearance to resume exactly after
             continue;
         }
 
-        BiomeType region = Biome::determineRegionAtWorldX(currentX, worldSeed);
-        BiomeProperties bProps = Biome::getBlendedProperties(currentX, worldSeed);
-
-        int gridCoord = static_cast<int>(std::floor(currentX / 20.f));
-        uint32_t pointHash = hashCoord(worldSeed, gridCoord);
-
-        float minSpacing = 55.f;
-        float maxSpacing = 90.f;
-        float scaleMin = 0.95f;
-        float scaleMax = 1.45f;
-        float baseWidth = 85.f;
-
-        if (region == BiomeType::Field) {
-            minSpacing = 500.f;
-            maxSpacing = 900.f;
-            scaleMin = 0.65f;
-            scaleMax = 0.95f;
-            baseWidth = 55.f;
-        } else if (region == BiomeType::Desert) {
-            minSpacing = 1200.f;
-            maxSpacing = 2400.f;
-            scaleMin = 0.55f;
-            scaleMax = 0.80f;
-            baseWidth = 45.f;
-        } else if (region == BiomeType::Hills || region == BiomeType::Mountain) {
-            minSpacing = 160.f;
-            maxSpacing = 320.f;
-            scaleMin = 0.75f;
-            scaleMax = 1.15f;
-            baseWidth = 65.f;
-        }
-
-        float jitter = static_cast<float>((pointHash % 15) - 7);
-        float treeX = currentX + jitter;
-
-        if (isPositionClear(treeX, worldSeed)) {
-            currentX += 30.f;
-            continue;
-        }
-
-        float scaleRatio = static_cast<float>((pointHash >> 4) % 100) / 100.f;
-        float scale = scaleMin + scaleRatio * (scaleMax - scaleMin);
-        float tWidth = baseWidth * scale;
-        float tHeight = 280.f * scale;
+        float tWidth = 85.f;
+        float tHeight = 280.f;
         sf::Color tColor(95, 62, 30);
-        float yOff = static_cast<float>((pointHash % 7) - 3);
-        int uniqueTreeId = static_cast<int>(std::abs(std::round(treeX))) * 100 + (treeCounter++);
+        int uniqueTreeId = static_cast<int>(std::abs(currentX)) * 100 + (treeCounter++);
 
-        Tree newTree(treeX, FLAT_GROUND_Y + yOff, tWidth, tHeight, tColor, decorTex, uniqueTreeId);
+        Tree newTree(currentX, FLAT_GROUND_Y - 3.f, tWidth, tHeight, tColor, decorTex, uniqueTreeId);
 
-        uint32_t detailSeed = pointHash ^ 0x9e3779b9u;
-
-        int clusterCount = std::clamp(bProps.minClusterSize + static_cast<int>(pointHash % (std::max(1, bProps.maxClusterSize - bProps.minClusterSize + 1))), 2, 4);
-        newTree.buildCanopy(detailSeed, bProps.canopyBaseRadius * scale * 0.70f, tHeight * 0.50f, sf::Color(40, 120, 45), clusterCount);
-
-        if (region == BiomeType::Jungle || region == BiomeType::Hills) {
-            int branchCount = std::clamp(bProps.branchCountMin + static_cast<int>((pointHash >> 8) % (std::max(1, bProps.branchCountMax - bProps.branchCountMin + 1))), 2, 5);
-            for (int b = 0; b < branchCount; ++b) {
-                float yOffsetBranch = 30.f + b * (tHeight * 0.12f);
-                bool rightSide = (b % 2 == 0);
-                newTree.addBranch(yOffsetBranch, bProps.treeWidthBase * 0.45f, rightSide, sf::Color(70, 100, 50), decorTex);
-            }
-        }
-
-        if (region == BiomeType::Jungle && ((pointHash % 100) / 100.f < bProps.clusterProbability)) {
-            newTree.addVine(tWidth * 0.25f, tHeight * 0.45f, 90.f + (pointHash % 40));
-        }
-
+        // Build guaranteed dense canopy and branches directly
+        uint32_t detailSeed = uniqueTreeId;
+        newTree.buildCanopy(detailSeed, 100.f, 180.f, sf::Color(40, 140, 45), 3);
+        newTree.addBranch(90.f, 40.f, true, sf::Color(70, 100, 50), decorTex);
+        newTree.addBranch(150.f, 40.f, false, sf::Color(70, 100, 50), decorTex);
+        newTree.addVine(tWidth * 0.3f, tHeight * 0.5f, 120.f);
+        
         newTree.initDynamicMesh();
+
+        std::cout << "[TREE CREATED] ID=" << uniqueTreeId << " WorldX=" << currentX << " WorldY=" << FLAT_GROUND_Y << "\n";
 
         result.push_back(std::move(newTree));
 
-        float spacingRange = maxSpacing - minSpacing;
-        float chosenSpacing = minSpacing + (static_cast<float>(pointHash % 100) / 100.f) * spacingRange;
-
-        currentX = treeX + chosenSpacing;
+        currentX += 140.f; // Strict 140px spacing
     }
 
     return result;
@@ -165,33 +77,24 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
 
 std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float width, uint32_t chunkSeed, uint32_t worldSeed, const BiomeProperties& props, sf::Texture& decorTex) {
     std::vector<Decoration> decors;
-    decors.reserve(70);
+    
+    float currentX = startX + 50.f;
+    float endX = startX + width;
 
-    BiomeProperties bProps = Biome::getBlendedProperties(startX + width * 0.5f, worldSeed);
-    int count = bProps.decorationDensity + static_cast<int>(chunkSeed % 12);
-    float step = width / static_cast<float>(std::max(1, count));
-
-    for (int i = 0; i < count; ++i) {
-        uint32_t itemSeed = chunkSeed + i * 47 + (worldSeed % 256);
-        itemSeed = (itemSeed ^ (itemSeed >> 13)) * 0x5bd1e995;
-
-        float x = startX + (i * step) + static_cast<float>(itemSeed % static_cast<int>(step * 0.85f + 1.f));
-        if (isPositionClear(x, worldSeed)) continue;
-
-        int type = 0;
-        int roll = itemSeed % 100;
-
-        if (bProps.type == BiomeType::Jungle) {
-            type = (roll < 70) ? 2 : 0;
-        } else if (bProps.type == BiomeType::Field) {
-            type = (roll < 75) ? 1 : 0;
-        } else if (bProps.type == BiomeType::Desert) {
-            type = (roll < 60) ? 3 : 4;
-        } else {
-            type = (roll < 60) ? bProps.primaryDecorType : bProps.secondaryDecorType;
+    while (currentX < endX) {
+        if (isPositionClear(currentX, worldSeed)) {
+            currentX += 50.f;
+            continue;
         }
 
-        decors.emplace_back(x, FLAT_GROUND_Y, type, itemSeed, decorTex);
+        int type = 0;
+        if (props.type == BiomeType::Jungle) type = 2; // Bushes
+        else if (props.type == BiomeType::Field) type = 1; // Flowers
+        else if (props.type == BiomeType::Desert) type = 3; // Rocks
+
+        decors.emplace_back(currentX, FLAT_GROUND_Y, type, chunkSeed + static_cast<int>(currentX), decorTex);
+
+        currentX += 180.f;
     }
 
     return decors;

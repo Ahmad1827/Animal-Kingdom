@@ -42,27 +42,26 @@ bool DebugOverlay::getShowVillageDebug() const { return showVillageDebug; }
 bool DebugOverlay::getShowKingdomDebug() const { return showKingdomDebug; }
 
 void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32_t seed, const std::string& region, const ProfilerStats& profiler) {
-    std::ostringstream ss;
-    if (showKinematicsDebug) {
-        ss << std::fixed << std::setprecision(2);
-        ss << "--- KINEMATICS & PHYSICS DEBUG (F11) ---\nPhys Pos: (" << profiler.playerPos.x << ", " << profiler.playerPos.y << ")\n";
-    } else if (showProfiler) {
-        ss << std::fixed << std::setprecision(2);
-        ss << "--- PERFORMANCE PROFILER (F10) ---\nFPS: " << profiler.fps << " | Frame: " << profiler.frameTime << " ms\n";
-    } else {
-        EnvironmentalMetrics m = Biome::getMetrics(px, seed);
-        BiomeWeights bw = Biome::getWeights(px, seed);
+    EnvironmentalMetrics m = Biome::getMetrics(px, seed);
+    BiomeWeights bw = Biome::getWeights(px, seed);
+    BiomeProperties bp = Biome::getProperties(bw.getDominantBiome());
 
-        ss << std::fixed << std::setprecision(2);
-        ss << "FPS: " << static_cast<int>(profiler.fps) << "\n";
-        ss << "Pos: " << static_cast<int>(px) << ", " << static_cast<int>(py) << "\n";
-        ss << "Chunk: " << chunkIdx << " | Dominant: " << region << "\n";
-        ss << "--- ECOSYSTEM FIELDS ---\n";
-        ss << "Moist: " << m.moisture << " | Temp: " << m.temperature << " | Elev: " << m.elevation << " | Fert: " << m.fertility << "\n";
-        ss << "--- BIOME BLEND WEIGHTS ---\n";
-        ss << "Jungle: " << bw.get(BiomeType::Jungle) << " | Field: " << bw.get(BiomeType::Field) << "\n";
-        ss << "Desert: " << bw.get(BiomeType::Desert) << " | Hills: " << bw.get(BiomeType::Hills) << "\n";
-    }
+    std::ostringstream ss;
+    ss << std::fixed << std::setprecision(2);
+    ss << "=== BIOME DEBUG ===\n";
+    ss << "Current Biome: " << bp.name << " (ID: " << static_cast<int>(bw.getDominantBiome()) << ")\n";
+    ss << "Temperature:   " << m.temperature << "\n";
+    ss << "Moisture:      " << m.moisture << "\n";
+    ss << "Elevation:     " << m.elevation << "\n";
+    ss << "Fertility:     " << m.fertility << "\n\n";
+    ss << "--- INFLUENCE WEIGHTS ---\n";
+    ss << "Jungle: " << bw.get(BiomeType::Jungle) * 100.f << "%\n";
+    ss << "Field:  " << bw.get(BiomeType::Field) * 100.f << "%\n";
+    ss << "Desert: " << bw.get(BiomeType::Desert) * 100.f << "%\n";
+    ss << "Hills:  " << bw.get(BiomeType::Hills) * 100.f << "%\n";
+    ss << "Mount:  " << bw.get(BiomeType::Mountain) * 100.f << "%\n\n";
+    ss << "FPS: " << static_cast<int>(profiler.fps) << " | PosX: " << static_cast<int>(px) << "\n";
+    
     debugText.setString(ss.str());
 }
 

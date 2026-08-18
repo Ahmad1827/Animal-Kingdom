@@ -19,6 +19,7 @@
 #include "world/DayNightCycle.h"
 #include "world/targets/TreeHarvestInteractionTarget.hpp"
 #include "world/targets/BuildNodeInteractionTarget.hpp"
+#include <iomanip>
 
 PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
 
@@ -65,6 +66,30 @@ void PlayState::init() {
 
     dynastyUI.init(cinematicFont);
     initDynastySimulation();
+    std::cout << "\n========== BIOME DEBUG STARTUP ==========\n";
+    float spawnX = 1000.f;
+    EnvironmentalMetrics spawnM = Biome::getMetrics(spawnX, activeSeed);
+    BiomeWeights spawnW = Biome::getWeights(spawnX, activeSeed);
+    BiomeProperties spawnP = Biome::getProperties(spawnW.getDominantBiome());
+    std::cout << "Player Spawn X: " << spawnX << "\n";
+    std::cout << "Dominant Biome: " << spawnP.name << " (ID: " << static_cast<int>(spawnW.getDominantBiome()) << ")\n";
+    std::cout << "Temperature: " << spawnM.temperature << " | Moisture: " << spawnM.moisture << " | Elevation: " << spawnM.elevation << "\n";
+    std::cout << "Weights -> Jungle: " << spawnW.get(BiomeType::Jungle) 
+              << " | Field: " << spawnW.get(BiomeType::Field) 
+              << " | Desert: " << spawnW.get(BiomeType::Desert) << "\n";
+    std::cout << "==========================================\n\n";
+
+    std::cout << "========== WORLD TRANSECT SAMPLE (-6000 to +6000) ==========\n";
+    for (float testX = -6000.f; testX <= 6000.f; testX += 1000.f) {
+        BiomeWeights bw = Biome::getWeights(testX, activeSeed);
+        BiomeProperties bp = Biome::getProperties(bw.getDominantBiome());
+        std::cout << "X = " << std::setw(6) << static_cast<int>(testX) 
+                  << " | " << std::setw(20) << bp.name 
+                  << " | Jungle W: " << std::fixed << std::setprecision(2) << bw.get(BiomeType::Jungle)
+                  << " | Field W: " << bw.get(BiomeType::Field)
+                  << " | Desert W: " << bw.get(BiomeType::Desert) << "\n";
+    }
+    std::cout << "============================================================\n\n";
 }
 
 void PlayState::initDynastySimulation() {
@@ -165,6 +190,20 @@ void PlayState::processEvents(const sf::Event& event) {
     }
 
     if (event.type == sf::Event::KeyPressed) {
+        if (event.key.code == sf::Keyboard::B && playerWrapper) {
+            float pX = playerWrapper->getPosition().x;
+            EnvironmentalMetrics em = Biome::getMetrics(pX, activeSeed);
+            BiomeWeights bw = Biome::getWeights(pX, activeSeed);
+            BiomeProperties bp = Biome::getProperties(bw.getDominantBiome());
+            std::cout << "[BIOME PROBE] X=" << pX 
+                      << " | Dominant=" << bp.name 
+                      << " | Temp=" << em.temperature 
+                      << " | Moist=" << em.moisture 
+                      << " | Jungle=" << bw.get(BiomeType::Jungle)
+                      << " | Field=" << bw.get(BiomeType::Field)
+                      << " | Desert=" << bw.get(BiomeType::Desert)
+                      << std::endl;
+        }
         if (event.key.code == sf::Keyboard::Escape && dynastyUI.isOpen()) {
             dynastyUI.close();
             return;

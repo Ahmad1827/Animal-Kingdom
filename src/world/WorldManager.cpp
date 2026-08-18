@@ -21,6 +21,7 @@ void WorldManager::update(float dt, const sf::FloatRect& preloadBounds, const sf
         if (activePhysicalVines.find(coord) == activePhysicalVines.end()) {
             std::vector<VinePhysics> chunkVines;
             for (const auto& tree : pair.second->getTrees()) {
+                if (tree.getHarvestState() == TreeHarvestState::Harvested) continue;
                 for (const auto& staticVine : tree.getVines()) {
                     int numSegments = static_cast<int>(staticVine.length / 10.f);
                     if (numSegments < 2) numSegments = 2;
@@ -90,7 +91,7 @@ void WorldManager::drawDebug(sf::RenderTarget& target, const sf::FloatRect& view
     chunkManager->drawDebug(target, viewBounds, preloadBounds, unloadBounds, debugOverlay);
 }
 
-float WorldManager::getTerrainHeight(float x) const {
+float WorldManager::getTerrainHeight(float) const {
     return FLAT_GROUND_Y;
 }
 
@@ -107,6 +108,11 @@ bool WorldManager::checkOneWayCollision(const sf::FloatRect& bounds, const sf::V
             Chunk* chunk = chunkManager->getChunk(x, y);
             if (!chunk) continue;
             for (const auto& tree : chunk->getTrees()) {
+                if (tree.getHarvestState() == TreeHarvestState::Falling ||
+                    tree.getHarvestState() == TreeHarvestState::Fading ||
+                    tree.getHarvestState() == TreeHarvestState::Harvested) {
+                    continue;
+                }
                 for (const auto& branch : tree.getBranches()) {
                     if (bounds.intersects(branch.bounds)) {
                         if (previousBottomY <= branch.bounds.top + 5.f) {
@@ -129,6 +135,13 @@ bool WorldManager::checkTrunkCollision(const sf::FloatRect& bounds, float& outTr
             Chunk* chunk = chunkManager->getChunk(x, y);
             if (!chunk) continue;
             for (const auto& tree : chunk->getTrees()) {
+                // Ignore harvested, falling, or fading trees
+                if (tree.getHarvestState() == TreeHarvestState::Falling ||
+                    tree.getHarvestState() == TreeHarvestState::Fading ||
+                    tree.getHarvestState() == TreeHarvestState::Harvested) {
+                    continue;
+                }
+                
                 sf::FloatRect tBounds = tree.getTrunkBounds();
                 
                 if (bounds.intersects(tBounds)) {
@@ -162,6 +175,11 @@ bool WorldManager::checkHangCollision(const sf::FloatRect& bounds, sf::FloatRect
             Chunk* chunk = chunkManager->getChunk(x, y);
             if (!chunk) continue;
             for (const auto& tree : chunk->getTrees()) {
+                if (tree.getHarvestState() == TreeHarvestState::Falling ||
+                    tree.getHarvestState() == TreeHarvestState::Fading ||
+                    tree.getHarvestState() == TreeHarvestState::Harvested) {
+                    continue;
+                }
                 for (const auto& branch : tree.getBranches()) {
                     if (upperBounds.intersects(branch.bounds)) {
                         outBranchBounds = branch.bounds;
@@ -254,6 +272,11 @@ void WorldManager::disturbEnvironment(const sf::FloatRect& bounds, float velocit
             Chunk* chunk = chunkManager->getChunk(x, y);
             if (!chunk) continue;
             for (auto& tree : const_cast<std::vector<Tree>&>(chunk->getTrees())) {
+                if (tree.getHarvestState() == TreeHarvestState::Falling ||
+                    tree.getHarvestState() == TreeHarvestState::Fading ||
+                    tree.getHarvestState() == TreeHarvestState::Harvested) {
+                    continue;
+                }
                 tree.disturbVines(bounds, velocityX);
             }
         }

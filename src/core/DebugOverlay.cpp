@@ -42,17 +42,23 @@ bool DebugOverlay::getShowVillageDebug() const { return showVillageDebug; }
 bool DebugOverlay::getShowKingdomDebug() const { return showKingdomDebug; }
 
 void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32_t seed, const std::string& region, const ProfilerStats& profiler) {
-    BiomeType currentType = Biome::determineRegionAtWorldX(px, seed);
-    BiomeProperties bp = Biome::getProperties(currentType);
+    BiomeWeights bw = Biome::getWeights(px, seed);
+    BiomeType dominant = bw.getDominantBiome();
+    BiomeProperties bp = Biome::getProperties(dominant);
 
     std::ostringstream ss;
-    ss << std::fixed << std::setprecision(0);
+    ss << std::fixed << std::setprecision(2);
     ss << "=== BIOME DEBUG ===\n";
-    ss << "CURRENT BIOME:   " << bp.name << " (ID: " << static_cast<int>(currentType) << ")\n";
-    ss << "VEGETATION MODE: " << bp.vegetationMode << "\n\n";
-    ss << "--- WORLD POSITION ---\n";
+    ss << "Current Biome: " << bp.name << " (ID: " << static_cast<int>(dominant) << ")\n";
+    ss << "Mode:          " << bp.vegetationMode << "\n";
+    ss << "--- INFLUENCE WEIGHTS ---\n";
+    ss << "Jungle: " << bw.get(BiomeType::Jungle) * 100.f << "%\n";
+    ss << "Field:  " << bw.get(BiomeType::Field) * 100.f << "%\n";
+    ss << "Desert: " << bw.get(BiomeType::Desert) * 100.f << "%\n";
+    ss << "Hills:  " << bw.get(BiomeType::Hills) * 100.f << "%\n";
+    ss << "Mount:  " << bw.get(BiomeType::Mountain) * 100.f << "%\n\n";
     ss << "Player X: " << static_cast<int>(px) << " | Y: " << static_cast<int>(py) << "\n";
-    ss << "Chunk: " << chunkIdx << " | FPS: " << static_cast<int>(profiler.fps) << "\n";
+    ss << "FPS: " << static_cast<int>(profiler.fps) << "\n";
 
     debugText.setString(ss.str());
 }
@@ -98,9 +104,32 @@ void DebugOverlay::updateKingdomStats(const std::string& kName, const std::strin
 }
 
 void DebugOverlay::draw(sf::RenderTarget& target) const {
+    sf::View currentView = target.getView();
+    target.setView(target.getDefaultView());
+
+    if (showRegions) {
+        float centerX = currentView.getCenter().x;
+        BiomeType currentBiome = Biome::determineRegionAtWorldX(centerX, 0);
+        BiomeProperties bp = Biome::getProperties(currentBiome);
+
+        sf::RectangleShape screenShade(sf::Vector2f(static_cast<float>(target.getSize().x), static_cast<float>(target.getSize().y)));
+        screenShade.setPosition(0.f, 0.f);
+        sf::Color tint = bp.debugColor;
+        tint.a = 85;
+        screenShade.setFillColor(tint);
+        target.draw(screenShade);
+
+        sf::Text banner("[" + bp.name + "]", font, 26);
+        banner.setFillColor(sf::Color::White);
+        banner.setOutlineColor(sf::Color::Black);
+        banner.setOutlineThickness(2.f);
+        sf::FloatRect b = banner.getLocalBounds();
+        banner.setOrigin(b.left + b.width / 2.f, 0.f);
+        banner.setPosition(target.getSize().x / 2.f, 20.f);
+        target.draw(banner);
+    }
+
     if (isVisible) {
-        sf::View currentView = target.getView();
-        target.setView(target.getDefaultView());
         target.draw(debugText);
         target.draw(simText);
         target.draw(dynText);
@@ -108,8 +137,9 @@ void DebugOverlay::draw(sf::RenderTarget& target) const {
         if (showVillageDebug) target.draw(villText);
         if (showKingdomDebug) target.draw(kingdomText);
         if (showWarfareDebug) target.draw(warfareText);
-        target.setView(currentView);
     }
+
+    target.setView(currentView);
 }
 
 void DebugOverlay::toggleWarfareDebug() { showWarfareDebug = !showWarfareDebug; }

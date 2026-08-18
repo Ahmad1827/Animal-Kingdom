@@ -15,7 +15,6 @@ std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t world
     };
 
     std::vector<SettlementBounds> settlements;
-    // Player village center at X = 1000
     settlements.push_back({1000.0f, 1000.0f - 3000.0f, 1000.0f + 3000.0f});
 
     uint32_t popSeed = worldSeed;
@@ -31,12 +30,10 @@ std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t world
         return a.centerX < b.centerX;
     });
 
-    // 1. BASE CLEARANCE: [centerX - 350, centerX + 350] -> zero trees inside the settlement
     for (const auto& s : settlements) {
         zones.push_back({s.centerX - 350.0f, s.centerX + 350.0f, ClearanceType::Base, "VillageBase"});
     }
 
-    // 2. MEETING GROUND CLEARANCE: Exact midpoint between neighboring borders
     for (size_t i = 0; i + 1 < settlements.size(); ++i) {
         float rightBorderA = settlements[i].borderMaxX;
         float leftBorderB = settlements[i + 1].borderMinX;
@@ -81,7 +78,7 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
 
     while (currentX < endX) {
         if (isPositionClear(currentX, worldSeed)) {
-            currentX += 25.f;
+            currentX += 30.f;
             continue;
         }
 
@@ -91,37 +88,37 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         int gridCoord = static_cast<int>(std::floor(currentX / 20.f));
         uint32_t pointHash = hashCoord(worldSeed, gridCoord);
 
-        float minSpacing = 80.f;
-        float maxSpacing = 135.f;
+        float minSpacing = 55.f;
+        float maxSpacing = 90.f;
         float scaleMin = 0.95f;
-        float scaleMax = 1.55f;
+        float scaleMax = 1.45f;
         float baseWidth = 85.f;
 
         if (region == BiomeType::Field) {
-            minSpacing = 450.f;
-            maxSpacing = 850.f;
-            scaleMin = 0.70f;
-            scaleMax = 1.00f;
+            minSpacing = 500.f;
+            maxSpacing = 900.f;
+            scaleMin = 0.65f;
+            scaleMax = 0.95f;
             baseWidth = 55.f;
         } else if (region == BiomeType::Desert) {
-            minSpacing = 1000.f;
-            maxSpacing = 2000.f;
+            minSpacing = 1200.f;
+            maxSpacing = 2400.f;
             scaleMin = 0.55f;
             scaleMax = 0.80f;
             baseWidth = 45.f;
         } else if (region == BiomeType::Hills || region == BiomeType::Mountain) {
-            minSpacing = 150.f;
-            maxSpacing = 300.f;
-            scaleMin = 0.80f;
-            scaleMax = 1.20f;
+            minSpacing = 160.f;
+            maxSpacing = 320.f;
+            scaleMin = 0.75f;
+            scaleMax = 1.15f;
             baseWidth = 65.f;
         }
 
-        float jitter = static_cast<float>((pointHash % 17) - 8);
+        float jitter = static_cast<float>((pointHash % 15) - 7);
         float treeX = currentX + jitter;
 
         if (isPositionClear(treeX, worldSeed)) {
-            currentX += 25.f;
+            currentX += 30.f;
             continue;
         }
 
@@ -133,7 +130,29 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         float yOff = static_cast<float>((pointHash % 7) - 3);
         int uniqueTreeId = static_cast<int>(std::abs(std::round(treeX))) * 100 + (treeCounter++);
 
-        result.emplace_back(treeX, FLAT_GROUND_Y + yOff, tWidth, tHeight, tColor, decorTex, uniqueTreeId);
+        Tree newTree(treeX, FLAT_GROUND_Y + yOff, tWidth, tHeight, tColor, decorTex, uniqueTreeId);
+
+        uint32_t detailSeed = pointHash ^ 0x9e3779b9u;
+
+        int clusterCount = std::clamp(bProps.minClusterSize + static_cast<int>(pointHash % (std::max(1, bProps.maxClusterSize - bProps.minClusterSize + 1))), 2, 4);
+        newTree.buildCanopy(detailSeed, bProps.canopyBaseRadius * scale * 0.70f, tHeight * 0.50f, sf::Color(40, 120, 45), clusterCount);
+
+        if (region == BiomeType::Jungle || region == BiomeType::Hills) {
+            int branchCount = std::clamp(bProps.branchCountMin + static_cast<int>((pointHash >> 8) % (std::max(1, bProps.branchCountMax - bProps.branchCountMin + 1))), 2, 5);
+            for (int b = 0; b < branchCount; ++b) {
+                float yOffsetBranch = 30.f + b * (tHeight * 0.12f);
+                bool rightSide = (b % 2 == 0);
+                newTree.addBranch(yOffsetBranch, bProps.treeWidthBase * 0.45f, rightSide, sf::Color(70, 100, 50), decorTex);
+            }
+        }
+
+        if (region == BiomeType::Jungle && ((pointHash % 100) / 100.f < bProps.clusterProbability)) {
+            newTree.addVine(tWidth * 0.25f, tHeight * 0.45f, 90.f + (pointHash % 40));
+        }
+
+        newTree.initDynamicMesh();
+
+        result.push_back(std::move(newTree));
 
         float spacingRange = maxSpacing - minSpacing;
         float chosenSpacing = minSpacing + (static_cast<float>(pointHash % 100) / 100.f) * spacingRange;

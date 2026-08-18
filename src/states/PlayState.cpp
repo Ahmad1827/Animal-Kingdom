@@ -1136,7 +1136,7 @@ void PlayState::update(float dt) {
         }
     }
 
-    if (debugOverlay->getVisible()) {
+    if (debugOverlay->getVisible() || debugOverlay->getShowRegions()) {
         ChunkManager* cm = worldManager->getChunkManager();
         float pX = playerWrapper ? playerWrapper->getPosition().x : transitionTarget.x;
         float pY = playerWrapper ? playerWrapper->getPosition().y : transitionTarget.y;

@@ -25,6 +25,8 @@ private:
     bool showKingdomDebug;
     sf::Text warfareText;
     bool showWarfareDebug;
+    sf::Color currentBiomeColor;
+    std::string currentBiomeName;
 
 public:
     DebugOverlay();

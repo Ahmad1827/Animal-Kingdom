@@ -5,9 +5,21 @@
 #include "world/WorldObject.h"
 #include "core/Profiler.h"
 
-struct BranchData { sf::FloatRect bounds; };
-struct VineData { sf::Vector2f origin; float length; float disturbance; };
-struct CanopyData { sf::Vector2f center; float radius; sf::Color color; };
+struct BranchData {
+    sf::FloatRect bounds;
+};
+
+struct VineData {
+    sf::Vector2f origin;
+    float length;
+    float disturbance;
+};
+
+struct CanopyData {
+    sf::Vector2f center;
+    float radius;
+    sf::Color color;
+};
 
 enum class TreeHarvestState {
     Untouched,

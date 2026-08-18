@@ -4,17 +4,17 @@
 #include "core/VisualConfig.h"
 #include <algorithm>
 
-Tree::Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture, int id) 
+Tree::Tree(float x, float y, float width, float height, sf::Color, sf::Texture& decorTexture, int id) 
     : treeId(id) {
     trunkBounds = sf::FloatRect(x - width / 2.f, y - height, width, height);
     totalBounds = trunkBounds;
 
     trunkSprite.setTexture(decorTexture);
     trunkSprite.setTextureRect(VisualConfig::DECOR_TREE);
-    trunkSprite.setOrigin(VisualConfig::DECOR_TREE.width / 2.f, VisualConfig::DECOR_TREE.height);
+    trunkSprite.setOrigin(VisualConfig::DECOR_TREE.width / 2.f, static_cast<float>(VisualConfig::DECOR_TREE.height));
     trunkSprite.setPosition(x, y);
     
-    float scale = height / VisualConfig::DECOR_TREE.height;
+    float scale = height / static_cast<float>(VisualConfig::DECOR_TREE.height);
     trunkSprite.setScale(scale, scale); 
 }
 
@@ -38,12 +38,20 @@ void Tree::appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, floa
     }
 }
 
-void Tree::addBranch(float yOffset, float width, bool rightSide, sf::Color color, sf::Texture& decorTexture) {
-    float startX = trunkBounds.left + (rightSide ? trunkBounds.width : 0.f);
+void Tree::addBranch(float yOffset, float width, bool rightSide, sf::Color, sf::Texture& decorTexture) {
+    float startX = trunkBounds.left + (rightSide ? (trunkBounds.width * 0.75f) : (trunkBounds.width * 0.25f));
     float bHeight = 45.f; 
 
-    sf::FloatRect branchRect(rightSide ? startX : startX - width, trunkBounds.top + trunkBounds.height - yOffset, width, bHeight);
+    sf::FloatRect branchRect(rightSide ? startX : (startX - width), trunkBounds.top + trunkBounds.height - yOffset, width, bHeight);
     branchData.push_back({branchRect}); 
+
+    if (branchRect.left < totalBounds.left) {
+        totalBounds.width += (totalBounds.left - branchRect.left);
+        totalBounds.left = branchRect.left;
+    }
+    if (branchRect.left + branchRect.width > totalBounds.left + totalBounds.width) {
+        totalBounds.width = (branchRect.left + branchRect.width) - totalBounds.left;
+    }
 
     float bushW = static_cast<float>(VisualConfig::DECOR_BUSH.width);
     float bushH = static_cast<float>(VisualConfig::DECOR_BUSH.height);
@@ -72,7 +80,9 @@ void Tree::addVine(float xOffset, float yOffset, float length) {
     sf::Vector2f origin(trunkBounds.left + xOffset, trunkBounds.top + trunkBounds.height - yOffset);
     vineData.push_back({origin, length, 0.f});
     
-    if (origin.y + length > totalBounds.top + totalBounds.height) totalBounds.height = (origin.y + length) - totalBounds.top;
+    if (origin.y + length > totalBounds.top + totalBounds.height) {
+        totalBounds.height = (origin.y + length) - totalBounds.top;
+    }
 }
 
 void Tree::buildCanopy(uint32_t& seed, float baseRadius, float yOffset, sf::Color color, int clusterCount) {
@@ -93,9 +103,17 @@ void Tree::buildCanopy(uint32_t& seed, float baseRadius, float yOffset, sf::Colo
         
         canopyData.push_back({sf::Vector2f(centerX + ox, centerY + oy), r, c});
         
-        if (centerY + oy - r < totalBounds.top) { totalBounds.height += (totalBounds.top - (centerY + oy - r)); totalBounds.top = centerY + oy - r; }
-        if (centerX + ox - r < totalBounds.left) { totalBounds.width += (totalBounds.left - (centerX + ox - r)); totalBounds.left = centerX + ox - r; }
-        if (centerX + ox + r > totalBounds.left + totalBounds.width) totalBounds.width = (centerX + ox + r) - totalBounds.left;
+        if (centerY + oy - r < totalBounds.top) { 
+            totalBounds.height += (totalBounds.top - (centerY + oy - r)); 
+            totalBounds.top = centerY + oy - r; 
+        }
+        if (centerX + ox - r < totalBounds.left) { 
+            totalBounds.width += (totalBounds.left - (centerX + ox - r)); 
+            totalBounds.left = centerX + ox - r; 
+        }
+        if (centerX + ox + r > totalBounds.left + totalBounds.width) {
+            totalBounds.width = (centerX + ox + r) - totalBounds.left;
+        }
     }
 }
 
@@ -106,15 +124,17 @@ void Tree::initDynamicMesh() {
     for (const auto& cluster : canopyData) {
         for (int i = 0; i < 24; ++i) dynamicMesh[vIdx++].color = cluster.color;
     }
-    for (const auto& vine : vineData) {
-        for (int i = 0; i < 6; ++i) dynamicMesh[vIdx++].color = sf::Color(40, 100, 30);
+    for (size_t i = 0; i < vineData.size(); ++i) {
+        for (int j = 0; j < 6; ++j) dynamicMesh[vIdx++].color = sf::Color(40, 100, 30);
     }
     
     updateSway(0.f, sf::Vector2f(0.f, 0.f)); 
 }
 
 void Tree::updateSway(float globalTime, const sf::Vector2f& windVector) {
-    if (dynamicMesh.getVertexCount() == 0 || harvestState == TreeHarvestState::Falling || harvestState == TreeHarvestState::Fading) return;
+    if (dynamicMesh.getVertexCount() == 0 || harvestState == TreeHarvestState::Falling || harvestState == TreeHarvestState::Fading || harvestState == TreeHarvestState::Harvested) {
+        return;
+    }
 
     size_t vIdx = 0;
     
@@ -148,6 +168,10 @@ void Tree::updateSway(float globalTime, const sf::Vector2f& windVector) {
 }
 
 void Tree::disturbVines(const sf::FloatRect& bounds, float velocityX) {
+    if (harvestState == TreeHarvestState::Falling || harvestState == TreeHarvestState::Fading || harvestState == TreeHarvestState::Harvested) {
+        return;
+    }
+
     for (auto& vine : vineData) {
         sf::FloatRect vBounds(vine.origin.x - 3.f, vine.origin.y, 6.f, vine.length);
         if (bounds.intersects(vBounds)) {
@@ -174,16 +198,16 @@ void Tree::update(float dt) {
     }
 }
 
-void Tree::draw(sf::RenderTarget& target) const {} 
+void Tree::draw(sf::RenderTarget&) const {} 
 
-void Tree::drawCanopy(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
+void Tree::drawCanopy(sf::RenderTarget& target, const sf::FloatRect&, ProfilerStats& profiler) const {
     if (harvestState == TreeHarvestState::Harvested) return;
     target.draw(dynamicMesh);
     profiler.objectsRendered++;
     profiler.drawCalls++;
 }
 
-void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
+void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect&, ProfilerStats& profiler) const {
     if (harvestState == TreeHarvestState::Harvested) return;
 
     sf::Transform treeTransform;
@@ -236,7 +260,7 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBound
         banner.setFillColor(harvestState == TreeHarvestState::BeingHarvested ? sf::Color(220, 60, 40) : sf::Color(220, 180, 50));
         banner.setOutlineColor(sf::Color(30, 20, 10));
         banner.setOutlineThickness(1.f);
-        target.draw(banner);
+        target.draw(banner, states);
 
         sf::CircleShape badge(6.f, 4);
         badge.setOrigin(6.f, 6.f);
@@ -244,7 +268,7 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBound
         badge.setFillColor(sf::Color(190, 145, 55));
         badge.setOutlineColor(sf::Color(40, 25, 10));
         badge.setOutlineThickness(1.f);
-        target.draw(badge);
+        target.draw(badge, states);
 
         if (harvestProgress > 0.0f) {
             float barW = 36.f;
@@ -252,14 +276,14 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBound
             barBg.setOrigin(barW / 2.f, 2.f);
             barBg.setPosition(centerX, markerY + 18.f);
             barBg.setFillColor(sf::Color(40, 30, 20, 200));
-            target.draw(barBg);
+            target.draw(barBg, states);
 
             float fill = std::clamp(harvestProgress / maxHarvestProgress, 0.0f, 1.0f);
             sf::RectangleShape barFill(sf::Vector2f(barW * fill, 4.f));
             barFill.setOrigin(barW / 2.f, 2.f);
             barFill.setPosition(centerX, markerY + 18.f);
             barFill.setFillColor(sf::Color(100, 200, 70));
-            target.draw(barFill);
+            target.draw(barFill, states);
         }
     }
     
@@ -267,7 +291,28 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBound
 }
 
 sf::FloatRect Tree::getBounds() const { return totalBounds; }
-sf::FloatRect Tree::getTrunkBounds() const { return trunkBounds; }
+
+sf::FloatRect Tree::getTrunkBounds() const {
+    if (harvestState == TreeHarvestState::Falling || harvestState == TreeHarvestState::Fading || harvestState == TreeHarvestState::Harvested) {
+        return sf::FloatRect(0.f, 0.f, 0.f, 0.f);
+    }
+    return trunkBounds;
+}
+
 float Tree::getTrunkCenter() const { return trunkBounds.left + (trunkBounds.width / 2.0f); }
-const std::vector<BranchData>& Tree::getBranches() const { return branchData; }
-const std::vector<VineData>& Tree::getVines() const { return vineData; }
+
+const std::vector<BranchData>& Tree::getBranches() const {
+    static const std::vector<BranchData> emptyBranches;
+    if (harvestState == TreeHarvestState::Falling || harvestState == TreeHarvestState::Fading || harvestState == TreeHarvestState::Harvested) {
+        return emptyBranches;
+    }
+    return branchData;
+}
+
+const std::vector<VineData>& Tree::getVines() const {
+    static const std::vector<VineData> emptyVines;
+    if (harvestState == TreeHarvestState::Falling || harvestState == TreeHarvestState::Fading || harvestState == TreeHarvestState::Harvested) {
+        return emptyVines;
+    }
+    return vineData;
+}

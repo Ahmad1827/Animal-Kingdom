@@ -44,6 +44,7 @@ struct BiomeWeights {
 struct BiomeProperties {
     std::string name;
     BiomeType type;
+    std::string vegetationMode;
     sf::Color groundColor;
     sf::Color undergroundColor;
     sf::Color grassTipColor;
@@ -53,6 +54,10 @@ struct BiomeProperties {
     float maxTreeSpacing;
     float treeDensity;
     float clusterProbability;
+    int minClusterSize;
+    int maxClusterSize;
+    float satelliteOffsetMin;
+    float satelliteOffsetMax;
     float treeScaleMin;
     float treeScaleMax;
     float treeWidthBase;

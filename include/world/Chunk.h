@@ -21,7 +21,7 @@ private:
     sf::VertexArray waterMesh;
     std::vector<Tree> trees;
     std::vector<Decoration> decorations;
-    RegionType regionType;
+    BiomeType regionType;
     sf::VertexArray undergroundMesh;
 
     float terrainGenTime;
@@ -36,6 +36,7 @@ public:
     const std::vector<Decoration>& getDecorations() const { return decorations; }
     const std::vector<Tree>& getTrees() const;
     std::vector<Tree>& getMutableTrees() { return trees; }
+    
     bool removeTree(int treeId, float worldX = -999999.f) {
         auto it = std::remove_if(trees.begin(), trees.end(), [treeId, worldX](const Tree& t) {
             bool idMatch = (treeId != 0 && t.getId() == treeId);
@@ -49,6 +50,7 @@ public:
         }
         return false;
     }
+
     bool removeTreeNear(float worldX, float radius) {
         auto it = std::remove_if(trees.begin(), trees.end(), [worldX, radius](const Tree& t) {
             return std::abs(t.getTrunkCenter() - worldX) <= radius || t.getHarvestState() == TreeHarvestState::Harvested;
@@ -59,7 +61,8 @@ public:
         }
         return false;
     }
-    RegionType getRegionType() const;
+
+    BiomeType getRegionType() const;
     ChunkPos getPos() const;
     sf::FloatRect getBounds() const;
     

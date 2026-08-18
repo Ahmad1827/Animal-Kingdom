@@ -8,8 +8,7 @@
 
 enum class ClearanceType {
     Base,
-    MeetingGround,
-    Structure
+    MeetingGround
 };
 
 struct WorldClearanceZone {

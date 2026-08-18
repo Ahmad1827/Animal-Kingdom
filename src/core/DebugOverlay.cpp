@@ -5,7 +5,7 @@
 #include <cmath>
 #include <iostream>
 
-DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions(false), showHeatmaps(false), showFoliage(false), showGenerationDebug(false), showProfiler(false), showEngineInternals(false), showKinematicsDebug(false), showVillageDebug(false), showKingdomDebug(false) {
+DebugOverlay::DebugOverlay() : isVisible(false), showBorders(false), showRegions(false), showHeatmaps(false), showFoliage(false), showGenerationDebug(false), showProfiler(false), showEngineInternals(false), showKinematicsDebug(false), showVillageDebug(false), showKingdomDebug(false), showWarfareDebug(false) {
     if (!font.loadFromFile("assets/fonts/arial.ttf")) {
         if (!font.loadFromFile("../assets/fonts/arial.ttf")) {
             std::cout << "ERROR: Could not load arial.ttf font for DebugOverlay!\n";
@@ -42,26 +42,18 @@ bool DebugOverlay::getShowVillageDebug() const { return showVillageDebug; }
 bool DebugOverlay::getShowKingdomDebug() const { return showKingdomDebug; }
 
 void DebugOverlay::updateInfo(float dt, int chunkIdx, float px, float py, uint32_t seed, const std::string& region, const ProfilerStats& profiler) {
-    EnvironmentalMetrics m = Biome::getMetrics(px, seed);
-    BiomeWeights bw = Biome::getWeights(px, seed);
-    BiomeProperties bp = Biome::getProperties(bw.getDominantBiome());
+    BiomeType currentType = Biome::determineRegionAtWorldX(px, seed);
+    BiomeProperties bp = Biome::getProperties(currentType);
 
     std::ostringstream ss;
-    ss << std::fixed << std::setprecision(2);
+    ss << std::fixed << std::setprecision(0);
     ss << "=== BIOME DEBUG ===\n";
-    ss << "Current Biome: " << bp.name << " (ID: " << static_cast<int>(bw.getDominantBiome()) << ")\n";
-    ss << "Temperature:   " << m.temperature << "\n";
-    ss << "Moisture:      " << m.moisture << "\n";
-    ss << "Elevation:     " << m.elevation << "\n";
-    ss << "Fertility:     " << m.fertility << "\n\n";
-    ss << "--- INFLUENCE WEIGHTS ---\n";
-    ss << "Jungle: " << bw.get(BiomeType::Jungle) * 100.f << "%\n";
-    ss << "Field:  " << bw.get(BiomeType::Field) * 100.f << "%\n";
-    ss << "Desert: " << bw.get(BiomeType::Desert) * 100.f << "%\n";
-    ss << "Hills:  " << bw.get(BiomeType::Hills) * 100.f << "%\n";
-    ss << "Mount:  " << bw.get(BiomeType::Mountain) * 100.f << "%\n\n";
-    ss << "FPS: " << static_cast<int>(profiler.fps) << " | PosX: " << static_cast<int>(px) << "\n";
-    
+    ss << "CURRENT BIOME:   " << bp.name << " (ID: " << static_cast<int>(currentType) << ")\n";
+    ss << "VEGETATION MODE: " << bp.vegetationMode << "\n\n";
+    ss << "--- WORLD POSITION ---\n";
+    ss << "Player X: " << static_cast<int>(px) << " | Y: " << static_cast<int>(py) << "\n";
+    ss << "Chunk: " << chunkIdx << " | FPS: " << static_cast<int>(profiler.fps) << "\n";
+
     debugText.setString(ss.str());
 }
 

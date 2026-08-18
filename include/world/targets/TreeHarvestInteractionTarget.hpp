@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <iostream>
+#include <cmath>
 
 class TreeHarvestInteractionTarget : public InteractionTarget {
 private:
@@ -13,10 +14,11 @@ private:
     sim::VillageID playerVillageId;
     sim::SimulationRegistry& registry;
     WorldManager* worldManager;
+    sim::EntityID playerApeId;
 
 public:
-    TreeHarvestInteractionTarget(Tree* tree, sim::VillageID vId, sim::SimulationRegistry& reg, WorldManager* wm)
-        : targetTree(tree), playerVillageId(vId), registry(reg), worldManager(wm) {}
+    TreeHarvestInteractionTarget(Tree* tree, sim::VillageID vId, sim::SimulationRegistry& reg, WorldManager* wm, sim::EntityID pId)
+        : targetTree(tree), playerVillageId(vId), registry(reg), worldManager(wm), playerApeId(pId) {}
 
     std::string getInteractionType() const override { return "TreeHarvest"; }
     
@@ -26,7 +28,13 @@ public:
     }
 
     bool canInteract() const override {
-        return targetTree != nullptr && targetTree->getHarvestState() != TreeHarvestState::Harvested;
+        if (!targetTree || targetTree->getHarvestState() == TreeHarvestState::Harvested) return false;
+        sim::ApeData* player = registry.getApe(playerApeId);
+        if (!player) return false;
+
+        // Prompt only appears when physically standing right next to the trunk
+        float dist = std::abs(player->worldX - targetTree->getTrunkCenter());
+        return dist <= 70.0f;
     }
 
     std::string getInteractionTitle() const override {

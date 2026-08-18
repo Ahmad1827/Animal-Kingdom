@@ -1,12 +1,13 @@
 #pragma once
 #include <SFML/Graphics.hpp>
+#include "world/Biome.h"
 
 class Background {
 public:
     static constexpr float GROUND_BASELINE_Y = 500.0f;
 
     Background(class AssetManager& assets);
-    void update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt);
+    void update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt, uint32_t worldSeed = 0);
     
     void drawSky(sf::RenderTarget& target, sf::Color skyTint);
     void drawDistant(sf::RenderTarget& target, float worldGroundY);
@@ -29,6 +30,9 @@ private:
     float camX;
     float camY;
     sf::Vector2f vSize;
+
+    sf::Color blendedMountColor;
+    sf::Color blendedHillColor;
 
     void findVisibleBottom(Layer& layer);
     void renderTiledLayer(sf::RenderTarget& target, Layer& layer, float targetWorldGroundY, bool isSky);

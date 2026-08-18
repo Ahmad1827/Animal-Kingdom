@@ -15,17 +15,17 @@ EnvironmentalMetrics Biome::getMetrics(float worldX, uint32_t worldSeed) {
     float s3 = static_cast<float>((worldSeed * 214013u) % 10000);
 
     float centerDistance = std::abs(worldX - 1000.f);
-    float jungleBias = std::max(0.0f, 1.0f - (centerDistance / 6000.f));
+    float jungleBias = std::clamp(1.0f - (centerDistance / 6000.f), 0.0f, 1.0f);
 
     float rawTemp = sampleMacroNoise(worldX, 0.000035f, s1);
-    float rawMoist = sampleMacroNoise(worldX, 0.000045f, s2);
-    float rawElev = sampleMacroNoise(worldX, 0.000065f, s3);
+    float rawMoist = sampleMacroNoise(worldX, 0.00004f, s2);
+    float rawElev = sampleMacroNoise(worldX, 0.000055f, s3);
 
     EnvironmentalMetrics m;
-    m.temperature = std::clamp(0.5f + rawTemp * 0.45f + jungleBias * 0.25f, 0.0f, 1.0f);
-    m.moisture = std::clamp(0.5f + rawMoist * 0.45f + jungleBias * 0.35f, 0.0f, 1.0f);
-    m.elevation = std::clamp(0.5f + rawElev * 0.45f - jungleBias * 0.15f, 0.0f, 1.0f);
-    m.fertility = std::clamp(m.moisture * 0.6f + (1.0f - m.temperature * 0.3f), 0.0f, 1.0f);
+    m.temperature = std::clamp((0.5f + rawTemp * 0.4f) * (1.0f - jungleBias * 0.6f) + jungleBias * 0.90f, 0.0f, 1.0f);
+    m.moisture = std::clamp((0.5f + rawMoist * 0.4f) * (1.0f - jungleBias * 0.7f) + jungleBias * 0.98f, 0.0f, 1.0f);
+    m.elevation = std::clamp((0.5f + rawElev * 0.4f) * (1.0f - jungleBias * 0.8f) + jungleBias * 0.15f, 0.0f, 1.0f);
+    m.fertility = std::clamp(m.moisture * 0.7f + (1.0f - m.elevation) * 0.3f, 0.0f, 1.0f);
 
     return m;
 }
@@ -40,16 +40,16 @@ BiomeWeights Biome::getWeights(float worldX, uint32_t worldSeed) {
     };
 
     static const Anchor anchors[] = {
-        {0.75f, 0.85f, 0.30f}, // Jungle
-        {0.45f, 0.50f, 0.40f}, // Field
-        {0.85f, 0.15f, 0.35f}, // Desert
+        {0.85f, 0.95f, 0.15f}, // Jungle
+        {0.45f, 0.45f, 0.40f}, // Field
+        {0.85f, 0.12f, 0.30f}, // Desert
         {0.40f, 0.35f, 0.70f}, // Hills
-        {0.25f, 0.20f, 0.90f}  // Mountain
+        {0.25f, 0.15f, 0.90f}  // Mountain
     };
 
     BiomeWeights bw;
     float sum = 0.0f;
-    const float sigmaSq = 0.14f;
+    const float sigmaSq = 0.10f;
 
     for (int i = 0; i < static_cast<int>(BiomeType::Count); ++i) {
         float dt = m.temperature - anchors[i].temp;
@@ -88,102 +88,125 @@ BiomeProperties Biome::getProperties(BiomeType type) {
     switch (type) {
         case BiomeType::Jungle:
             p.name = "Tropical Jungle";
-            p.groundColor = sf::Color(28, 92, 32);
-            p.undergroundColor = sf::Color(35, 22, 12);
-            p.grassTipColor = sf::Color(55, 140, 40);
+            p.vegetationMode = "JUNGLE TREES";
+            p.groundColor = sf::Color(18, 62, 22);
+            p.undergroundColor = sf::Color(24, 15, 8);
+            p.grassTipColor = sf::Color(36, 105, 30);
             p.debugColor = sf::Color(0, 140, 45, 100);
-            p.minTreeSpacing = 65.f;
+            p.minTreeSpacing = 80.f;
             p.maxTreeSpacing = 135.f;
-            p.treeDensity = 0.95f;
-            p.clusterProbability = 0.75f;
+            p.treeDensity = 1.0f;
+            p.clusterProbability = 0.85f;
+            p.minClusterSize = 2;
+            p.maxClusterSize = 4;
+            p.satelliteOffsetMin = 30.f;
+            p.satelliteOffsetMax = 55.f;
             p.treeScaleMin = 0.95f;
-            p.treeScaleMax = 1.45f;
-            p.treeWidthBase = 80.f;
-            p.branchCountMin = 4;
-            p.branchCountMax = 8;
-            p.branchVerticalSpacing = 140.f;
-            p.canopyBaseRadius = 100.f;
-            p.decorationDensity = 24;
+            p.treeScaleMax = 1.55f;
+            p.treeWidthBase = 85.f;
+            p.branchCountMin = 5;
+            p.branchCountMax = 10;
+            p.branchVerticalSpacing = 120.f;
+            p.canopyBaseRadius = 120.f;
+            p.decorationDensity = 40;
             p.primaryDecorType = 2;
             p.secondaryDecorType = 0;
             break;
 
         case BiomeType::Field:
             p.name = "Flower Field";
-            p.groundColor = sf::Color(78, 145, 48);
-            p.undergroundColor = sf::Color(65, 48, 26);
-            p.grassTipColor = sf::Color(115, 185, 65);
+            p.vegetationMode = "FIELD FLOWERS";
+            p.groundColor = sf::Color(72, 140, 42);
+            p.undergroundColor = sf::Color(60, 44, 22);
+            p.grassTipColor = sf::Color(110, 180, 60);
             p.debugColor = sf::Color(210, 235, 120, 100);
-            p.minTreeSpacing = 380.f;
-            p.maxTreeSpacing = 750.f;
-            p.treeDensity = 0.15f;
-            p.clusterProbability = 0.20f;
-            p.treeScaleMin = 0.70f;
-            p.treeScaleMax = 1.00f;
+            p.minTreeSpacing = 450.f;
+            p.maxTreeSpacing = 850.f;
+            p.treeDensity = 0.10f;
+            p.clusterProbability = 0.15f;
+            p.minClusterSize = 1;
+            p.maxClusterSize = 2;
+            p.satelliteOffsetMin = 50.f;
+            p.satelliteOffsetMax = 80.f;
+            p.treeScaleMin = 0.65f;
+            p.treeScaleMax = 0.95f;
             p.treeWidthBase = 55.f;
             p.branchCountMin = 1;
             p.branchCountMax = 3;
             p.branchVerticalSpacing = 100.f;
-            p.canopyBaseRadius = 50.f;
-            p.decorationDensity = 18;
+            p.canopyBaseRadius = 45.f;
+            p.decorationDensity = 24;
             p.primaryDecorType = 1;
             p.secondaryDecorType = 0;
             break;
 
         case BiomeType::Desert:
             p.name = "Arid Desert";
-            p.groundColor = sf::Color(165, 140, 85);
-            p.undergroundColor = sf::Color(115, 88, 52);
-            p.grassTipColor = sf::Color(185, 160, 100);
+            p.vegetationMode = "YELLOW SAND";
+            p.groundColor = sf::Color(160, 135, 80);
+            p.undergroundColor = sf::Color(110, 84, 48);
+            p.grassTipColor = sf::Color(180, 155, 95);
             p.debugColor = sf::Color(220, 160, 60, 100);
-            p.minTreeSpacing = 900.f;
-            p.maxTreeSpacing = 1800.f;
-            p.treeDensity = 0.03f;
+            p.minTreeSpacing = 1000.f;
+            p.maxTreeSpacing = 2000.f;
+            p.treeDensity = 0.02f;
             p.clusterProbability = 0.05f;
-            p.treeScaleMin = 0.60f;
-            p.treeScaleMax = 0.85f;
+            p.minClusterSize = 1;
+            p.maxClusterSize = 1;
+            p.satelliteOffsetMin = 80.f;
+            p.satelliteOffsetMax = 120.f;
+            p.treeScaleMin = 0.55f;
+            p.treeScaleMax = 0.80f;
             p.treeWidthBase = 45.f;
             p.branchCountMin = 1;
             p.branchCountMax = 2;
             p.branchVerticalSpacing = 90.f;
             p.canopyBaseRadius = 35.f;
-            p.decorationDensity = 12;
+            p.decorationDensity = 14;
             p.primaryDecorType = 3;
             p.secondaryDecorType = 4;
             break;
 
         case BiomeType::Hills:
             p.name = "Rolling Hills";
-            p.groundColor = sf::Color(55, 120, 42);
-            p.undergroundColor = sf::Color(52, 40, 25);
-            p.grassTipColor = sf::Color(85, 160, 58);
+            p.groundColor = sf::Color(52, 115, 38);
+            p.undergroundColor = sf::Color(48, 36, 22);
+            p.grassTipColor = sf::Color(80, 155, 54);
             p.debugColor = sf::Color(120, 180, 70, 100);
-            p.minTreeSpacing = 160.f;
-            p.maxTreeSpacing = 320.f;
-            p.treeDensity = 0.55f;
+            p.minTreeSpacing = 150.f;
+            p.maxTreeSpacing = 300.f;
+            p.treeDensity = 0.50f;
             p.clusterProbability = 0.40f;
-            p.treeScaleMin = 0.80f;
+            p.minClusterSize = 1;
+            p.maxClusterSize = 3;
+            p.satelliteOffsetMin = 40.f;
+            p.satelliteOffsetMax = 70.f;
+            p.treeScaleMin = 0.75f;
             p.treeScaleMax = 1.15f;
             p.treeWidthBase = 65.f;
             p.branchCountMin = 2;
             p.branchCountMax = 5;
             p.branchVerticalSpacing = 120.f;
             p.canopyBaseRadius = 65.f;
-            p.decorationDensity = 16;
+            p.decorationDensity = 20;
             p.primaryDecorType = 0;
             p.secondaryDecorType = 3;
             break;
 
         case BiomeType::Mountain:
             p.name = "Highland Mountain";
-            p.groundColor = sf::Color(105, 110, 100);
-            p.undergroundColor = sf::Color(60, 55, 50);
-            p.grassTipColor = sf::Color(130, 135, 125);
+            p.groundColor = sf::Color(100, 105, 95);
+            p.undergroundColor = sf::Color(55, 50, 45);
+            p.grassTipColor = sf::Color(125, 130, 120);
             p.debugColor = sf::Color(150, 150, 150, 100);
-            p.minTreeSpacing = 260.f;
-            p.maxTreeSpacing = 550.f;
-            p.treeDensity = 0.25f;
+            p.minTreeSpacing = 240.f;
+            p.maxTreeSpacing = 500.f;
+            p.treeDensity = 0.18f;
             p.clusterProbability = 0.20f;
+            p.minClusterSize = 1;
+            p.maxClusterSize = 2;
+            p.satelliteOffsetMin = 60.f;
+            p.satelliteOffsetMax = 90.f;
             p.treeScaleMin = 0.70f;
             p.treeScaleMax = 1.05f;
             p.treeWidthBase = 55.f;
@@ -191,7 +214,7 @@ BiomeProperties Biome::getProperties(BiomeType type) {
             p.branchCountMax = 4;
             p.branchVerticalSpacing = 150.f;
             p.canopyBaseRadius = 55.f;
-            p.decorationDensity = 20;
+            p.decorationDensity = 22;
             p.primaryDecorType = 3;
             p.secondaryDecorType = 4;
             break;
@@ -252,6 +275,20 @@ BiomeProperties Biome::getBlendedProperties(float worldX, uint32_t worldSeed) {
     result.undergroundColor = getBlendedUndergroundColor(worldX, worldSeed);
     result.grassTipColor = getBlendedGrassTipColor(worldX, worldSeed);
 
+    float curvedWeights[static_cast<int>(BiomeType::Count)];
+    float curvedSum = 0.0f;
+    for (int i = 0; i < static_cast<int>(BiomeType::Count); ++i) {
+        curvedWeights[i] = std::pow(bw.weights[i], 4.0f);
+        curvedSum += curvedWeights[i];
+    }
+    if (curvedSum > 0.00001f) {
+        for (int i = 0; i < static_cast<int>(BiomeType::Count); ++i) {
+            curvedWeights[i] /= curvedSum;
+        }
+    } else {
+        curvedWeights[static_cast<int>(dom)] = 1.0f;
+    }
+
     result.minTreeSpacing = 0.f;
     result.maxTreeSpacing = 0.f;
     result.treeDensity = 0.f;
@@ -264,7 +301,7 @@ BiomeProperties Biome::getBlendedProperties(float worldX, uint32_t worldSeed) {
 
     for (int i = 0; i < static_cast<int>(BiomeType::Count); ++i) {
         BiomeProperties p = getProperties(static_cast<BiomeType>(i));
-        float w = bw.weights[i];
+        float w = curvedWeights[i];
         result.minTreeSpacing += p.minTreeSpacing * w;
         result.maxTreeSpacing += p.maxTreeSpacing * w;
         result.treeDensity += p.treeDensity * w;
@@ -276,6 +313,6 @@ BiomeProperties Biome::getBlendedProperties(float worldX, uint32_t worldSeed) {
         decorSum += static_cast<float>(p.decorationDensity) * w;
     }
 
-    result.decorationDensity = std::max(6, static_cast<int>(std::round(decorSum)));
+    result.decorationDensity = std::max(10, static_cast<int>(std::round(decorSum)));
     return result;
 }

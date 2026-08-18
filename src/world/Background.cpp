@@ -30,12 +30,13 @@ Background::Background(AssetManager& assets) {
     layer3_hills.scale = 0.32f;
     layer4_foreground.scale = 0.16f;
 
-    // FIX 1: Push the distant layers down so they dip behind the 
-    // physical dirt line, completely hiding the blue sky gap.
     layer1_sky.yOffset = 0.f;
     layer2_mountains.yOffset = 25.f; 
     layer3_hills.yOffset = 25.f;
     layer4_foreground.yOffset = -10.f;
+
+    blendedMountColor = sf::Color::White;
+    blendedHillColor = sf::Color::White;
 
     findVisibleBottom(layer1_sky);
     findVisibleBottom(layer2_mountains);
@@ -66,8 +67,20 @@ void Background::findVisibleBottom(Layer& layer) {
     layer.visibleBottomY = (lastY != -1) ? lastY : static_cast<int>(height);
 }
 
-void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt) {
+void Background::update(float cameraX, float cameraY, sf::Vector2f viewSize, float dt, uint32_t worldSeed) {
     camX = cameraX; camY = cameraY; vSize = viewSize;
+
+    BiomeType b = Biome::determineRegionAtWorldX(cameraX, worldSeed);
+    if (b == BiomeType::Jungle) {
+        blendedMountColor = sf::Color(130, 200, 140);
+        blendedHillColor = sf::Color(120, 190, 130);
+    } else if (b == BiomeType::Field) {
+        blendedMountColor = sf::Color(255, 255, 255);
+        blendedHillColor = sf::Color(255, 255, 255);
+    } else {
+        blendedMountColor = sf::Color(255, 215, 140);
+        blendedHillColor = sf::Color(255, 200, 120);
+    }
 }
 
 void Background::renderTiledLayer(sf::RenderTarget& target, Layer& layer, float targetWorldGroundY, bool isSky) {
@@ -110,13 +123,12 @@ void Background::drawSky(sf::RenderTarget& target, sf::Color skyTint) {
 }
 
 void Background::drawDistant(sf::RenderTarget& target, float worldGroundY) {
-    layer2_mountains.sprite.setColor(sf::Color::White);
-    layer3_hills.sprite.setColor(sf::Color::White);
+    layer2_mountains.sprite.setColor(blendedMountColor);
+    layer3_hills.sprite.setColor(blendedHillColor);
 
     renderTiledLayer(target, layer2_mountains, worldGroundY, false);
     renderTiledLayer(target, layer3_hills, worldGroundY, false);
 }
 
 void Background::drawForeground(sf::RenderTarget& target, float worldGroundY) {
-    // Hidden temporarily
 }

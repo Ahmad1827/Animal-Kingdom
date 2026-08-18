@@ -18,6 +18,8 @@ struct BiomeProperties {
     sf::Color undergroundColor;
     sf::Color grassTipColor;
     sf::Color debugColor;
+    float minTreeSpacing;
+    float maxTreeSpacing;
 };
 
 class Biome {

@@ -1142,7 +1142,9 @@ void PlayState::update(float dt) {
         float pY = playerWrapper ? playerWrapper->getPosition().y : transitionTarget.y;
         std::string regionName = Biome::getProperties(cm->getCurrentRegion(pX)).name;
         debugOverlay->updateInfo(dt, cm->getCurrentChunkIndex(), pX, pY, activeSeed, regionName, profiler);
+    }
 
+    if (debugOverlay->getVisible()) {
         debugOverlay->updateSimStats(
             static_cast<int>(simulationManager->getRegistry().getAllApes().size()),
             npcManager->getLoadedNPCCount(),
@@ -1326,7 +1328,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             float yRight = worldManager->getTerrainHeight(p.second.territoryMaxX);
             sf::RectangleShape rightTotem(sf::Vector2f(16.f, 150.f));
             rightTotem.setOrigin(8.f, 150.f);
-            rightTotem.setPosition(p.second.territoryMaxX, yRight);
+            rightTotem.setPosition(p.second.territoryMinX, yRight);
             rightTotem.setFillColor(sf::Color(60, 40, 20));
             rightTotem.setOutlineColor(sf::Color::Black);
             rightTotem.setOutlineThickness(2.f);
@@ -1757,6 +1759,7 @@ void PlayState::refreshInteractionTargets() {
     if (pVillage && controlledApe && worldManager) {
         float playerX = controlledApe->worldX;
 
+        // Query only trees within immediate reach (100px)
         std::vector<Tree*> candidateTrees = worldManager->getNearbyTrees(playerX, 100.f);
 
         for (Tree* tree : candidateTrees) {

@@ -22,9 +22,10 @@ EnvironmentalMetrics Biome::getMetrics(float worldX, uint32_t worldSeed) {
     float rawElev = sampleMacroNoise(worldX, 0.000055f, s3);
 
     EnvironmentalMetrics m;
-    m.temperature = std::clamp((0.5f + rawTemp * 0.4f) * (1.0f - jungleBias * 0.6f) + jungleBias * 0.90f, 0.0f, 1.0f);
-    m.moisture = std::clamp((0.5f + rawMoist * 0.4f) * (1.0f - jungleBias * 0.7f) + jungleBias * 0.98f, 0.0f, 1.0f);
-    m.elevation = std::clamp((0.5f + rawElev * 0.4f) * (1.0f - jungleBias * 0.8f) + jungleBias * 0.15f, 0.0f, 1.0f);
+    // In Biome::getMetrics — increase amplitude so extremes are actually reachable
+m.temperature = std::clamp((0.5f + rawTemp * 0.85f) * (1.0f - jungleBias * 0.6f) + jungleBias * 0.90f, 0.0f, 1.0f);
+m.moisture    = std::clamp((0.5f + rawMoist * 0.85f) * (1.0f - jungleBias * 0.7f) + jungleBias * 0.98f, 0.0f, 1.0f);
+m.elevation   = std::clamp((0.5f + rawElev * 0.85f) * (1.0f - jungleBias * 0.8f) + jungleBias * 0.15f, 0.0f, 1.0f);
     m.fertility = std::clamp(m.moisture * 0.7f + (1.0f - m.elevation) * 0.3f, 0.0f, 1.0f);
 
     return m;
@@ -49,7 +50,7 @@ BiomeWeights Biome::getWeights(float worldX, uint32_t worldSeed) {
 
     BiomeWeights bw;
     float sum = 0.0f;
-    const float sigmaSq = 0.10f;
+    const float sigmaSq = 0.06f;
 
     for (int i = 0; i < static_cast<int>(BiomeType::Count); ++i) {
         float dt = m.temperature - anchors[i].temp;

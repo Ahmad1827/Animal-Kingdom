@@ -2,14 +2,18 @@
 #include <SFML/Graphics.hpp>
 
 namespace VisualConfig {
-    // Decors.png (measured exact bounds, not padding)
     const sf::IntRect DECOR_TREE(17, 12, 73, 100);
     const sf::IntRect DECOR_BUSH(114, 96, 35, 16);
     const sf::IntRect DECOR_ROCK(177, 92, 27, 20);
 
-    // Tileset.png
+    const sf::IntRect TREEFIXED_1(0, 0, 80, 200);
+    const sf::IntRect TREEFIXED_2(80, 0, 120, 260);
+    const sf::IntRect TREEFIXED_3(200, 0, 170, 330);
+    const sf::IntRect TREEFIXED_4(370, 0, 240, 410);
+    const sf::IntRect TREEFIXED_5(610, 0, 330, 470);
+
     const sf::IntRect TILE_SURFACE(0, 0, 32, 32);
-    const sf::IntRect TILE_UNDERGROUND(64, 0, 32, 32); // Fixed: was a rounded blob tile
+    const sf::IntRect TILE_UNDERGROUND(64, 0, 32, 32);
 
     const float PARALLAX_FAR_SPEED = 0.05f;
     const float PARALLAX_MID_SPEED = 0.1f;

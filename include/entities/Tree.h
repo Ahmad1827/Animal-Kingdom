@@ -2,6 +2,7 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 #include <cstdint>
+#include <string>
 #include "world/WorldObject.h"
 #include "core/Profiler.h"
 
@@ -33,6 +34,10 @@ enum class TreeHarvestState {
 class Tree : public WorldObject {
 private:
     int treeId = 0;
+    int variantIndex = 1;
+    float worldX = 0.0f;
+    float worldY = 500.0f;
+
     sf::FloatRect totalBounds;
     sf::FloatRect trunkBounds;
 
@@ -59,9 +64,14 @@ private:
 
     void appendQuad(sf::VertexArray& mesh, const sf::FloatRect& rect, sf::Color color);
     void appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, float radius, sf::Color color);
+    void setupVariant(int variant, sf::Texture& fallbackTex);
 
 public:
+    static sf::Texture& getVariantTexture(int variant, sf::Texture& fallbackTex);
+
+    Tree(float x, float y, int variant, sf::Texture& decorTexture, int id = 0);
     Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture, int id = 0);
+
     void addBranch(float yOffset, float width, bool rightSide, sf::Color color, sf::Texture& decorTexture);
     void addVine(float xOffset, float yOffset, float length);
     void buildCanopy(uint32_t& seed, float baseRadius, float yOffset, sf::Color color, int clusterCount);
@@ -83,6 +93,7 @@ public:
 
     int getId() const { return treeId; }
     void setId(int id) { treeId = id; }
+    int getVariantIndex() const { return variantIndex; }
     TreeHarvestState getHarvestState() const { return harvestState; }
     void setHarvestState(TreeHarvestState state) { harvestState = state; }
     uint64_t getAssignedWorkerId() const { return assignedWorkerId; }

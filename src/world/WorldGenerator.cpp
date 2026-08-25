@@ -7,24 +7,6 @@
 static constexpr float FLAT_GROUND_Y = 500.0f;
 static constexpr float MIN_APE_BODY_GAP = 42.0f;
 
-enum class TreeCategory {
-    Young,
-    Mature,
-    Large,
-    Ancient
-};
-
-struct TreeArchetype {
-    float scale;
-    float trunkWidth;
-    float trunkHeight;
-    float canopyRadius;
-    float canopyHeight;
-    int clusters;
-    int branchCount;
-    int vineCount;
-};
-
 static uint32_t hashCoord(uint32_t worldSeed, int gridPos, uint32_t salt = 0) {
     uint32_t h = worldSeed ^ static_cast<uint32_t>(gridPos * 73856093) ^ (salt * 19349663);
     h = (h ^ (h >> 13)) * 0x5bd1e995;
@@ -33,73 +15,27 @@ static uint32_t hashCoord(uint32_t worldSeed, int gridPos, uint32_t salt = 0) {
     return h;
 }
 
-static TreeArchetype getTreeArchetype(TreeCategory cat, uint32_t seed) {
-    TreeArchetype arch;
-    switch (cat) {
-        case TreeCategory::Young: {
-            arch.scale = 0.70f + ((seed >> 4) % 15) * 0.01f;
-            arch.trunkWidth = 58.0f * arch.scale;
-            arch.trunkHeight = 200.0f * arch.scale;
-            arch.canopyRadius = 75.0f * arch.scale;
-            arch.canopyHeight = 130.0f * arch.scale;
-            arch.clusters = 2;
-            arch.branchCount = 1;
-            arch.vineCount = 0;
-            break;
-        }
-        case TreeCategory::Mature: {
-            arch.scale = 0.90f + ((seed >> 4) % 25) * 0.01f;
-            arch.trunkWidth = 85.0f * arch.scale;
-            arch.trunkHeight = 270.0f * arch.scale;
-            arch.canopyRadius = 100.0f * arch.scale;
-            arch.canopyHeight = 175.0f * arch.scale;
-            arch.clusters = 3;
-            arch.branchCount = 2;
-            arch.vineCount = ((seed >> 8) % 10 < 3) ? 1 : 0;
-            break;
-        }
-        case TreeCategory::Large: {
-            arch.scale = 1.20f + ((seed >> 4) % 25) * 0.01f;
-            arch.trunkWidth = 110.0f * arch.scale;
-            arch.trunkHeight = 330.0f * arch.scale;
-            arch.canopyRadius = 130.0f * arch.scale;
-            arch.canopyHeight = 220.0f * arch.scale;
-            arch.clusters = 4;
-            arch.branchCount = 3;
-            arch.vineCount = 1 + ((seed >> 8) % 2);
-            break;
-        }
-        case TreeCategory::Ancient: {
-            arch.scale = 1.55f + ((seed >> 4) % 30) * 0.01f;
-            arch.trunkWidth = 140.0f * arch.scale;
-            arch.trunkHeight = 400.0f * arch.scale;
-            arch.canopyRadius = 170.0f * arch.scale;
-            arch.canopyHeight = 270.0f * arch.scale;
-            arch.clusters = 5;
-            arch.branchCount = 4;
-            arch.vineCount = 2 + ((seed >> 8) % 2);
-            break;
-        }
-    }
-    return arch;
-}
-
-static TreeCategory determineCategory(uint32_t seed, float worldX) {
-    int catRoll = seed % 100;
-    bool isLandmark = (std::abs(std::fmod(worldX, 4000.0f)) < 180.0f);
-
-    if (isLandmark || catRoll < 4) {
-        return TreeCategory::Ancient;
-    } else if (catRoll < 26) {
-        return TreeCategory::Large;
-    } else if (catRoll < 76) {
-        return TreeCategory::Mature;
+static int pickTreeVariant(uint32_t seed, float& outTrunkWidth) {
+    int roll = seed % 100;
+    if (roll < 40) {
+        outTrunkWidth = 35.0f;
+        return 1;
+    } else if (roll < 70) {
+        outTrunkWidth = 48.0f;
+        return 2;
+    } else if (roll < 88) {
+        outTrunkWidth = 68.0f;
+        return 3;
+    } else if (roll < 97) {
+        outTrunkWidth = 95.0f;
+        return 4;
     } else {
-        return TreeCategory::Young;
+        outTrunkWidth = 140.0f;
+        return 5;
     }
 }
 
-static float sampleWeightedClearGap(uint32_t seed, TreeCategory cat, float jungleWeight) {
+static float sampleWeightedClearGap(uint32_t seed, int variant, float jungleWeight) {
     int spacingRoll = (seed >> 8) % 100;
     float minRange = 45.0f;
     float maxRange = 85.0f;
@@ -121,9 +57,11 @@ static float sampleWeightedClearGap(uint32_t seed, TreeCategory cat, float jungl
     float frac = static_cast<float>((seed >> 16) % 1000) / 1000.0f;
     float chosenClearGap = minRange + frac * (maxRange - minRange);
 
-    if (cat == TreeCategory::Young) chosenClearGap -= 6.0f;
-    else if (cat == TreeCategory::Large) chosenClearGap += 12.0f;
-    else if (cat == TreeCategory::Ancient) chosenClearGap += 25.0f;
+    if (variant == 1) chosenClearGap -= 6.0f;
+    else if (variant == 2) chosenClearGap += 0.0f;
+    else if (variant == 3) chosenClearGap += 12.0f;
+    else if (variant == 4) chosenClearGap += 25.0f;
+    else if (variant == 5) chosenClearGap += 50.0f;
 
     float transitionDilation = 1.0f / std::clamp(jungleWeight, 0.12f, 1.0f);
     chosenClearGap *= transitionDilation;
@@ -184,7 +122,7 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
     result.reserve(60);
 
     float prevTreeX = -999999.0f;
-    float prevTrunkWidth = 80.0f;
+    float prevTrunkWidth = 48.0f;
     int treeCounter = 1;
 
     float simX = startX - 450.0f;
@@ -202,21 +140,21 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
 
         int gridCoord = static_cast<int>(std::floor(simX / 15.0f));
         uint32_t seed = hashCoord(worldSeed, gridCoord, treeCounter);
-        TreeCategory cat = determineCategory(seed, simX);
-        TreeArchetype arch = getTreeArchetype(cat, seed);
+        float trunkW = 35.0f;
+        int variant = pickTreeVariant(seed, trunkW);
 
         float candidateTreeX = simX;
         if (!isPositionClear(candidateTreeX, worldSeed)) {
             if (prevTreeX > -900000.0f) {
-                float requiredCenterDist = (prevTrunkWidth * 0.5f) + (arch.trunkWidth * 0.5f) + MIN_APE_BODY_GAP;
+                float requiredCenterDist = (prevTrunkWidth * 0.5f) + (trunkW * 0.5f) + MIN_APE_BODY_GAP;
                 if (candidateTreeX - prevTreeX < requiredCenterDist) {
                     candidateTreeX = prevTreeX + requiredCenterDist;
                 }
             }
             prevTreeX = candidateTreeX;
-            prevTrunkWidth = arch.trunkWidth;
-            float clearGap = sampleWeightedClearGap(seed, cat, trans.jungleWeight);
-            simX = candidateTreeX + (arch.trunkWidth * 0.5f) + clearGap;
+            prevTrunkWidth = trunkW;
+            float clearGap = sampleWeightedClearGap(seed, variant, trans.jungleWeight);
+            simX = candidateTreeX + (trunkW * 0.5f) + clearGap;
             treeCounter++;
         } else {
             simX += 30.0f;
@@ -244,13 +182,12 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
 
         int gridCoord = static_cast<int>(std::floor(currentX / 15.0f));
         uint32_t seed = hashCoord(worldSeed, gridCoord, treeCounter);
-
-        TreeCategory cat = determineCategory(seed, currentX);
-        TreeArchetype arch = getTreeArchetype(cat, seed);
+        float trunkW = 35.0f;
+        int variant = pickTreeVariant(seed, trunkW);
 
         float treeX = currentX;
         if (prevTreeX > -900000.0f) {
-            float requiredCenterDist = (prevTrunkWidth * 0.5f) + (arch.trunkWidth * 0.5f) + MIN_APE_BODY_GAP;
+            float requiredCenterDist = (prevTrunkWidth * 0.5f) + (trunkW * 0.5f) + MIN_APE_BODY_GAP;
             if (treeX - prevTreeX < requiredCenterDist) {
                 treeX = prevTreeX + requiredCenterDist;
             }
@@ -261,38 +198,14 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
             continue;
         }
 
-        sf::Color tColor(95, 62, 30);
         int uniqueTreeId = static_cast<int>(std::abs(treeX)) * 100 + (treeCounter++);
-
-        Tree newTree(treeX, FLAT_GROUND_Y - 3.0f, arch.trunkWidth, arch.trunkHeight, tColor, decorTex, uniqueTreeId);
-
-        uint32_t detailSeed = uniqueTreeId;
-        newTree.buildCanopy(detailSeed, arch.canopyRadius, arch.canopyHeight, sf::Color(40, 140, 45), arch.clusters);
-
-        for (int b = 0; b < arch.branchCount; ++b) {
-            float branchY = (70.0f + b * 55.0f) * arch.scale;
-            bool rightSide = (b % 2 == 0);
-            newTree.addBranch(branchY, 40.0f * arch.scale, rightSide, sf::Color(70, 100, 50), decorTex);
-        }
-
-        if (trans.jungleWeight > 0.30f) {
-            for (int v = 0; v < arch.vineCount; ++v) {
-                float vSide = (v % 2 == 0) ? -1.0f : 1.0f;
-                float vXOff = vSide * (arch.trunkWidth * (0.25f + v * 0.08f));
-                float vYOff = arch.trunkHeight * (0.45f + v * 0.10f);
-                float vLen = (80.0f + ((seed + v * 23) % 40)) * arch.scale;
-                newTree.addVine(vXOff, vYOff, vLen);
-            }
-        }
-
-        newTree.initDynamicMesh();
-        result.push_back(std::move(newTree));
+        result.emplace_back(treeX, FLAT_GROUND_Y, variant, decorTex, uniqueTreeId);
 
         prevTreeX = treeX;
-        prevTrunkWidth = arch.trunkWidth;
+        prevTrunkWidth = trunkW;
 
-        float clearGap = sampleWeightedClearGap(seed, cat, trans.jungleWeight);
-        currentX = treeX + (arch.trunkWidth * 0.5f) + clearGap;
+        float clearGap = sampleWeightedClearGap(seed, variant, trans.jungleWeight);
+        currentX = treeX + (trunkW * 0.5f) + clearGap;
     }
 
     return result;

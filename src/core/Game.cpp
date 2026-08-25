@@ -8,10 +8,16 @@ Game::Game() : window(sf::VideoMode(1280, 720), "Ape Dynasty") {
     assetManager.loadTexture("layer1_sky", "assets/sprites/LAYER1FIX.png");
     assetManager.loadTexture("layer2_mountains", "assets/sprites/LAYER2FIX.png");
     assetManager.loadTexture("layer3_hills", "assets/sprites/LAYER3FIX.png");
-   // assetManager.loadTexture("layer4_foreground", "assets/sprites/LAYER4FIX.png");
     assetManager.loadTexture("tileset", "assets/sprites/Tileset.png", true);
     assetManager.loadTexture("decors", "assets/sprites/Decors.png", false);
     assetManager.loadTexture("playerTex", "assets/sprites/ApeSpriteSheet.png");
+
+    assetManager.loadTexture("tree1", "assets/sprites/TREEFIXED_1.png", false);
+    assetManager.loadTexture("tree2", "assets/sprites/TREEFIXED_2.png", false);
+    assetManager.loadTexture("tree3", "assets/sprites/TREEFIXED_3.png", false);
+    assetManager.loadTexture("tree4", "assets/sprites/TREEFIXED_4.png", false);
+    assetManager.loadTexture("tree5", "assets/sprites/TREEFIXED_5.png", false);
+
     window.setFramerateLimit(60);
     stateMachine.addState(std::make_unique<PlayState>(this));
 }

@@ -8,10 +8,8 @@
 #include <iostream>
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
-static constexpr float MIN_APE_BODY_GAP = 42.0f;
+static constexpr float MIN_TREE_GAP = 60.0f;
 
-// Noise channel salts. Distinct so the tree field, the clearing field and the
-// undergrowth field don't correlate with each other.
 static constexpr uint32_t SALT_OPENNESS   = 0x7A17u;
 static constexpr uint32_t SALT_TREE_CLUMP = 0x33C1u;
 static constexpr uint32_t SALT_VEG_REGION = 0x0A53u;
@@ -25,34 +23,31 @@ static uint32_t hashCoord(uint32_t worldSeed, int gridPos, uint32_t salt = 0) {
     return h;
 }
 
-static int pickTreeVariant(uint32_t seed, float& outTrunkWidth) {
-    // Unchanged: weighted toward small trees, biggest trees stay rare.
+static int pickTreeVariant(uint32_t seed, float& outTrunkWidth, float& outTotalWidth) {
     int roll = seed % 100;
     if (roll < 40) {
         outTrunkWidth = 35.0f;
+        outTotalWidth = 80.0f;
         return 1;
     } else if (roll < 70) {
         outTrunkWidth = 48.0f;
+        outTotalWidth = 120.0f;
         return 2;
     } else if (roll < 88) {
         outTrunkWidth = 68.0f;
+        outTotalWidth = 170.0f;
         return 3;
     } else if (roll < 97) {
         outTrunkWidth = 95.0f;
+        outTotalWidth = 240.0f;
         return 4;
     } else {
         outTrunkWidth = 140.0f;
+        outTotalWidth = 330.0f;
         return 5;
     }
 }
 
-// ---------------------------------------------------------------------------
-// Clearance zone cache.
-//
-// isPositionClear() is called once per candidate position inside the tree and
-// decoration loops. It used to rebuild + sort the whole zone vector on every
-// one of those calls. Chunks generate on async threads, hence the mutex.
-// ---------------------------------------------------------------------------
 static std::mutex g_zoneMutex;
 static std::unordered_map<uint32_t, std::vector<WorldClearanceZone>> g_zoneCache;
 
@@ -76,14 +71,10 @@ std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t world
 
     std::vector<SettlementBounds> settlements;
 
-    // Player settlement.
     float pC = SettlementLayout::getPlayerCenterX();
     float pR = SettlementLayout::getPlayerTerritoryRadius();
     settlements.push_back({pC, pC - pR, pC + pR});
 
-    // AI settlements - now driven by the SAME layout function the population
-    // generator uses, so the clearance count can never be smaller than the
-    // number of villages actually spawned.
     float vR = SettlementLayout::getVillageTerritoryRadius();
     for (float cX : SettlementLayout::getVillageCenters(worldSeed)) {
         settlements.push_back({cX, cX - vR, cX + vR});
@@ -116,56 +107,44 @@ bool WorldGenerator::isPositionClear(float worldX, uint32_t worldSeed) {
     return false;
 }
 
-// ---------------------------------------------------------------------------
-// Tree spacing.
-//
-// The original weighted-gap roll is untouched. What's new is that the final
-// gap is scaled by the blended EnvironmentProfile and by two noise fields, so
-// trees form groves and clearings instead of marching at a steady stride.
-// ---------------------------------------------------------------------------
 static float sampleWeightedClearGap(uint32_t seed, int variant, const EnvironmentProfile& env, float openness, float clump) {
     int spacingRoll = (seed >> 8) % 100;
-    float minRange = 45.0f;
-    float maxRange = 85.0f;
+    float minRange = 60.0f;
+    float maxRange = 110.0f;
 
     if (spacingRoll < 38) {
-        minRange = 42.0f;
-        maxRange = 75.0f;
+        minRange = 60.0f;
+        maxRange = 100.0f;
     } else if (spacingRoll < 75) {
-        minRange = 75.0f;
-        maxRange = 130.0f;
+        minRange = 100.0f;
+        maxRange = 170.0f;
     } else if (spacingRoll < 93) {
-        minRange = 130.0f;
-        maxRange = 200.0f;
+        minRange = 170.0f;
+        maxRange = 260.0f;
     } else {
-        minRange = 200.0f;
-        maxRange = 300.0f;
+        minRange = 260.0f;
+        maxRange = 380.0f;
     }
 
     float frac = static_cast<float>((seed >> 16) % 1000) / 1000.0f;
     float chosenClearGap = minRange + frac * (maxRange - minRange);
 
-    if (variant == 1) chosenClearGap -= 6.0f;
-    else if (variant == 2) chosenClearGap += 0.0f;
-    else if (variant == 3) chosenClearGap += 12.0f;
-    else if (variant == 4) chosenClearGap += 25.0f;
-    else if (variant == 5) chosenClearGap += 50.0f;
+    if (variant == 1) chosenClearGap -= 5.0f;
+    else if (variant == 3) chosenClearGap += 15.0f;
+    else if (variant == 4) chosenClearGap += 30.0f;
+    else if (variant == 5) chosenClearGap += 60.0f;
 
-    // Biome density: low treeDensity => proportionally wider gaps. Replaces
-    // the old 1/jungleWeight dilation with the same idea generalised.
     float densityDilation = 1.0f / std::clamp(env.treeDensity, 0.05f, 1.0f);
     chosenClearGap *= densityDilation;
 
-    // Groves: inside a clump, pull trunks closer together.
-    float clusterFactor = 1.0f - (env.clusterTendency * clump * 0.45f);
-    chosenClearGap *= std::clamp(clusterFactor, 0.5f, 1.0f);
+    float clusterFactor = 1.0f - (env.clusterTendency * clump * 0.35f);
+    chosenClearGap *= std::clamp(clusterFactor, 0.7f, 1.0f);
 
-    // Clearings: low-openness stretches read as glades.
     if (openness < env.clearingTendency) {
         chosenClearGap *= 2.2f;
     }
 
-    return std::max(MIN_APE_BODY_GAP, chosenClearGap);
+    return std::max(MIN_TREE_GAP, chosenClearGap);
 }
 
 std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint32_t, uint32_t worldSeed, const BiomeProperties&, sf::Texture& decorTex) {
@@ -173,14 +152,10 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
     result.reserve(60);
 
     float prevTreeX = -999999.0f;
-    float prevTrunkWidth = 48.0f;
+    float prevTotalWidth = 120.0f;
     int treeCounter = 1;
 
-    // --- Look-back pass -----------------------------------------------------
-    // Unchanged in structure. It replays generation from 450px before the chunk
-    // so trunk spacing stays continuous across chunk seams. It MUST use exactly
-    // the same sampling as the main pass below or seams reappear.
-    float simX = startX - 450.0f;
+    float simX = startX - 800.0f;
     while (simX < startX) {
         if (isPositionClear(simX, worldSeed)) {
             simX += 30.0f;
@@ -199,35 +174,34 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         int gridCoord = static_cast<int>(std::floor(simX / 15.0f));
         uint32_t seed = hashCoord(worldSeed, gridCoord, treeCounter);
         float trunkW = 35.0f;
-        int variant = pickTreeVariant(seed, trunkW);
+        float totalW = 80.0f;
+        int variant = pickTreeVariant(seed, trunkW, totalW);
 
         float candidateTreeX = simX;
         if (!isPositionClear(candidateTreeX, worldSeed)) {
             if (prevTreeX > -900000.0f) {
-                float requiredCenterDist = (prevTrunkWidth * 0.5f) + (trunkW * 0.5f) + MIN_APE_BODY_GAP;
+                float requiredCenterDist = (prevTotalWidth * 0.5f) + (totalW * 0.5f) + MIN_TREE_GAP;
                 if (candidateTreeX - prevTreeX < requiredCenterDist) {
                     candidateTreeX = prevTreeX + requiredCenterDist;
                 }
             }
             prevTreeX = candidateTreeX;
-            prevTrunkWidth = trunkW;
+            prevTotalWidth = totalW;
             float clearGap = sampleWeightedClearGap(seed, variant, env, openness, clump);
-            simX = candidateTreeX + (trunkW * 0.5f) + clearGap;
+            simX = candidateTreeX + (totalW * 0.5f) + clearGap;
             treeCounter++;
         } else {
             simX += 30.0f;
         }
     }
 
-    // --- Main pass ----------------------------------------------------------
     float currentX = startX + 20.0f;
     if (prevTreeX > -900000.0f) {
-        currentX = std::max(currentX, prevTreeX + (prevTrunkWidth * 0.5f) + MIN_APE_BODY_GAP);
+        currentX = std::max(currentX, prevTreeX + (prevTotalWidth * 0.5f) + MIN_TREE_GAP);
     }
     float endX = startX + width;
 
     while (currentX < endX) {
-        // Bases and Meeting Grounds: never place a trunk here.
         if (isPositionClear(currentX, worldSeed)) {
             currentX += 30.0f;
             continue;
@@ -245,17 +219,17 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         int gridCoord = static_cast<int>(std::floor(currentX / 15.0f));
         uint32_t seed = hashCoord(worldSeed, gridCoord, treeCounter);
         float trunkW = 35.0f;
-        int variant = pickTreeVariant(seed, trunkW);
+        float totalW = 80.0f;
+        int variant = pickTreeVariant(seed, trunkW, totalW);
 
         float treeX = currentX;
         if (prevTreeX > -900000.0f) {
-            float requiredCenterDist = (prevTrunkWidth * 0.5f) + (trunkW * 0.5f) + MIN_APE_BODY_GAP;
+            float requiredCenterDist = (prevTotalWidth * 0.5f) + (totalW * 0.5f) + MIN_TREE_GAP;
             if (treeX - prevTreeX < requiredCenterDist) {
                 treeX = prevTreeX + requiredCenterDist;
             }
         }
 
-        // Re-check after the spacing push, in case it slid us into a base.
         if (isPositionClear(treeX, worldSeed)) {
             currentX += 30.0f;
             continue;
@@ -265,30 +239,19 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         result.emplace_back(treeX, FLAT_GROUND_Y, variant, decorTex, uniqueTreeId);
 
         prevTreeX = treeX;
-        prevTrunkWidth = trunkW;
+        prevTotalWidth = totalW;
 
         float clearGap = sampleWeightedClearGap(seed, variant, env, openness, clump);
-        currentX = treeX + (trunkW * 0.5f) + clearGap;
+        currentX = treeX + (totalW * 0.5f) + clearGap;
     }
 
     return result;
 }
 
-// ---------------------------------------------------------------------------
-// Decorations.
-//
-// Two noise fields give spatial coherence:
-//   region  - very low frequency, carves broad clearings vs vegetated stretches
-//   clump   - mid frequency, makes thickets inside the vegetated stretches
-// Type selection is a roulette over the profile's density weights, so the mix
-// of ferns / flowers / stones / litter shifts gradually across a transition
-// rather than switching at a boundary.
-// ---------------------------------------------------------------------------
 std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float width, uint32_t chunkSeed, uint32_t worldSeed, const BiomeProperties&, sf::Texture& decorTex) {
     std::vector<Decoration> decors;
     decors.reserve(96);
 
-    // Hard ceiling so a pathological density can never blow up a chunk.
     const size_t MAX_DECOR_PER_CHUNK = 420;
 
     float currentX = startX + 20.0f;
@@ -297,9 +260,6 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
 
     while (currentX < endX && decors.size() < MAX_DECOR_PER_CHUNK) {
         if (isPositionClear(currentX, worldSeed)) {
-            // Settlements and Meeting Grounds stay readable: no scatter inside.
-            // The ground palette underneath is still the biome's own, so a
-            // jungle base still reads as jungle soil.
             currentX += 45.0f;
             continue;
         }
@@ -317,7 +277,6 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
         bool inClearing = (region < env.clearingTendency);
         float local = (0.35f + 0.65f * clump) * (inClearing ? 0.18f : 1.0f);
 
-        // Roulette weights straight off the profile.
         float wUnder  = env.undergrowthDensity;
         float wFlower = env.flowerDensity;
         float wStone  = env.stoneDensity;
@@ -333,8 +292,6 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
         float pick = roll * total;
 
         if (pick < wUnder) {
-            // Thick patches get the full jungle variety roll; thin edges get
-            // the smaller silhouette so undergrowth thins out gradually.
             type = (local > 0.55f) ? DecorType::JungleUndergrowth : DecorType::SmallBush;
         } else if (pick < wUnder + wFlower) {
             type = DecorType::Flower;
@@ -344,14 +301,12 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
             type = DecorType::LeafLitter;
         }
 
-        // Grass tufts fill in dense grassy ground between the bigger props.
         if (roll2 > 0.82f && env.grassDensity > 0.5f && local > 0.5f) {
             type = DecorType::GrassTuft;
         }
 
         decors.emplace_back(currentX, FLAT_GROUND_Y, type, itemSeed, decorTex);
 
-        // Denser locally => shorter stride. Clearings stride out fast.
         float step = env.decorBaseStep * (1.5f - std::clamp(local, 0.0f, 1.0f));
         if (inClearing) step *= 3.0f;
         step += static_cast<float>(itemSeed % 17);

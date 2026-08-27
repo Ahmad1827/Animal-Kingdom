@@ -75,9 +75,11 @@ BiomeProperties Biome::getProperties(BiomeType type) {
         case BiomeType::Jungle:
             p.name = "Tropical Jungle";
             p.vegetationMode = "JUNGLE TREES";
-            p.groundColor = sf::Color(18, 62, 22);
-            p.undergroundColor = sf::Color(24, 15, 8);
-            p.grassTipColor = sf::Color(36, 105, 30);
+            p.groundColor = sf::Color(20, 44, 22);
+            p.undergroundColor = sf::Color(32, 20, 12);
+            p.subsoilColor = sf::Color(22, 14, 8);
+            p.grassTipColor = sf::Color(42, 138, 48);
+            p.grassBaseColor = sf::Color(16, 36, 18);
             p.debugColor = sf::Color(0, 140, 45, 100);
             p.minTreeSpacing = 65.0f;
             p.maxTreeSpacing = 160.0f;
@@ -88,7 +90,9 @@ BiomeProperties Biome::getProperties(BiomeType type) {
             p.vegetationMode = "FIELD FLOWERS";
             p.groundColor = sf::Color(72, 140, 42);
             p.undergroundColor = sf::Color(60, 44, 22);
+            p.subsoilColor = sf::Color(44, 30, 16);
             p.grassTipColor = sf::Color(110, 180, 60);
+            p.grassBaseColor = sf::Color(52, 105, 30);
             p.debugColor = sf::Color(210, 235, 120, 100);
             p.minTreeSpacing = 600.0f;
             p.maxTreeSpacing = 600.0f;
@@ -100,7 +104,9 @@ BiomeProperties Biome::getProperties(BiomeType type) {
             p.vegetationMode = "YELLOW SAND";
             p.groundColor = sf::Color(210, 180, 95);
             p.undergroundColor = sf::Color(160, 130, 65);
+            p.subsoilColor = sf::Color(115, 90, 45);
             p.grassTipColor = sf::Color(230, 200, 115);
+            p.grassBaseColor = sf::Color(180, 150, 75);
             p.debugColor = sf::Color(230, 175, 60, 120);
             p.minTreeSpacing = 1200.0f;
             p.maxTreeSpacing = 1200.0f;
@@ -138,10 +144,26 @@ sf::Color Biome::getBlendedUndergroundColor(float worldX, uint32_t) {
     return blendColors(cJ, cF, cD, t.jungleWeight, t.fieldWeight, t.desertWeight);
 }
 
+sf::Color Biome::getBlendedSubsoilColor(float worldX, uint32_t) {
+    BiomeTransitionInfo t = getTransitionInfo(worldX);
+    sf::Color cJ = getProperties(BiomeType::Jungle).subsoilColor;
+    sf::Color cF = getProperties(BiomeType::Field).subsoilColor;
+    sf::Color cD = getProperties(BiomeType::Desert).subsoilColor;
+    return blendColors(cJ, cF, cD, t.jungleWeight, t.fieldWeight, t.desertWeight);
+}
+
 sf::Color Biome::getBlendedGrassTipColor(float worldX, uint32_t) {
     BiomeTransitionInfo t = getTransitionInfo(worldX);
     sf::Color cJ = getProperties(BiomeType::Jungle).grassTipColor;
     sf::Color cF = getProperties(BiomeType::Field).grassTipColor;
     sf::Color cD = getProperties(BiomeType::Desert).grassTipColor;
+    return blendColors(cJ, cF, cD, t.jungleWeight, t.fieldWeight, t.desertWeight);
+}
+
+sf::Color Biome::getBlendedGrassBaseColor(float worldX, uint32_t) {
+    BiomeTransitionInfo t = getTransitionInfo(worldX);
+    sf::Color cJ = getProperties(BiomeType::Jungle).grassBaseColor;
+    sf::Color cF = getProperties(BiomeType::Field).grassBaseColor;
+    sf::Color cD = getProperties(BiomeType::Desert).grassBaseColor;
     return blendColors(cJ, cF, cD, t.jungleWeight, t.fieldWeight, t.desertWeight);
 }

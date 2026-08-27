@@ -213,15 +213,15 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
 
 std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float width, uint32_t chunkSeed, uint32_t worldSeed, const BiomeProperties&, sf::Texture& decorTex) {
     std::vector<Decoration> decors;
-    decors.reserve(70);
+    decors.reserve(80);
 
-    float currentX = startX + 25.0f;
+    float currentX = startX + 20.0f;
     float endX = startX + width;
     int decorIndex = 0;
 
     while (currentX < endX) {
         if (isPositionClear(currentX, worldSeed)) {
-            currentX += 40.0f;
+            currentX += 45.0f;
             continue;
         }
 
@@ -232,21 +232,36 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
         float roll = static_cast<float>(itemSeed % 1000) / 1000.0f;
 
         int type = 0;
-        if (roll < trans.jungleWeight) {
-            type = 2;
-        } else if (roll < trans.jungleWeight + trans.fieldWeight) {
-            type = ((itemSeed >> 4) % 100 < 70) ? 1 : 0;
-        } else {
-            type = ((itemSeed >> 4) % 100 < 60) ? 3 : 4;
-        }
-
         float step = 100.0f;
-        if (trans.desertWeight > 0.70f) {
+
+        if (trans.jungleWeight > 0.35f) {
+            float densityNoise = (std::sin(currentX * 0.008f + worldSeed * 0.001f) * 0.5f +
+                                  std::cos(currentX * 0.022f) * 0.5f + 1.0f) * 0.5f;
+
+            if (densityNoise > 0.65f) {
+                step = 24.0f + (itemSeed % 18);
+            } else if (densityNoise > 0.30f) {
+                step = 42.0f + (itemSeed % 26);
+            } else {
+                step = 85.0f + (itemSeed % 40);
+            }
+
+            if (roll < 0.72f) {
+                type = 2;
+            } else if (roll < 0.88f) {
+                type = 3;
+            } else {
+                type = 0;
+            }
+        } else if (trans.desertWeight > 0.70f) {
             step = 220.0f;
+            type = (roll < 0.7f) ? 3 : 4;
         } else if (trans.fieldWeight > 0.60f) {
-            step = 75.0f;
-        } else if (trans.jungleWeight > 0.60f) {
-            step = 70.0f + (itemSeed % 40);
+            step = 65.0f + (itemSeed % 30);
+            type = (roll < 0.75f) ? 1 : 0;
+        } else {
+            step = 80.0f + (itemSeed % 35);
+            type = (roll < 0.5f) ? 2 : 1;
         }
 
         decors.emplace_back(currentX, FLAT_GROUND_Y, type, itemSeed, decorTex);

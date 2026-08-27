@@ -115,6 +115,90 @@ BiomeProperties Biome::getProperties(BiomeType type) {
     return p;
 }
 
+EnvironmentProfile Biome::getEnvironmentProfile(BiomeType type) {
+    EnvironmentProfile e;
+
+    switch (type) {
+        case BiomeType::Jungle:
+            // Dense, layered, closed-canopy. Lots of undergrowth and litter,
+            // very few flowers, trees pull hard into groves.
+            e.grassDensity       = 0.95f;
+            e.grassHeightBase    = 4.5f;
+            e.grassHeightVar     = 7.5f;
+            e.soilVariation      = 1.0f;
+            e.litterDensity      = 0.75f;
+            e.undergrowthDensity = 1.0f;
+            e.flowerDensity      = 0.05f;
+            e.stoneDensity       = 0.28f;
+            e.decorBaseStep      = 34.0f;
+            e.treeDensity        = 1.0f;
+            e.clusterTendency    = 0.8f;
+            e.clearingTendency   = 0.32f;
+            break;
+
+        case BiomeType::Field:
+            // Open, bright, flowery. Same framework, different numbers.
+            e.grassDensity       = 0.80f;
+            e.grassHeightBase    = 3.0f;
+            e.grassHeightVar     = 4.0f;
+            e.soilVariation      = 0.45f;
+            e.litterDensity      = 0.05f;
+            e.undergrowthDensity = 0.12f;
+            e.flowerDensity      = 1.0f;
+            e.stoneDensity       = 0.12f;
+            e.decorBaseStep      = 52.0f;
+            e.treeDensity        = 0.09f;   // isolated trees only
+            e.clusterTendency    = 0.25f;
+            e.clearingTendency   = 0.60f;
+            break;
+
+        case BiomeType::Desert:
+        default:
+            // Sand and almost nothing else. Deliberately simple.
+            e.grassDensity       = 0.06f;
+            e.grassHeightBase    = 1.5f;
+            e.grassHeightVar     = 2.0f;
+            e.soilVariation      = 0.7f;    // sand ripples read as tone variation
+            e.litterDensity      = 0.0f;
+            e.undergrowthDensity = 0.02f;
+            e.flowerDensity      = 0.0f;
+            e.stoneDensity       = 0.55f;
+            e.decorBaseStep      = 230.0f;
+            e.treeDensity        = 0.0f;    // no jungle trees in the desert
+            e.clusterTendency    = 0.1f;
+            e.clearingTendency   = 0.9f;
+            break;
+    }
+    return e;
+}
+
+EnvironmentProfile Biome::getBlendedEnvironment(float worldX) {
+    BiomeTransitionInfo t = getTransitionInfo(worldX);
+
+    EnvironmentProfile j = getEnvironmentProfile(BiomeType::Jungle);
+    EnvironmentProfile f = getEnvironmentProfile(BiomeType::Field);
+    EnvironmentProfile d = getEnvironmentProfile(BiomeType::Desert);
+
+    auto mix = [&](float a, float b, float c) {
+        return a * t.jungleWeight + b * t.fieldWeight + c * t.desertWeight;
+    };
+
+    EnvironmentProfile e;
+    e.grassDensity       = mix(j.grassDensity,       f.grassDensity,       d.grassDensity);
+    e.grassHeightBase    = mix(j.grassHeightBase,    f.grassHeightBase,    d.grassHeightBase);
+    e.grassHeightVar     = mix(j.grassHeightVar,     f.grassHeightVar,     d.grassHeightVar);
+    e.soilVariation      = mix(j.soilVariation,      f.soilVariation,      d.soilVariation);
+    e.litterDensity      = mix(j.litterDensity,      f.litterDensity,      d.litterDensity);
+    e.undergrowthDensity = mix(j.undergrowthDensity, f.undergrowthDensity, d.undergrowthDensity);
+    e.flowerDensity      = mix(j.flowerDensity,      f.flowerDensity,      d.flowerDensity);
+    e.stoneDensity       = mix(j.stoneDensity,       f.stoneDensity,       d.stoneDensity);
+    e.decorBaseStep      = mix(j.decorBaseStep,      f.decorBaseStep,      d.decorBaseStep);
+    e.treeDensity        = mix(j.treeDensity,        f.treeDensity,        d.treeDensity);
+    e.clusterTendency    = mix(j.clusterTendency,    f.clusterTendency,    d.clusterTendency);
+    e.clearingTendency   = mix(j.clearingTendency,   f.clearingTendency,   d.clearingTendency);
+    return e;
+}
+
 static sf::Color blendColors(const sf::Color& c1, const sf::Color& c2, const sf::Color& c3, float w1, float w2, float w3) {
     float r = c1.r * w1 + c2.r * w2 + c3.r * w3;
     float g = c1.g * w1 + c2.g * w2 + c3.g * w3;

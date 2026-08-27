@@ -7,10 +7,15 @@
 static constexpr float FLAT_GROUND_Y = 500.0f;
 static constexpr float DIRT_DEPTH = 1200.0f;
 
+// Noise salts for the ground layer. Kept distinct from the ones in
+// WorldGenerator so soil mottling doesn't correlate with tree placement.
+static constexpr uint32_t SALT_SOIL   = 0x5011u;
+static constexpr uint32_t SALT_GRASS  = 0x6A22u;
+
 Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Texture& decorTex) : pos(pos) {
     bounds = sf::FloatRect(pos.x * width, pos.y * height, width, height);
     uint32_t chunkSeed = SeedManager::getChunkSeed(worldSeed, pos.x) + pos.y;
-    
+
     regionType = Biome::determineRegion(pos.x, worldSeed);
     BiomeProperties props = Biome::getProperties(regionType);
 
@@ -29,11 +34,14 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
         const float subStep = 16.0f;
         int slices = static_cast<int>(std::ceil(bounds.width / subStep));
 
+        // Large-scale soil mottling. Was three summed sines gated on
+        // jungleWeight, so only the jungle ever got tonal variation. Now it's
+        // proper low-frequency noise, and the *strength* comes from the biome
+        // profile - which means desert gets sand-tone variation and field gets
+        // a gentler version of the same treatment.
         auto sampleSoilVariation = [&](float x) {
-            float s = std::sin(x * 0.0035f + worldSeed * 0.001f) * 0.5f +
-                      std::sin(x * 0.0110f + 1.7f) * 0.3f +
-                      std::cos(x * 0.0240f + 3.1f) * 0.2f;
-            return s;
+            float n = SeedManager::fbm(x, worldSeed ^ SALT_SOIL, 0.0022f, 3);
+            return (n - 0.5f) * 2.0f; // -1 .. 1
         };
 
         auto applySoilTint = [](sf::Color base, float factor) {
@@ -52,6 +60,9 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
             BiomeTransitionInfo trans1 = Biome::getTransitionInfo(x1);
             BiomeTransitionInfo trans2 = Biome::getTransitionInfo(x2);
 
+            EnvironmentProfile env1 = Biome::getBlendedEnvironment(x1);
+            EnvironmentProfile env2 = Biome::getBlendedEnvironment(x2);
+
             sf::Color cGround1 = Biome::getBlendedGroundColor(x1, worldSeed);
             sf::Color cGround2 = Biome::getBlendedGroundColor(x2, worldSeed);
 
@@ -61,8 +72,9 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
             sf::Color cSub1 = Biome::getBlendedSubsoilColor(x1, worldSeed);
             sf::Color cSub2 = Biome::getBlendedSubsoilColor(x2, worldSeed);
 
-            float soilVar1 = sampleSoilVariation(x1) * trans1.jungleWeight;
-            float soilVar2 = sampleSoilVariation(x2) * trans2.jungleWeight;
+            // Strength now blends with the biome instead of being jungle-only.
+            float soilVar1 = sampleSoilVariation(x1) * env1.soilVariation;
+            float soilVar2 = sampleSoilVariation(x2) * env2.soilVariation;
 
             cGround1 = applySoilTint(cGround1, soilVar1);
             cGround2 = applySoilTint(cGround2, soilVar2);
@@ -115,6 +127,7 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
             addQuad(yDeep, yDeep, yDeep + 300.0f, yDeep + 300.0f, cDeep1, cDeep2, cAbyss, cAbyss);
         }
 
+        // --- Surface layer: grass blades + leaf litter ----------------------
         const float step = 4.0f;
         int segments = static_cast<int>(std::ceil(bounds.width / step));
         for (int i = 0; i < segments; ++i) {
@@ -122,38 +135,61 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
             float xR = std::min(xL + step, bounds.left + bounds.width);
             float midX = (xL + xR) * 0.5f;
 
-            BiomeTransitionInfo trans = Biome::getTransitionInfo(midX);
+            EnvironmentProfile env = Biome::getBlendedEnvironment(midX);
 
-            float microHash = std::fmod(std::abs(std::sin(midX * 12.9898f + worldSeed * 0.05f)) * 43758.5453f, 1.0f);
-            float macroWave = (std::sin(midX * 0.045f) * 0.5f + std::sin(midX * 0.18f) * 0.35f + std::cos(midX * 0.42f) * 0.15f + 1.0f) * 0.5f;
+            // Two independent per-column hashes: one decides whether anything
+            // grows here, the other jitters height/offset. Using one for both
+            // correlated "tall" with "present" and produced visible banding.
+            uint32_t h = SeedManager::hashPosition(static_cast<int32_t>(std::floor(midX)), worldSeed ^ SALT_GRASS);
+            float microHash  = static_cast<float>(h & 0xFFFFu) / 65535.0f;
+            float microHash2 = static_cast<float>((h >> 16) & 0xFFFFu) / 65535.0f;
 
-            float bladeHeight = 3.0f + microHash * 4.0f;
+            // Large-scale patchiness so grass thickens and thins in drifts.
+            float patch = SeedManager::fbm(midX, worldSeed ^ SALT_GRASS, 0.0018f, 3);
+            float localDensity = std::clamp(env.grassDensity * (0.55f + 0.9f * patch), 0.0f, 1.0f);
 
-            if (trans.jungleWeight > 0.15f) {
-                float jungleHeight = 4.5f + macroWave * 6.5f + microHash * 4.0f;
-                bladeHeight = bladeHeight * (1.0f - trans.jungleWeight) + jungleHeight * trans.jungleWeight;
-            } else if (trans.desertWeight > 0.5f) {
-                bladeHeight = 1.5f + microHash * 2.0f;
-            }
+            if (microHash <= localDensity) {
+                float bladeHeight = env.grassHeightBase
+                                  + patch * env.grassHeightVar
+                                  + microHash2 * env.grassHeightVar * 0.5f;
 
-            sf::Color tipColor = Biome::getBlendedGrassTipColor(midX, worldSeed);
-            sf::Color baseColor = Biome::getBlendedGrassBaseColor(midX, worldSeed);
+                sf::Color tipColor = Biome::getBlendedGrassTipColor(midX, worldSeed);
+                sf::Color baseColor = Biome::getBlendedGrassBaseColor(midX, worldSeed);
 
-            if (trans.jungleWeight > 0.3f) {
-                float highlightMod = std::sin(midX * 0.08f) * 0.5f + 0.5f;
-                if (highlightMod > 0.75f && microHash > 0.5f) {
-                    tipColor.r = static_cast<sf::Uint8>(std::min(255, tipColor.r + 14));
-                    tipColor.g = static_cast<sf::Uint8>(std::min(255, tipColor.g + 26));
-                    tipColor.b = static_cast<sf::Uint8>(std::min(255, tipColor.b + 8));
+                // Occasional lit tips, strongest where undergrowth is dense.
+                if (env.undergrowthDensity > 0.3f) {
+                    float highlightMod = SeedManager::valueNoise(midX, worldSeed ^ SALT_GRASS, 0.012f);
+                    if (highlightMod > 0.75f && microHash2 > 0.5f) {
+                        tipColor.r = static_cast<sf::Uint8>(std::min(255, tipColor.r + 14));
+                        tipColor.g = static_cast<sf::Uint8>(std::min(255, tipColor.g + 26));
+                        tipColor.b = static_cast<sf::Uint8>(std::min(255, tipColor.b + 8));
+                    }
                 }
+
+                float tipX = midX + (microHash2 - 0.5f) * (step * 0.6f);
+                float groundBaseY = FLAT_GROUND_Y - 4.0f;
+
+                terrainMesh.append(sf::Vertex(sf::Vector2f(tipX, groundBaseY - bladeHeight), tipColor));
+                terrainMesh.append(sf::Vertex(sf::Vector2f(xR, groundBaseY), baseColor));
+                terrainMesh.append(sf::Vertex(sf::Vector2f(xL, groundBaseY), baseColor));
             }
 
-            float tipX = midX + (microHash - 0.5f) * (step * 0.6f);
-            float groundBaseY = FLAT_GROUND_Y - 4.0f;
+            // Leaf litter: tiny flat flecks lying on the soil. Cheap (2 tris
+            // worth of verts at most) and gives the jungle floor depth without
+            // covering everything in sprite noise.
+            if (env.litterDensity > 0.02f && microHash2 < env.litterDensity * 0.10f) {
+                float groundBaseY = FLAT_GROUND_Y - 4.0f;
+                float fleckW = 2.0f + microHash * 3.0f;
+                float fleckY = groundBaseY + 1.0f + microHash * 2.0f;
 
-            terrainMesh.append(sf::Vertex(sf::Vector2f(tipX, groundBaseY - bladeHeight), tipColor));
-            terrainMesh.append(sf::Vertex(sf::Vector2f(xR, groundBaseY), baseColor));
-            terrainMesh.append(sf::Vertex(sf::Vector2f(xL, groundBaseY), baseColor));
+                sf::Color litter = Biome::getBlendedUndergroundColor(midX, worldSeed);
+                litter.r = static_cast<sf::Uint8>(std::min(255, litter.r + 26));
+                litter.g = static_cast<sf::Uint8>(std::min(255, litter.g + 18));
+
+                terrainMesh.append(sf::Vertex(sf::Vector2f(midX - fleckW, fleckY), litter));
+                terrainMesh.append(sf::Vertex(sf::Vector2f(midX + fleckW, fleckY), litter));
+                terrainMesh.append(sf::Vertex(sf::Vector2f(midX, fleckY + 1.6f), litter));
+            }
         }
 
         trees.reserve(40);
@@ -162,7 +198,7 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
             trees.push_back(std::move(tree));
         }
 
-        decorations.reserve(80);
+        decorations.reserve(96);
         std::vector<Decoration> candidateDecs = WorldGenerator::generateDecorations(bounds.left, bounds.width, chunkSeed, worldSeed, props, decorTex);
         for (auto& dec : candidateDecs) {
             decorations.push_back(std::move(dec));

@@ -1,6 +1,7 @@
 #include "simulation/PopulationGenerator.h"
 #include "world/TerrainGenerator.h"
 #include "world/SeedManager.h"
+#include "world/SettlementLayout.h"
 #include <cmath>
 
 namespace sim {
@@ -136,7 +137,8 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.name = "First Tree";
     pVillage.identity = VillageIdentity::Balanced;
     pVillage.homeChunkX = 0;
-    pVillage.centerX = 1000.0f;
+    // Shared with the tree-clearance generator so the base is always tree-free.
+    pVillage.centerX = SettlementLayout::getPlayerCenterX();
     pVillage.centerY = 500.0f;
     pVillage.food = 65;
     pVillage.wood = 35;
@@ -146,7 +148,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.toolsSpear = 2;
     pVillage.toolsBasket = 2;
     pVillage.toolsTorch = 1;
-    pVillage.territoryRadius = 3000.0f;
+    pVillage.territoryRadius = SettlementLayout::getPlayerTerritoryRadius();
     pVillage.borderMinX = pVillage.centerX - pVillage.territoryRadius;
     pVillage.borderMaxX = pVillage.centerX + pVillage.territoryRadius;
 
@@ -254,24 +256,33 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
     std::vector<VillageIdentity> identities = {VillageIdentity::Aggressive, VillageIdentity::FoodRich, VillageIdentity::StoneFocused, VillageIdentity::WoodFocused, VillageIdentity::Peaceful};
 
     uint32_t popSeed = worldSeed;
+    // Consume the same roll as before so the per-village population stream
+    // downstream is unchanged for existing seeds.
     int numVillages = SeedManager::getRandomInt(popSeed, 3, 5);
+    (void)numVillages;
 
-    for (int v = 0; v < numVillages; ++v) {
+    // Positions now come from the shared layout, which is also what
+    // WorldGenerator::getClearanceZones() reads. Previously this function and
+    // the clearance generator computed the village COUNT differently
+    // (getRandomInt vs worldSeed % 3), so on many seeds the last village or
+    // two had no clearance zone and got jungle trees generated on top of them.
+    std::vector<float> centers = SettlementLayout::getVillageCenters(worldSeed);
+
+    for (size_t v = 0; v < centers.size(); ++v) {
         VillageData village;
         village.id = IDGenerator::generateVillageID();
         village.name = "Tribe of " + names[v % names.size()];
         village.identity = identities[v % identities.size()];
-        
-        int offset = (v % 2 == 0 ? 1 : -1) * (v + 1) * 3;
-        village.homeChunkX = offset;
-        village.centerX = village.homeChunkX * 2000.f + 1000.f;
+
+        village.centerX = centers[v];
+        village.homeChunkX = static_cast<int>(std::floor((village.centerX - 1000.f) / 2000.f));
         village.centerY = 500.0f;
         village.food = 40;
         village.wood = 20;
         village.stone = 10;
         village.toolsAxe = 1;
         village.toolsSpear = 2;
-        village.territoryRadius = 2500.f;
+        village.territoryRadius = SettlementLayout::getVillageTerritoryRadius();
         village.borderMinX = village.centerX - village.territoryRadius;
         village.borderMaxX = village.centerX + village.territoryRadius;
 
@@ -279,7 +290,7 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
 
         int pop = SeedManager::getRandomInt(popSeed, 5, 8);
         for (int i = 0; i < pop; ++i) {
-            ApeData ape = createRandomApe(worldSeed + (v * 1000) + i, 0, village.id, names, allTraits, worldSeed);
+            ApeData ape = createRandomApe(worldSeed + (static_cast<uint32_t>(v) * 1000) + i, 0, village.id, names, allTraits, worldSeed);
             float xOffset = 0.f;
             if (i == 0) {
                 ape.currentJob = Job::Idle;

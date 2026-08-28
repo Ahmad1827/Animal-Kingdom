@@ -1077,7 +1077,7 @@ void PlayState::update(float dt) {
 
     sf::Clock pClock;
     weatherManager->update(dt);
-    
+    waterPlane.update(dt);
     particleSystem->update(dt, cameraManager->getViewBounds(), weatherManager->getWindVector(), weatherManager->getRainIntensity(), simulationManager->getClock().getTimeOfDay());
     profiler.particleTime = pClock.getElapsedTime().asSeconds();
     
@@ -1259,8 +1259,27 @@ void PlayState::update(float dt) {
 void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
-    window.setView(cameraManager->getView());
-    window.clear();
+    // ------------------------------------------------------------------
+    // The world is rendered into an offscreen texture first ("rt" below),
+    // so that WaterPlane can mirror the finished frame into its reflection.
+    // `window` (the real sf::RenderWindow&, the function parameter) is
+    // NEVER reassigned or shadowed anywhere in this function - it stays
+    // the actual window from top to bottom. Everything that must show up
+    // reflected in the water (sky, terrain, structures, trees, NPCs, the
+    // player) draws to `rt`. Everything that must NOT be reflected (HUD,
+    // dialogue, maps, debug overlays) draws to `window`, after the mirror
+    // has already been composited on top of it.
+    // ------------------------------------------------------------------
+    if (!sceneTextureReady ||
+        sceneTexture.getSize().x != window.getSize().x ||
+        sceneTexture.getSize().y != window.getSize().y) {
+        sceneTexture.create(window.getSize().x, window.getSize().y);
+        sceneTextureReady = true;
+    }
+
+    sf::RenderTarget& rt = sceneTexture;
+    rt.setView(cameraManager->getView());
+    sceneTexture.clear(sf::Color(0, 0, 0, 255));
 
     float groundY = 500.0f;
     if (worldManager) {
@@ -1268,25 +1287,26 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (background && dayNightCycle) {
-        background->drawSky(window, dayNightCycle->getSkyColor());
-        dayNightCycle->draw(window);
-        background->drawDistant(window, groundY);
+        background->drawSky(rt, dayNightCycle->getSkyColor());
+        dayNightCycle->draw(rt);
+        background->drawDistant(rt, groundY);
     } else {
-        if (dayNightCycle) dayNightCycle->draw(window);
+        if (dayNightCycle) dayNightCycle->draw(rt);
         if (background) {
-            background->drawSky(window, sf::Color::White);
-            background->drawDistant(window, groundY);
+            background->drawSky(rt, sf::Color::White);
+            background->drawDistant(rt, groundY);
         }
     }
 
-    if (lightingManager) lightingManager->drawFog(window);
+    if (lightingManager) lightingManager->drawFog(rt);
+
+    sf::FloatRect preB = playerWrapper ? cameraManager->getPreloadBounds(playerWrapper->getVelocity()) : cameraManager->getPreloadBounds(sf::Vector2f(0.f, 0.f));
 
     if (worldManager) {
-        sf::FloatRect preB = playerWrapper ? cameraManager->getPreloadBounds(playerWrapper->getVelocity()) : cameraManager->getPreloadBounds(sf::Vector2f(0.f, 0.f));
-        worldManager->drawBackground(window, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
+        worldManager->drawBackground(rt, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
         
         if (structureManager) {
-            structureManager->draw(window, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
+            structureManager->draw(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
         }
 
         if (debugOverlay && debugOverlay->getShowWarfareDebug()) {
@@ -1297,14 +1317,14 @@ void PlayState::draw(sf::RenderWindow& window) {
                     c.a = 40; 
                     rect.setFillColor(c);
                     rect.setPosition(p.second.territoryMinX, -1000.f);
-                    window.draw(rect);
+                    rt.draw(rect);
                 }
             }
         }
 
-        worldManager->drawTerritoryMarkers(window, simulationManager->getRegistry(), cameraManager->getViewBounds());
+        worldManager->drawTerritoryMarkers(rt, simulationManager->getRegistry(), cameraManager->getViewBounds());
 
-        worldManager->drawGeometry(window, cameraManager->getViewBounds(), profiler);
+        worldManager->drawGeometry(rt, cameraManager->getViewBounds(), profiler);
         
         for (auto& p : simulationManager->getRegistry().getAllKingdoms()) {
             float yLeft = worldManager->getTerrainHeight(p.second.territoryMinX);
@@ -1314,7 +1334,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             leftTotem.setFillColor(sf::Color(60, 40, 20));
             leftTotem.setOutlineColor(sf::Color::Black);
             leftTotem.setOutlineThickness(2.f);
-            window.draw(leftTotem);
+            rt.draw(leftTotem);
 
             float yRight = worldManager->getTerrainHeight(p.second.territoryMaxX);
             sf::RectangleShape rightTotem(sf::Vector2f(16.f, 150.f));
@@ -1323,7 +1343,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             rightTotem.setFillColor(sf::Color(60, 40, 20));
             rightTotem.setOutlineColor(sf::Color::Black);
             rightTotem.setOutlineThickness(2.f);
-            window.draw(rightTotem);
+            rt.draw(rightTotem);
         }
 
         struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; float centerX; };
@@ -1382,7 +1402,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             firePit.setFillColor(sf::Color(100, 100, 100));
             firePit.setOutlineColor(sf::Color::Black);
             firePit.setOutlineThickness(2.f);
-            window.draw(firePit);
+            rt.draw(firePit);
 
             sf::ConvexShape flameOuter(3);
             flameOuter.setPoint(0, sf::Vector2f(0.f, -30.f));
@@ -1390,7 +1410,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             flameOuter.setPoint(2, sf::Vector2f(-15.f, 0.f));
             flameOuter.setPosition(midX, midY - 15.f);
             flameOuter.setFillColor(sf::Color(220, 80, 20));
-            window.draw(flameOuter);
+            rt.draw(flameOuter);
 
             sf::ConvexShape flameInner(3);
             flameInner.setPoint(0, sf::Vector2f(0.f, -15.f));
@@ -1398,13 +1418,13 @@ void PlayState::draw(sf::RenderWindow& window) {
             flameInner.setPoint(2, sf::Vector2f(-8.f, 0.f));
             flameInner.setPosition(midX, midY - 15.f);
             flameInner.setFillColor(sf::Color(240, 200, 40));
-            window.draw(flameInner);
+            rt.draw(flameInner);
 
             sf::RectangleShape leftPole(sf::Vector2f(4.f, 80.f));
             leftPole.setOrigin(2.f, 80.f);
             leftPole.setPosition(midX - 60.f, midY);
             leftPole.setFillColor(sf::Color(90, 60, 40));
-            window.draw(leftPole);
+            rt.draw(leftPole);
 
             sf::RectangleShape leftFlag(sf::Vector2f(30.f, 40.f));
             leftFlag.setOrigin(30.f, 0.f); 
@@ -1412,13 +1432,13 @@ void PlayState::draw(sf::RenderWindow& window) {
             leftFlag.setFillColor(color1);
             leftFlag.setOutlineColor(sf::Color::Black);
             leftFlag.setOutlineThickness(1.f);
-            window.draw(leftFlag);
+            rt.draw(leftFlag);
 
             sf::RectangleShape rightPole(sf::Vector2f(4.f, 80.f));
             rightPole.setOrigin(2.f, 80.f);
             rightPole.setPosition(midX + 60.f, midY);
             rightPole.setFillColor(sf::Color(90, 60, 40));
-            window.draw(rightPole);
+            rt.draw(rightPole);
 
             sf::RectangleShape rightFlag(sf::Vector2f(30.f, 40.f));
             rightFlag.setOrigin(0.f, 0.f); 
@@ -1426,13 +1446,13 @@ void PlayState::draw(sf::RenderWindow& window) {
             rightFlag.setFillColor(color2);
             rightFlag.setOutlineColor(sf::Color::Black);
             rightFlag.setOutlineThickness(1.f);
-            window.draw(rightFlag);
+            rt.draw(rightFlag);
         }
 
-        if (particleSystem) particleSystem->draw(window);
+        if (particleSystem) particleSystem->draw(rt);
 
         if (debugOverlay) {
-            worldManager->drawDebug(window, 
+            worldManager->drawDebug(rt, 
                 cameraManager->getViewBounds(), 
                 preB, 
                 cameraManager->getUnloadBounds(), 
@@ -1441,12 +1461,16 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (background) {
-        background->drawForeground(window, groundY);
+        background->drawForeground(rt, groundY);
     }
     
-    if (npcManager) npcManager->draw(window);
-    if (playerWrapper) playerWrapper->draw(window);
+    if (npcManager) npcManager->draw(rt);
+    if (playerWrapper) playerWrapper->draw(rt);
 
+    // These two are world-space debug overlays. They stay part of the
+    // offscreen pass (still under the camera view) so they composite
+    // correctly - drawing them after the blit below would put them in
+    // the wrong space, since the view gets reset to default right after.
     if (debugOverlay && debugOverlay->getShowVillageDebug()) {
         for (auto& p : simulationManager->getRegistry().getAllVillages()) {
             float minX = p.second.borderMinX;
@@ -1466,7 +1490,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                 terr.setFillColor(sf::Color(0, 255, 0, 30));
                 terr.setOrigin(0.f, 2000.f);
                 terr.setPosition(minX, p.second.centerY);
-                window.draw(terr);
+                rt.draw(terr);
             }
         }
     }
@@ -1481,13 +1505,25 @@ void PlayState::draw(sf::RenderWindow& window) {
                 highlight.setOutlineColor(sf::Color::Yellow);
                 highlight.setOutlineThickness(2.f);
                 highlight.setPosition(heirData->worldX, heirData->worldY);
-                window.draw(highlight);
+                rt.draw(highlight);
             }
         }
     }
-    
+
+    // ------------------------------------------------------------------
+    // Resolve the offscreen frame, blit it to the real window, then lay
+    // the reflective water on top of it. Everything from here down draws
+    // straight to `window` and is NOT part of the reflection.
+    // ------------------------------------------------------------------
+    sceneTexture.display();
+
     window.setView(window.getDefaultView());
-    
+    sf::Sprite sceneSprite(sceneTexture.getTexture());
+    window.draw(sceneSprite);
+
+    sf::Color waterTint = dayNightCycle ? dayNightCycle->getSkyColor() : sf::Color::White;
+    waterPlane.draw(window, sceneTexture.getTexture(), cameraManager->getView(), waterTint);
+
     if (cinematicTextTimer > 0.f) {
         float alpha = 255.f;
         if (cinematicTextTimer > 3.0f) alpha = (4.0f - cinematicTextTimer) * 255.f; 

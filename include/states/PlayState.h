@@ -21,12 +21,16 @@
 #include <functional>
 #include "world/DayNightCycle.h"
 #include "dynasty/DynastyUI.h"
+#include "world/WaterPlane.h"
 
 class Game;
 
 class PlayState : public GameState {
 private:
     Game* game;
+    WaterPlane waterPlane;
+    sf::RenderTexture sceneTexture;
+    bool sceneTextureReady = false;
     std::unique_ptr<Background> background;
     std::unique_ptr<Ape> playerWrapper;
     std::unique_ptr<WorldManager> worldManager;

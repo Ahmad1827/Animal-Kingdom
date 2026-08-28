@@ -25,9 +25,9 @@ namespace VisualConfig {
     const sf::IntRect JUNGLE_GROUND_TOP_03(243, 1144, 1010, 63);
     const sf::IntRect JUNGLE_GROUND_TOP_05(1964, 843, 559, 121);
 
-    const sf::IntRect JUNGLE_SOIL_01(19, 1223, 1458, 227);
-    const sf::IntRect JUNGLE_SOIL_02(521, 864, 453, 100);
-    const sf::IntRect JUNGLE_SOIL_03(621, 1610, 253, 83);
+    const sf::IntRect JUNGLE_SOIL_01(19, 1223, 486, 227);
+    const sf::IntRect JUNGLE_SOIL_02(505, 1223, 486, 227);
+    const sf::IntRect JUNGLE_SOIL_03(991, 1223, 486, 227);
 
     const sf::IntRect JUNGLE_ROOT_01(665, 567, 184, 154);
     const sf::IntRect JUNGLE_ROOT_02(2125, 570, 219, 151);

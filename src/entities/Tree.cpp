@@ -1,5 +1,6 @@
 #include "entities/Tree.h"
 #include "world/SeedManager.h"
+#include "core/VisualConfig.h"
 #include <cmath>
 #include <algorithm>
 #include <iostream>
@@ -22,6 +23,21 @@ sf::Texture& Tree::getVariantTexture(int variant, sf::Texture& fallbackTex) {
         loaded[idx] = true;
     }
     return textures[idx];
+}
+
+sf::Texture& Tree::getJungleGroundTexture(sf::Texture& fallbackTex) {
+    static sf::Texture groundTex;
+    static bool loaded = false;
+    if (!loaded) {
+        if (!groundTex.loadFromFile("assets/sprites/assetsfixed3.png")) {
+            if (!groundTex.loadFromFile("assets/sprites/assetsfixed3.jpg")) {
+                return fallbackTex;
+            }
+        }
+        groundTex.setSmooth(false);
+        loaded = true;
+    }
+    return groundTex;
 }
 
 void Tree::setupVariant(int variant, sf::Texture& fallbackTex) {
@@ -53,6 +69,28 @@ void Tree::setupVariant(int variant, sf::Texture& fallbackTex) {
     trunkSprite.setOrigin(spriteW * 0.5f, spriteH);
     trunkSprite.setPosition(worldX, worldY);
     trunkSprite.setScale(1.0f, 1.0f);
+
+    hasRoot = false;
+    if (variantIndex >= 3) {
+        sf::Texture& gTex = getJungleGroundTexture(fallbackTex);
+        rootSprite.setTexture(gTex);
+        sf::IntRect rootRect = VisualConfig::JUNGLE_ROOT_01;
+        float rootScale = 0.55f;
+
+        if (variantIndex == 4) {
+            rootRect = VisualConfig::JUNGLE_ROOT_02;
+            rootScale = 0.70f;
+        } else if (variantIndex == 5) {
+            rootRect = VisualConfig::JUNGLE_ROOT_03;
+            rootScale = 0.90f;
+        }
+
+        rootSprite.setTextureRect(rootRect);
+        rootSprite.setOrigin(rootRect.width * 0.5f, static_cast<float>(rootRect.height));
+        rootSprite.setPosition(worldX, worldY + 6.0f);
+        rootSprite.setScale(rootScale, rootScale);
+        hasRoot = true;
+    }
 
     branchData.clear();
     vineData.clear();
@@ -97,7 +135,7 @@ Tree::Tree(float x, float y, float, float, sf::Color, sf::Texture& decorTexture,
 void Tree::appendQuad(sf::VertexArray& mesh, const sf::FloatRect& rect, sf::Color color) {
     mesh.append(sf::Vertex(sf::Vector2f(rect.left, rect.top), color));
     mesh.append(sf::Vertex(sf::Vector2f(rect.left + rect.width, rect.top), color));
-    mesh.append(sf::Vertex(sf::Vector2f(rect.left + rect.width, rect.top + rect.height), color));
+    mesh.append(sf::Vertex(sf::Vector2f(rect.left, rect.top + rect.height), color));
     mesh.append(sf::Vertex(sf::Vector2f(rect.left, rect.top + rect.height), color));
     mesh.append(sf::Vertex(sf::Vector2f(rect.left + rect.width, rect.top), color));
     mesh.append(sf::Vertex(sf::Vector2f(rect.left + rect.width, rect.top + rect.height), color));
@@ -193,13 +231,19 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect&, Profiler
     target.draw(drawnTrunk, states);
     profiler.drawCalls++;
 
+    if (hasRoot) {
+        sf::Sprite drawnRoot = rootSprite;
+        drawnRoot.setColor(sf::Color(255, 255, 255, alpha));
+        target.draw(drawnRoot, states);
+        profiler.drawCalls++;
+    }
+
     if (harvestState == TreeHarvestState::Targeted || harvestState == TreeHarvestState::BeingHarvested) {
-        float centerX = getTrunkCenter();
         float markerY = trunkBounds.top + 30.f;
 
         sf::RectangleShape banner(sf::Vector2f(8.f, 22.f));
         banner.setOrigin(4.f, 11.f);
-        banner.setPosition(centerX, markerY);
+        banner.setPosition(worldX, markerY);
         banner.setFillColor(harvestState == TreeHarvestState::BeingHarvested ? sf::Color(220, 60, 40) : sf::Color(220, 180, 50));
         banner.setOutlineColor(sf::Color(30, 20, 10));
         banner.setOutlineThickness(1.f);
@@ -207,7 +251,7 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect&, Profiler
 
         sf::CircleShape badge(6.f, 4);
         badge.setOrigin(6.f, 6.f);
-        badge.setPosition(centerX, markerY - 14.f);
+        badge.setPosition(worldX, markerY - 14.f);
         badge.setFillColor(sf::Color(190, 145, 55));
         badge.setOutlineColor(sf::Color(40, 25, 10));
         badge.setOutlineThickness(1.f);
@@ -217,14 +261,14 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect&, Profiler
             float barW = 36.f;
             sf::RectangleShape barBg(sf::Vector2f(barW, 4.f));
             barBg.setOrigin(barW / 2.f, 2.f);
-            barBg.setPosition(centerX, markerY + 18.f);
+            barBg.setPosition(worldX, markerY + 18.f);
             barBg.setFillColor(sf::Color(40, 30, 20, 200));
             target.draw(barBg, states);
 
             float fill = std::clamp(harvestProgress / maxHarvestProgress, 0.0f, 1.0f);
             sf::RectangleShape barFill(sf::Vector2f(barW * fill, 4.f));
             barFill.setOrigin(barW / 2.f, 2.f);
-            barFill.setPosition(centerX, markerY + 18.f);
+            barFill.setPosition(worldX, markerY + 18.f);
             barFill.setFillColor(sf::Color(100, 200, 70));
             target.draw(barFill, states);
         }

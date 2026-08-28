@@ -21,8 +21,11 @@ private:
     sf::VertexArray waterMesh;
     std::vector<Tree> trees;
     std::vector<Decoration> decorations;
+    std::vector<sf::Sprite> jungleSurfaceSprites;
+    std::vector<sf::Sprite> jungleSoilSprites;
     BiomeType regionType;
     sf::VertexArray undergroundMesh;
+    bool isJungleTerrain = false;
 
 public:
     Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Texture& decorTex);

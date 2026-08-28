@@ -42,8 +42,10 @@ private:
     sf::FloatRect trunkBounds;
 
     sf::Sprite trunkSprite;
+    sf::Sprite rootSprite;
+    bool hasRoot = false;
+
     std::vector<sf::Sprite> branchSprites;
-    
     std::vector<BranchData> branchData;
     std::vector<VineData> vineData;
     std::vector<CanopyData> canopyData;
@@ -68,6 +70,7 @@ private:
 
 public:
     static sf::Texture& getVariantTexture(int variant, sf::Texture& fallbackTex);
+    static sf::Texture& getJungleGroundTexture(sf::Texture& fallbackTex);
 
     Tree(float x, float y, int variant, sf::Texture& decorTexture, int id = 0);
     Tree(float x, float y, float width, float height, sf::Color trunkColor, sf::Texture& decorTexture, int id = 0);

@@ -10,6 +10,7 @@ private:
     int decorType;
 
 public:
+    Decoration(float x, float y, const sf::IntRect& sourceRect, uint32_t seed, sf::Texture& texture, float scale = 1.0f, float yOffset = 0.0f);
     Decoration(float x, float y, int type, uint32_t seed, sf::Texture& texture);
     
     void update(float dt) override;

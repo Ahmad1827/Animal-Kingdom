@@ -12,6 +12,8 @@ Game::Game() : window(sf::VideoMode(1280, 720), "Ape Dynasty") {
     assetManager.loadTexture("decors", "assets/sprites/Decors.png", false);
     assetManager.loadTexture("playerTex", "assets/sprites/ApeSpriteSheet.png");
 
+    assetManager.loadTexture("jungle_ground", "assets/sprites/assetsfixed3.png", false);
+
     assetManager.loadTexture("tree1", "assets/sprites/TREEFIXED_1.png", false);
     assetManager.loadTexture("tree2", "assets/sprites/TREEFIXED_2.png", false);
     assetManager.loadTexture("tree3", "assets/sprites/TREEFIXED_3.png", false);

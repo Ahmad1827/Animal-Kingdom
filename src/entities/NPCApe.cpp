@@ -30,7 +30,7 @@ NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture)
     if (sharedFontLoaded) {
         fontLoaded = true;
         nameText.setFont(sharedFont);
-        nameText.setCharacterSize(10);
+        nameText.setCharacterSize(11);
         nameText.setFillColor(sf::Color::Yellow);
         nameText.setOutlineColor(sf::Color::Black);
         nameText.setOutlineThickness(1.5f);
@@ -44,7 +44,7 @@ bool NPCApe::hasTrait(sim::ApeData* data, sim::Trait trait) {
     return false;
 }
 
-void NPCApe::fireAudioHook(const std::string& soundEvent) {
+void NPCApe::fireAudioHook(const std::string&) {
 }
 
 void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId) {
@@ -348,7 +348,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
         sf::FloatRect bounds = physicalApe.getBounds();
         sf::FloatRect textBounds = nameText.getLocalBounds();
         nameText.setOrigin(textBounds.left + textBounds.width / 2.f, textBounds.top + textBounds.height);
-        nameText.setPosition(bounds.left + bounds.width / 2.f, bounds.top - 8.f);
+        nameText.setPosition(bounds.left + bounds.width / 2.f, bounds.top - 12.f);
     }
 
     bool isHarvestingMission = (data->currentJob == sim::Job::Woodcutter || (data->currentTargetNode != 0 && data->hasTravelDestination));

@@ -626,9 +626,9 @@ void PlayState::update(float dt) {
     if (!interactionManager.isInteracting() && !isCinematicWait && !isDialogueActive) {
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Equal)) cameraManager->setZoom(0.5f);
         else if (sf::Keyboard::isKeyPressed(sf::Keyboard::Dash)) cameraManager->setZoom(2.0f);
-        else cameraManager->setZoom(1.35f);
+        else cameraManager->setZoom(1.95f);
     } else if (isCinematicWait || isDialogueActive) {
-        cameraManager->setZoom(0.8f); 
+        cameraManager->setZoom(1.4f); 
     }
 
     if (!isTransitioning && playerWrapper) {
@@ -1259,17 +1259,6 @@ void PlayState::update(float dt) {
 void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
-    // ------------------------------------------------------------------
-    // The world is rendered into an offscreen texture first ("rt" below),
-    // so that WaterPlane can mirror the finished frame into its reflection.
-    // `window` (the real sf::RenderWindow&, the function parameter) is
-    // NEVER reassigned or shadowed anywhere in this function - it stays
-    // the actual window from top to bottom. Everything that must show up
-    // reflected in the water (sky, terrain, structures, trees, NPCs, the
-    // player) draws to `rt`. Everything that must NOT be reflected (HUD,
-    // dialogue, maps, debug overlays) draws to `window`, after the mirror
-    // has already been composited on top of it.
-    // ------------------------------------------------------------------
     if (!sceneTextureReady ||
         sceneTexture.getSize().x != window.getSize().x ||
         sceneTexture.getSize().y != window.getSize().y) {
@@ -1467,10 +1456,6 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (npcManager) npcManager->draw(rt);
     if (playerWrapper) playerWrapper->draw(rt);
 
-    // These two are world-space debug overlays. They stay part of the
-    // offscreen pass (still under the camera view) so they composite
-    // correctly - drawing them after the blit below would put them in
-    // the wrong space, since the view gets reset to default right after.
     if (debugOverlay && debugOverlay->getShowVillageDebug()) {
         for (auto& p : simulationManager->getRegistry().getAllVillages()) {
             float minX = p.second.borderMinX;
@@ -1510,11 +1495,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
     }
 
-    // ------------------------------------------------------------------
-    // Resolve the offscreen frame, blit it to the real window, then lay
-    // the reflective water on top of it. Everything from here down draws
-    // straight to `window` and is NOT part of the reflection.
-    // ------------------------------------------------------------------
     sceneTexture.display();
 
     window.setView(window.getDefaultView());

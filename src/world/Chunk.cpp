@@ -7,19 +7,7 @@
 #include <iostream>
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
-
-// How far below the surface the ground is actually built.
-//
-// Was 1200 (+300 abyss). With the water plane sitting at world Y 610, anything
-// past ~900 is permanently hidden, so the extra bands were pure waste - and the
-// full-height dirt cross-section is exactly what made the screen read as
-// "platformer terrain" instead of Kingdom's thin island. Keeps a healthy margin
-// below the waterline so you can lower the water later without seeing a cut.
-static constexpr float VISIBLE_GROUND_DEPTH = 420.0f;
-
-// Two rows of soil tile (227px each) reaches world Y ~984 - well past the
-// waterline, with room to spare. Five rows was ~1135px of invisible sprites.
-static constexpr int SOIL_ROWS = 2;
+static constexpr float VISIBLE_GROUND_DEPTH = 55.0f;
 
 static uint32_t hashCoord(uint32_t worldSeed, int gridPos, uint32_t salt = 0) {
     uint32_t h = worldSeed ^ static_cast<uint32_t>(gridPos * 73856093) ^ (salt * 19349663);
@@ -85,8 +73,7 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
 
                 float y0 = FLAT_GROUND_Y - 4.0f;
                 float y1 = FLAT_GROUND_Y + 12.0f;
-                float y2 = FLAT_GROUND_Y + 42.0f;
-                float y3 = FLAT_GROUND_Y + 150.0f;
+                float y2 = FLAT_GROUND_Y + 30.0f;
                 float yDeep = FLAT_GROUND_Y + VISIBLE_GROUND_DEPTH;
 
                 auto addQuad = [&](float tY1, float tY2, float bY1, float bY2, sf::Color tc1, sf::Color tc2, sf::Color bc1, sf::Color bc2) {
@@ -101,8 +88,7 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
 
                 addQuad(y0, y0, y1, y1, cGround1, cGround2, cHumus1, cHumus2);
                 addQuad(y1, y1, y2, y2, cHumus1, cHumus2, cUnder1, cUnder2);
-                addQuad(y2, y2, y3, y3, cUnder1, cUnder2, cSub1, cSub2);
-                addQuad(y3, y3, yDeep, yDeep, cSub1, cSub2, cDeep1, cDeep2);
+                addQuad(y2, y2, yDeep, yDeep, cUnder1, cUnder2, cSub1, cSub2);
             }
 
             const float step = 4.0f;
@@ -128,61 +114,37 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
         }
 
         if (isJungleTerrain) {
-            float grassBottomY = FLAT_GROUND_Y + 30.0f;
+            float grassBottomY = FLAT_GROUND_Y + 28.0f;
 
             float soilTileW = 486.0f;
-            float soilTileH = 227.0f;
-
-            // Overlap by 2px horizontally so a float step landing mid-pixel
-            // can't leave a hairline gap.
             float soilStepX = soilTileW - 2.0f;
-
             float startSoilX = std::floor((bounds.left - 50.0f) / soilStepX) * soilStepX;
             float endSoilX = bounds.left + bounds.width + 50.0f;
 
             for (float curX = startSoilX; curX < endSoilX; curX += soilStepX) {
                 int tileIndex = static_cast<int>(std::floor(curX / soilStepX));
+                uint32_t sSeed = hashCoord(worldSeed, tileIndex, 42);
 
-                for (int row = 0; row < SOIL_ROWS; ++row) {
-                    float curY = grassBottomY + (row * (soilTileH - 2.0f));
-                    uint32_t sSeed = hashCoord(worldSeed, tileIndex, row * 37 + 5);
+                sf::IntRect sRect = VisualConfig::JUNGLE_SOIL_01;
+                int sRoll = sSeed % 3;
+                if (sRoll == 1) sRect = VisualConfig::JUNGLE_SOIL_02;
+                else if (sRoll == 2) sRect = VisualConfig::JUNGLE_SOIL_03;
 
-                    sf::IntRect sRect = VisualConfig::JUNGLE_SOIL_01;
-                    int sRoll = sSeed % 3;
-                    if (sRoll == 1) sRect = VisualConfig::JUNGLE_SOIL_02;
-                    else if (sRoll == 2) sRect = VisualConfig::JUNGLE_SOIL_03;
+                sf::Sprite soilSpr(jungleGroundTex);
+                soilSpr.setTextureRect(sRect);
+                soilSpr.setPosition(curX, grassBottomY);
 
-                    sf::Sprite soilSpr(jungleGroundTex);
-                    soilSpr.setTextureRect(sRect);
-                    soilSpr.setPosition(curX, curY);
-
-                    // SEAM FIX. This was (sSeed % 2), i.e. random per tile - so
-                    // two unmirrored tiles could sit edge to edge and the join
-                    // showed as a vertical line (the stripes through the dirt in
-                    // your screenshot, every ~486px). Alternating strictly by
-                    // tile index means every boundary is a tile edge meeting its
-                    // own mirror, which always matches.
-                    bool mirrored = ((tileIndex & 1) == 0);
-                    if (mirrored) {
-                        soilSpr.setOrigin(static_cast<float>(sRect.width), 0.0f);
-                        soilSpr.setScale(-1.0f, 1.0f);
-                    } else {
-                        soilSpr.setOrigin(0.0f, 0.0f);
-                        soilSpr.setScale(1.0f, 1.0f);
-                    }
-
-                    // Steeper falloff than before: only the top band stays lit.
-                    // Reads as a shallow bank instead of a deep excavation.
-                    float darkness = std::clamp(1.0f - (row * 0.42f), 0.14f, 1.0f);
-                    soilSpr.setColor(sf::Color(
-                        static_cast<sf::Uint8>(255 * darkness),
-                        static_cast<sf::Uint8>(245 * darkness),
-                        static_cast<sf::Uint8>(235 * darkness),
-                        255
-                    ));
-
-                    jungleSoilSprites.push_back(soilSpr);
+                bool mirrored = ((tileIndex & 1) == 0);
+                if (mirrored) {
+                    soilSpr.setOrigin(static_cast<float>(sRect.width), 0.0f);
+                    soilSpr.setScale(-1.0f, 1.0f);
+                } else {
+                    soilSpr.setOrigin(0.0f, 0.0f);
+                    soilSpr.setScale(1.0f, 1.0f);
                 }
+
+                soilSpr.setColor(sf::Color(255, 255, 255, 255));
+                jungleSoilSprites.push_back(soilSpr);
             }
 
             float topTileW = 1470.0f;
@@ -200,7 +162,6 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
                 topSpr.setTextureRect(topRect);
                 topSpr.setPosition(curX, grassBottomY);
 
-                // Same alternating-mirror rule as the soil.
                 bool mirrored = ((tileIndex & 1) == 0);
                 if (mirrored) {
                     topSpr.setOrigin(static_cast<float>(topRect.width), static_cast<float>(topRect.height));

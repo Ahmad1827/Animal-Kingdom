@@ -6,13 +6,13 @@ WaterPlane::WaterPlane()
     : time(0.f),
       surfaceWorldY(536.0f),
       reflectionDepthPx(480.0f),
-      reflectionAlpha(0.85f),
+      reflectionAlpha(0.82f),
       stripHeightPx(2.0f),
-      waveAmplitude(3.5f),
+      waveAmplitude(3.8f),
       waveSpeed(2.4f),
       waveFrequency(0.055f),
-      shallowColor(20, 42, 54),
-      deepColor(6, 12, 18) {}
+      shallowColor(44, 92, 118),
+      deepColor(20, 42, 60) {}
 
 void WaterPlane::update(float dt) {
     time += dt;
@@ -74,8 +74,8 @@ void WaterPlane::drawBody(sf::RenderTarget& target, float surfaceY, float w, flo
         );
     };
 
-    sf::Color top = tinted(shallowColor, 255.f);
-    sf::Color bottom = tinted(deepColor, 255.f);
+    sf::Color top = tinted(shallowColor, 220.f);
+    sf::Color bottom = tinted(deepColor, 250.f);
 
     sf::VertexArray body(sf::Quads, 4);
     body[0] = sf::Vertex(sf::Vector2f(0.f, surfaceY), top);
@@ -101,17 +101,17 @@ void WaterPlane::drawReflection(sf::RenderTarget& target, const sf::Texture& sce
         float srcTop = surfaceY - k - strip;
         if (srcTop < 0.f) break;
 
-        float rawWobble = std::sin(k * waveFrequency + time * waveSpeed) * waveAmplitude * (0.4f + depth01 * 1.2f);
+        float rawWobble = std::sin(k * waveFrequency + time * waveSpeed) * waveAmplitude * (0.5f + depth01 * 1.3f);
         float wobble = std::floor(rawWobble);
 
-        float fade = 1.0f - (depth01 * 0.75f);
+        float fade = (1.0f - depth01 * 0.75f);
         float a = reflectionAlpha * fade * 255.f;
 
-        float mixToBlue = depth01 * 0.5f;
+        float mixToWater = depth01 * 0.45f;
         sf::Color c(
-            static_cast<sf::Uint8>(255 * (1.0f - mixToBlue * 0.4f)),
-            static_cast<sf::Uint8>(255 * (1.0f - mixToBlue * 0.2f)),
-            255,
+            static_cast<sf::Uint8>(255 * (1.0f - mixToWater) + shallowColor.r * mixToWater),
+            static_cast<sf::Uint8>(255 * (1.0f - mixToWater) + shallowColor.g * mixToWater),
+            static_cast<sf::Uint8>(255 * (1.0f - mixToWater) + shallowColor.b * mixToWater),
             static_cast<sf::Uint8>(std::clamp(a, 0.f, 255.f))
         );
 
@@ -137,11 +137,11 @@ void WaterPlane::drawSurfaceLine(sf::RenderTarget& target, float surfaceY, float
     sf::VertexArray lip(sf::Quads, 8);
 
     sf::Color bright(
-        static_cast<sf::Uint8>(220 * (skyTint.r / 255.f)),
-        static_cast<sf::Uint8>(240 * (skyTint.g / 255.f)),
+        static_cast<sf::Uint8>(230 * (skyTint.r / 255.f)),
+        static_cast<sf::Uint8>(248 * (skyTint.g / 255.f)),
         static_cast<sf::Uint8>(255 * (skyTint.b / 255.f)),
-        200);
-    sf::Color shadow(4, 8, 12, 220);
+        220);
+    sf::Color shadow(14, 32, 44, 160);
 
     lip[0] = sf::Vertex(sf::Vector2f(0.f, surfaceY - 1.f), bright);
     lip[1] = sf::Vertex(sf::Vector2f(w, surfaceY - 1.f), bright);
@@ -159,7 +159,7 @@ void WaterPlane::drawSurfaceLine(sf::RenderTarget& target, float surfaceY, float
 void WaterPlane::drawSparkles(sf::RenderTarget& target, float surfaceY, float w, float h,
                               const sf::View& cameraView, sf::Color skyTint) const {
     sf::VertexArray glints(sf::Quads);
-    const int count = 50;
+    const int count = 48;
     float camX = cameraView.getCenter().x;
 
     for (int i = 0; i < count; ++i) {
@@ -172,20 +172,20 @@ void WaterPlane::drawSparkles(sf::RenderTarget& target, float surfaceY, float w,
         float y = std::floor(surfaceY + 3.f + rowT * rowT * std::min(reflectionDepthPx, h - surfaceY));
         if (y >= h - 2.f) continue;
 
-        float phase = time * 2.2f + fi * 2.41f;
+        float phase = time * 2.0f + fi * 2.41f;
         float twinkle = std::max(0.0f, std::sin(phase));
         float len = std::floor(5.f + 14.f * std::fmod(fi * 0.57f, 1.0f));
 
-        float alpha = 180.f * twinkle * (1.f - rowT * 0.65f);
-        if (alpha < 10.f) continue;
+        float alpha = 160.f * twinkle * (1.f - rowT * 0.65f);
+        if (alpha < 8.f) continue;
 
-        float drift = std::floor(std::sin(time * 1.1f + fi) * 3.5f);
+        float drift = std::floor(std::sin(time * 1.1f + fi) * 3.0f);
         float x0 = std::floor(baseX + drift);
         float x1 = x0 + len;
 
         sf::Color c(
-            static_cast<sf::Uint8>(230 * (skyTint.r / 255.f)),
-            static_cast<sf::Uint8>(245 * (skyTint.g / 255.f)),
+            static_cast<sf::Uint8>(235 * (skyTint.r / 255.f)),
+            static_cast<sf::Uint8>(248 * (skyTint.g / 255.f)),
             static_cast<sf::Uint8>(255 * (skyTint.b / 255.f)),
             static_cast<sf::Uint8>(std::clamp(alpha, 0.f, 255.f)));
 

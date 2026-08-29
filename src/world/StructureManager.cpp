@@ -15,6 +15,7 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
 
     for (auto& pair : registry.getAllStructures()) {
         sim::StructureData& s = pair.second;
+        if (s.type == sim::StructureType::SimpleBarrier) continue;
         if (s.worldX < viewBounds.left - 500.f || s.worldX > viewBounds.left + viewBounds.width + 500.f) continue;
 
         float groundY = 500.0f;
@@ -47,9 +48,6 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
                 case sim::StructureType::ToolRack:
                     drawToolRack(target, s, *v, groundY);
                     break;
-                case sim::StructureType::SimpleBarrier:
-                    drawSimpleBarrier(target, s, *v, groundY);
-                    break;
                 case sim::StructureType::WoodPile:
                 case sim::StructureType::StonePile:
                     drawStockpileProps(target, s, *v, groundY);
@@ -61,13 +59,32 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
     }
 }
 
+void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager*, const sf::FloatRect& viewBounds) {
+    for (auto& pair : registry.getAllStructures()) {
+        sim::StructureData& s = pair.second;
+        if (s.type != sim::StructureType::SimpleBarrier) continue;
+        if (s.worldX < viewBounds.left - 500.f || s.worldX > viewBounds.left + viewBounds.width + 500.f) continue;
+
+        float groundY = 500.0f;
+        sim::VillageData* v = registry.getVillage(s.villageId);
+        sim::VillageData fallbackVillage;
+        if (!v) v = &fallbackVillage;
+
+        if (!s.isFinished) {
+            drawConstructionSite(target, s, groundY);
+        } else {
+            drawSimpleBarrier(target, s, *v, groundY);
+        }
+    }
+}
+
 void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     float footprintW = 2400.f;
     float startX = village.centerX - footprintW / 2.f;
 
     sf::RectangleShape dirtBed(sf::Vector2f(footprintW, 36.f));
     dirtBed.setPosition(startX, groundY - 4.f);
-    dirtBed.setFillColor(sf::Color(34, 24, 15, 240));
+    dirtBed.setFillColor(sf::Color(32, 22, 14, 235));
     target.draw(dirtBed);
 
     sf::RectangleShape innerMat(sf::Vector2f(1100.f, 12.f));

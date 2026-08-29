@@ -1398,7 +1398,7 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     if (worldManager) {
         worldManager->drawBackground(rt, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
-        
+
         if (structureManager) {
             structureManager->draw(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
         }
@@ -1560,6 +1560,10 @@ void PlayState::draw(sf::RenderWindow& window) {
     
     if (npcManager) npcManager->draw(rt);
     if (playerWrapper) playerWrapper->draw(rt);
+
+    if (structureManager) {
+        structureManager->drawForeground(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
+    }
 
     if (debugOverlay && debugOverlay->getShowVillageDebug()) {
         for (auto& p : simulationManager->getRegistry().getAllVillages()) {
@@ -1784,10 +1788,6 @@ void PlayState::refreshInteractionTargets() {
 
         interactionManager.registerTarget(std::make_shared<VillageCenterInteractionTarget>(
             v.id, simulationManager->getRegistry(), v.centerX, groundY, audioManager.get()
-        ));
-
-        interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX + 150.f, groundY, audioManager.get(), particleSystem.get()
         ));
 
         for (const auto& sPair : simulationManager->getRegistry().getAllStructures()) {

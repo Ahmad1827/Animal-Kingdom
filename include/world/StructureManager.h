@@ -10,6 +10,7 @@ public:
 
     void update(float dt, sim::SimulationRegistry& registry);
     void draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
+    void drawForeground(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
 
 private:
     void drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY);

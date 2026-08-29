@@ -120,10 +120,6 @@ void JobSystem::villagePlanningAI(SimulationRegistry& registry, VillageData& vil
     else if (village.food + village.wood + village.stone > 80 * numStorage) {
         spawnStructure(registry, village, StructureType::StorageHut);
     }
-
-    if (village.members.size() > 5) {
-        village.territoryRadius += 10.0f;
-    }
 }
 
 void JobSystem::handleLeader(SimulationRegistry&, ApeData& leader, VillageData&) {
@@ -177,9 +173,76 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
 
     EntityID playerControlledId = registry.getControlledApe();
 
+    for (auto& vPair : registry.getAllVillages()) {
+        VillageData& v = vPair.second;
+        if (v.isExpandingBorder && v.borderMoverApe == 0) {
+            for (EntityID mId : v.members) {
+                ApeData* cand = registry.getApe(mId);
+                if (cand && cand->alive && cand->id != playerControlledId &&
+                    cand->currentJob != Job::Woodcutter && cand->currentJob != Job::Combat) {
+                    v.borderMoverApe = cand->id;
+                    cand->hasTravelDestination = true;
+                    cand->travelDestinationX = v.expandingSideRight ? v.borderMaxX : v.borderMinX;
+                    cand->isCarryingBorder = false;
+                    cand->currentJob = Job::March;
+                    std::cout << "[BORDER] Ape " << cand->id << " (" << cand->name << ") assigned to move perimeter\n";
+                    break;
+                }
+            }
+        }
+    }
+
     for (auto& pair : registry.getAllApes()) {
         ApeData& ape = pair.second;
         if (!ape.alive) continue;
+
+        VillageData* myVillage = registry.getVillage(ape.villageId);
+        if (myVillage && myVillage->isExpandingBorder && myVillage->borderMoverApe == ape.id) {
+            float currentGateX = myVillage->expandingSideRight ? myVillage->borderMaxX : myVillage->borderMinX;
+            if (!ape.isCarryingBorder) {
+                if (std::abs(ape.worldX - currentGateX) <= 40.0f) {
+                    ape.isCarryingBorder = true;
+                    ape.travelDestinationX = myVillage->targetBorderX;
+                    ape.hasTravelDestination = true;
+                    std::cout << "[BORDER] Ape " << ape.id << " picked up the perimeter gate and is carrying it to " << myVillage->targetBorderX << "\n";
+                } else {
+                    ape.hasTravelDestination = true;
+                    ape.travelDestinationX = currentGateX;
+                }
+            } else {
+                if (std::abs(ape.worldX - myVillage->targetBorderX) <= 30.0f) {
+                    ape.worldX = myVillage->targetBorderX;
+                    ape.isCarryingBorder = false;
+                    ape.hasTravelDestination = false;
+                    ape.currentJob = Job::Idle;
+
+                    if (myVillage->expandingSideRight) {
+                        myVillage->borderMaxX = myVillage->targetBorderX;
+                    } else {
+                        myVillage->borderMinX = myVillage->targetBorderX;
+                    }
+                    myVillage->territoryRadius = std::max(myVillage->borderMaxX - myVillage->centerX, myVillage->centerX - myVillage->borderMinX);
+
+                    StructureData* gateStruct = registry.getStructure(myVillage->borderStructureId);
+                    if (gateStruct) {
+                        gateStruct->worldX = myVillage->targetBorderX;
+                    }
+
+                    myVillage->isExpandingBorder = false;
+                    myVillage->borderMoverApe = 0;
+                    std::cout << "[BORDER] Perimeter gate planted at X = " << myVillage->targetBorderX << "\n";
+                } else {
+                    ape.hasTravelDestination = true;
+                    ape.travelDestinationX = myVillage->targetBorderX;
+                }
+            }
+
+            float dist = ape.travelDestinationX - ape.worldX;
+            if (std::abs(dist) > 8.0f) {
+                ape.worldX += (dist > 0 ? 1.0f : -1.0f) * (ape.isCarryingBorder ? 4.0f : 6.0f);
+            }
+            continue;
+        }
 
         if (ape.id != playerControlledId && ape.equippedTool == ToolType::None && ape.currentTargetStructure == 0 &&
             (ape.currentJob == Job::Idle || ape.currentJob == Job::Wander || ape.currentJob == Job::Socialize)) {

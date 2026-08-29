@@ -693,7 +693,7 @@ void PlayState::update(float dt) {
         interactionManager.update(dt, playerWrapper->getPosition(), *cameraManager);
         playerWrapper->update(dt);
         
-        if (interactionManager.isInteracting() || isCinematicWait || isDialogueActive) {
+        if (interactionManager.isInteracting() || isDialogueActive) {
             playerWrapper->setVelocity(0.f, playerWrapper->getVelocity().y);
         }
 
@@ -1790,6 +1790,13 @@ void PlayState::refreshInteractionTargets() {
             v.id, simulationManager->getRegistry(), v.centerX, groundY, audioManager.get()
         ));
 
+        interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+            v.id, simulationManager->getRegistry(), worldManager.get(), true
+        ));
+        interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
+            v.id, simulationManager->getRegistry(), worldManager.get(), false
+        ));
+
         for (const auto& sPair : simulationManager->getRegistry().getAllStructures()) {
             const sim::StructureData& s = sPair.second;
             if (s.villageId == v.id) {
@@ -1797,7 +1804,7 @@ void PlayState::refreshInteractionTargets() {
                     interactionManager.registerTarget(std::make_shared<ToolRackInteractionTarget>(
                         s.id, v.id, simulationManager->getRegistry(), worldManager.get()
                     ));
-                } else if (s.type != sim::StructureType::VillageCenter && s.type != sim::StructureType::Bonfire && s.type != sim::StructureType::WoodPile) {
+                } else if (s.type != sim::StructureType::VillageCenter && s.type != sim::StructureType::Bonfire && s.type != sim::StructureType::WoodPile && s.type != sim::StructureType::SimpleBarrier) {
                     interactionManager.registerTarget(std::make_shared<BuildNodeInteractionTarget>(
                         s.id, v.id, simulationManager->getRegistry(), worldManager.get()
                     ));

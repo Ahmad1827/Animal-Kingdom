@@ -207,10 +207,16 @@ struct VillageData {
     int homeChunkX = 0;
     float centerX = 1000.0f;
     float centerY = 500.0f;
-    float borderMinX = 700.0f;
-    float borderMaxX = 1300.0f;
-    float territoryRadius = 300.0f;
+    float borderMinX = -500.0f;
+    float borderMaxX = 2500.0f;
+    float territoryRadius = 1500.0f;
     float migrationTargetX = 0.0f;
+
+    bool isExpandingBorder = false;
+    bool expandingSideRight = true;
+    float targetBorderX = 0.0f;
+    EntityID borderMoverApe = 0;
+    EntityID borderStructureId = 0;
 
     SettlementTier tier = SettlementTier::FirePit;
     int amber = 12;

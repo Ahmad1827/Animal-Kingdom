@@ -59,14 +59,48 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
     }
 }
 
-void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager*, const sf::FloatRect& viewBounds) {
+void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
+    for (auto& pair : registry.getAllVillages()) {
+        sim::VillageData& v = pair.second;
+        if (v.isExpandingBorder && v.borderMoverApe != 0) {
+            sim::ApeData* mover = registry.getApe(v.borderMoverApe);
+            if (mover && mover->isCarryingBorder) {
+                float groundY = world ? world->getTerrainHeight(mover->worldX) : 500.0f;
+
+                sf::RectangleShape post(sf::Vector2f(16.f, 120.f));
+                post.setOrigin(8.f, 60.f);
+                post.setPosition(mover->worldX, groundY - 50.f);
+                post.setRotation(v.expandingSideRight ? 40.f : -40.f);
+                post.setFillColor(sf::Color(90, 60, 32));
+                post.setOutlineColor(sf::Color(24, 14, 7));
+                post.setOutlineThickness(2.5f);
+                target.draw(post);
+
+                sf::CircleShape sentinel(18.f, 6);
+                sentinel.setOrigin(18.f, 18.f);
+                float topOffsetX = v.expandingSideRight ? 35.f : -35.f;
+                sentinel.setPosition(mover->worldX + topOffsetX, groundY - 95.f);
+                sentinel.setFillColor(sf::Color(188, 144, 64));
+                sentinel.setOutlineColor(sf::Color(26, 16, 8));
+                sentinel.setOutlineThickness(2.5f);
+                target.draw(sentinel);
+            }
+        }
+    }
+
     for (auto& pair : registry.getAllStructures()) {
         sim::StructureData& s = pair.second;
         if (s.type != sim::StructureType::SimpleBarrier) continue;
+
+        sim::VillageData* v = registry.getVillage(s.villageId);
+        if (v && v->isExpandingBorder && v->borderStructureId == s.id) {
+            sim::ApeData* mover = registry.getApe(v->borderMoverApe);
+            if (mover && mover->isCarryingBorder) continue;
+        }
+
         if (s.worldX < viewBounds.left - 500.f || s.worldX > viewBounds.left + viewBounds.width + 500.f) continue;
 
-        float groundY = 500.0f;
-        sim::VillageData* v = registry.getVillage(s.villageId);
+        float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
         sim::VillageData fallbackVillage;
         if (!v) v = &fallbackVillage;
 

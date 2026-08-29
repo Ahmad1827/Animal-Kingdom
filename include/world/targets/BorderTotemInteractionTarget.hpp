@@ -2,76 +2,151 @@
 #include "interaction/InteractionTarget.h"
 #include "simulation/SimulationRegistry.h"
 #include "world/WorldManager.h"
-#include <string>
+#include "world/WorldGenerator.h"
+#include <cmath>
+#include <iostream>
 #include <vector>
+#include <string>
 
 class BorderTotemInteractionTarget : public InteractionTarget {
 private:
-    sim::KingdomID kingdomId;
+    sim::EntityID targetId;
     sim::SimulationRegistry& registry;
     WorldManager* worldManager;
-    bool isLeftBorder;
-
-    std::string getTensionDescription(int tension) const {
-        if (tension > 75) return "Hostile (War is imminent)";
-        if (tension > 50) return "Tense (Borders are heavily guarded)";
-        if (tension > 25) return "Uneasy (Travelers are watched closely)";
-        return "Peaceful (Trade flows freely)";
-    }
+    bool isMin;
+    float currentX;
+    float currentY;
 
 public:
-    BorderTotemInteractionTarget(sim::KingdomID id, sim::SimulationRegistry& reg, WorldManager* wm, bool isLeft)
-        : kingdomId(id), registry(reg), worldManager(wm), isLeftBorder(isLeft) {}
-
-    std::string getInteractionType() const override { return "BorderTotem"; }
-
-    // Dynamically track the moving border every frame
-    sf::Vector2f getInteractionPosition() const override {
-        sim::KingdomData* kd = registry.getKingdom(kingdomId);
-        if (!kd) return sf::Vector2f(0.f, 0.f);
-        
-        float x = isLeftBorder ? kd->territoryMinX : kd->territoryMaxX;
-        float y = worldManager->getTerrainHeight(x) - 40.f; 
-        return sf::Vector2f(x, y);
+    BorderTotemInteractionTarget(sim::EntityID targetId, sim::SimulationRegistry& registry,
+                                 WorldManager* worldManager, bool isMin)
+        : targetId(targetId), registry(registry), worldManager(worldManager), isMin(isMin) {
+        sim::VillageData* v = registry.getVillage(targetId);
+        sim::KingdomData* k = registry.getKingdom(targetId);
+        if (v) {
+            currentX = isMin ? v->borderMinX : v->borderMaxX;
+        } else if (k) {
+            currentX = isMin ? k->territoryMinX : k->territoryMaxX;
+        } else {
+            currentX = 0.0f;
+        }
+        currentY = worldManager ? worldManager->getTerrainHeight(currentX) : 500.0f;
     }
-    
-    bool canInteract() const override { return registry.getKingdom(kingdomId) != nullptr; }
+
+    std::string getInteractionType() const override {
+        return "BorderPalisade";
+    }
+
+    sf::Vector2f getInteractionPosition() const override {
+        return sf::Vector2f(currentX, currentY);
+    }
+
+    bool canInteract() const override {
+        sim::VillageData* v = registry.getVillage(targetId);
+        if (v) {
+            return !v->isExpandingBorder;
+        }
+        return true;
+    }
 
     std::string getInteractionTitle() const override {
-        sim::KingdomData* kd = registry.getKingdom(kingdomId);
-        if (!kd) return "Forgotten Border";
-        return "Border of " + kd->name;
+        return isMin ? "WEST PERIMETER GATE" : "EAST PERIMETER GATE";
     }
 
-    int getPriority() const override { return 15; }
-
-    void onInteract() override {}
-    void onClose() override {}
-
     std::vector<InteractionMenuEntry> buildInteractionMenu() override {
-        std::vector<InteractionMenuEntry> entries;
-        sim::KingdomData* kd = registry.getKingdom(kingdomId);
-        if (!kd) return entries;
+        std::vector<InteractionMenuEntry> menu;
+        sim::VillageData* v = registry.getVillage(targetId);
+        sim::ApeData* actor = registry.getApe(registry.getControlledApe());
+        if (!actor) return menu;
 
-        sim::ApeData* king = registry.getApe(kd->currentKingId);
-        std::string rulerName = king ? king->name : "Unknown";
+        if (!v) {
+            sim::KingdomData* k = registry.getKingdom(targetId);
+            if (k) {
+                menu.push_back({
+                    "Kingdom Frontier Marker (" + k->name + ")",
+                    []() {}
+                });
+            }
+            return menu;
+        }
 
-        entries.push_back({"This land is ruled by King " + rulerName + ".", nullptr});
-        entries.push_back({"The population is roughly " + std::to_string(kd->population) + " apes.", nullptr});
-        
-        entries.push_back({"", nullptr});
-        entries.push_back({"--- DIPLOMATIC STANDING ---", nullptr});
-        
-        if (kd->borderTension.empty()) {
-            entries.push_back({"This kingdom is largely isolated.", nullptr});
-        } else {
-            for (const auto& tensionPair : kd->borderTension) {
-                sim::KingdomData* other = registry.getKingdom(tensionPair.first);
-                if (other) {
-                    entries.push_back({"With " + other->name + ": " + getTensionDescription(tensionPair.second), nullptr});
+        if (v->isExpandingBorder) {
+            menu.push_back({
+                "Workers relocating perimeter...",
+                []() {}
+            });
+            return menu;
+        }
+
+        const float EXPANSION_STEP = 500.0f;
+        float proposedTargetX = isMin ? (v->borderMinX - EXPANSION_STEP) : (v->borderMaxX + EXPANSION_STEP);
+
+        float limitX = isMin ? -999999.0f : 999999.0f;
+        auto clearanceZones = WorldGenerator::getClearanceZones(0);
+
+        for (const auto& z : clearanceZones) {
+            if (z.type == ClearanceType::MeetingGround) {
+                float mid = (z.minX + z.maxX) * 0.5f;
+                if (isMin && mid < v->centerX && mid > limitX) {
+                    limitX = z.maxX;
+                } else if (!isMin && mid > v->centerX && mid < limitX) {
+                    limitX = z.minX;
                 }
             }
         }
-        return entries;
+
+        bool reachedLimit = false;
+        if (isMin && proposedTargetX <= limitX) {
+            proposedTargetX = limitX + 60.0f;
+            if (std::abs(v->borderMinX - proposedTargetX) < 80.0f) reachedLimit = true;
+        } else if (!isMin && proposedTargetX >= limitX) {
+            proposedTargetX = limitX - 60.0f;
+            if (std::abs(v->borderMaxX - proposedTargetX) < 80.0f) reachedLimit = true;
+        }
+
+        if (reachedLimit) {
+            menu.push_back({
+                "Border reached neutral meeting ground",
+                []() {}
+            });
+            return menu;
+        }
+
+        const int AMBER_COST = 3;
+        bool canAfford = (actor->amberCount >= AMBER_COST);
+        std::string label = canAfford ? "Expand Perimeter (Cost: 3 Amber)" : "Expand Perimeter (Need 3 Amber)";
+
+        menu.push_back({
+            label,
+            [this, actor, v, canAfford, proposedTargetX]() {
+                if (!canAfford || v->isExpandingBorder) return;
+                if (actor->amberCount >= 3) {
+                    int oldAmber = actor->amberCount;
+                    actor->amberCount -= 3;
+                    v->isExpandingBorder = true;
+                    v->expandingSideRight = !isMin;
+                    v->targetBorderX = proposedTargetX;
+                    v->borderMoverApe = 0;
+
+                    for (sim::EntityID sId : v->finishedStructures) {
+                        sim::StructureData* s = registry.getStructure(sId);
+                        if (s && s->type == sim::StructureType::SimpleBarrier) {
+                            if (isMin && s->worldX < v->centerX) {
+                                v->borderStructureId = s->id;
+                                break;
+                            } else if (!isMin && s->worldX > v->centerX) {
+                                v->borderStructureId = s->id;
+                                break;
+                            }
+                        }
+                    }
+
+                    std::cout << "[BORDER] Expansion ordered. Amber " << oldAmber << " -> " << actor->amberCount << "\n";
+                    std::cout << "[BORDER] New Target X = " << proposedTargetX << "\n";
+                }
+            }
+        });
+
+        return menu;
     }
 };

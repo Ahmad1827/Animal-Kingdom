@@ -11,17 +11,29 @@
 #include "world/targets/KingInteractionTarget.hpp"
 #include "world/targets/BorderTotemInteractionTarget.hpp"
 #include "world/targets/DiplomaticMeetingInteractionTarget.hpp"
+#include "world/DayNightCycle.h"
+#include "world/targets/TreeHarvestInteractionTarget.hpp"
+#include "world/targets/BuildNodeInteractionTarget.hpp"
 #include <cstdlib>
 #include <ctime>
 #include <cmath>
 #include <iostream>
 #include <algorithm>
-#include "world/DayNightCycle.h"
-#include "world/targets/TreeHarvestInteractionTarget.hpp"
-#include "world/targets/BuildNodeInteractionTarget.hpp"
 #include <iomanip>
 
-PlayState::PlayState(Game* game) : game(game), isTransitioning(false), transitionTimer(0.f), f3PressedLastFrame(false), f4PressedLastFrame(false), f5PressedLastFrame(false), f6PressedLastFrame(false), f7PressedLastFrame(false), f8PressedLastFrame(false), f9PressedLastFrame(false), f10PressedLastFrame(false), f11PressedLastFrame(false) {}
+PlayState::PlayState(Game* game) 
+    : game(game), 
+      isTransitioning(false), 
+      transitionTimer(0.f), 
+      f3PressedLastFrame(false), 
+      f4PressedLastFrame(false), 
+      f5PressedLastFrame(false), 
+      f6PressedLastFrame(false), 
+      f7PressedLastFrame(false), 
+      f8PressedLastFrame(false), 
+      f9PressedLastFrame(false), 
+      f10PressedLastFrame(false), 
+      f11PressedLastFrame(false) {}
 
 void PlayState::init() {
     std::srand(static_cast<unsigned>(std::time(nullptr)));
@@ -428,6 +440,19 @@ void PlayState::update(float dt) {
     if (simulationManager) {
         simulationManager->update(dt * currentSimSpeed);
         simulationManager->getRegistry().updatePolitics(dt, simulationManager->getControlledApe());
+    }
+
+    if (amberPulseTimer > 0.f) {
+        amberPulseTimer -= dt;
+        if (amberPulseTimer < 0.f) amberPulseTimer = 0.f;
+    }
+
+    sim::ApeData* controlledApeData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    if (controlledApeData) {
+        if (lastObservedAmber != -1 && controlledApeData->amberCount != lastObservedAmber) {
+            amberPulseTimer = 0.35f;
+        }
+        lastObservedAmber = controlledApeData->amberCount;
     }
 
     bool f3Pressed = sf::Keyboard::isKeyPressed(sf::Keyboard::O);
@@ -1256,6 +1281,85 @@ void PlayState::update(float dt) {
     profiler.updateTime = updateClock.getElapsedTime().asSeconds();
 }
 
+void PlayState::drawAmberHUD(sf::RenderWindow& window, const sim::ApeData* playerApe) {
+    if (!playerApe) return;
+
+    float startX = 32.f;
+    float startY = 24.f;
+    float boxW = 142.f;
+    float boxH = 34.f;
+
+    sf::RectangleShape dropShadow(sf::Vector2f(boxW, boxH));
+    dropShadow.setPosition(startX + 2.f, startY + 2.f);
+    dropShadow.setFillColor(sf::Color(0, 0, 0, 140));
+    window.draw(dropShadow);
+
+    sf::RectangleShape frame(sf::Vector2f(boxW, boxH));
+    frame.setPosition(startX, startY);
+    frame.setFillColor(sf::Color(26, 18, 14, 235));
+    frame.setOutlineColor(sf::Color(140, 100, 48, 220));
+    frame.setOutlineThickness(1.5f);
+    window.draw(frame);
+
+    auto drawCornerDot = [&](float cx, float cy) {
+        sf::RectangleShape dot(sf::Vector2f(2.f, 2.f));
+        dot.setPosition(cx, cy);
+        dot.setFillColor(sf::Color(210, 165, 80));
+        window.draw(dot);
+    };
+    drawCornerDot(startX + 2.f, startY + 2.f);
+    drawCornerDot(startX + boxW - 4.f, startY + 2.f);
+    drawCornerDot(startX + 2.f, startY + boxH - 4.f);
+    drawCornerDot(startX + boxW - 4.f, startY + boxH - 4.f);
+
+    float pulseScale = 1.0f;
+    if (amberPulseTimer > 0.f) {
+        pulseScale = 1.0f + std::sin((amberPulseTimer / 0.35f) * 3.14159f) * 0.22f;
+    }
+
+    sf::Vector2f iconCenter(startX + 20.f, startY + (boxH / 2.f));
+
+    sf::ConvexShape diamond(4);
+    diamond.setPoint(0, sf::Vector2f(0.f, -8.f * pulseScale));
+    diamond.setPoint(1, sf::Vector2f(8.f * pulseScale, 0.f));
+    diamond.setPoint(2, sf::Vector2f(0.f, 8.f * pulseScale));
+    diamond.setPoint(3, sf::Vector2f(-8.f * pulseScale, 0.f));
+    diamond.setPosition(iconCenter);
+    diamond.setFillColor(sf::Color(235, 140, 20));
+    diamond.setOutlineColor(sf::Color(90, 42, 8));
+    diamond.setOutlineThickness(1.f);
+    window.draw(diamond);
+
+    sf::ConvexShape facet(3);
+    facet.setPoint(0, sf::Vector2f(0.f, -8.f * pulseScale));
+    facet.setPoint(1, sf::Vector2f(0.f, 8.f * pulseScale));
+    facet.setPoint(2, sf::Vector2f(-8.f * pulseScale, 0.f));
+    facet.setPosition(iconCenter);
+    facet.setFillColor(sf::Color(255, 205, 55, 210));
+    window.draw(facet);
+
+    sf::RectangleShape glint(sf::Vector2f(2.f * pulseScale, 2.f * pulseScale));
+    glint.setPosition(iconCenter.x - 3.f * pulseScale, iconCenter.y - 3.f * pulseScale);
+    glint.setFillColor(sf::Color(255, 255, 230, 230));
+    window.draw(glint);
+
+    std::string textStr = std::to_string(playerApe->amberCount) + " / " + std::to_string(playerApe->maxAmber);
+    sf::Text text(textStr, cinematicFont, 15);
+    text.setPosition(startX + 38.f, startY + 7.f);
+
+    if (playerApe->amberCount == 0) {
+        text.setFillColor(sf::Color(165, 145, 130));
+    } else if (playerApe->amberCount >= playerApe->maxAmber) {
+        text.setFillColor(sf::Color(255, 235, 115));
+    } else {
+        text.setFillColor(sf::Color(245, 215, 145));
+    }
+    text.setOutlineColor(sf::Color(0, 0, 0, 240));
+    text.setOutlineThickness(1.5f);
+
+    window.draw(text);
+}
+
 void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
@@ -1504,6 +1608,11 @@ void PlayState::draw(sf::RenderWindow& window) {
     sf::Color waterTint = dayNightCycle ? dayNightCycle->getSkyColor() : sf::Color::White;
     waterPlane.draw(window, sceneTexture.getTexture(), cameraManager->getView(), waterTint);
 
+    sim::ApeData* pDataHUD = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    if (pDataHUD && !dynastyUI.isOpen()) {
+        drawAmberHUD(window, pDataHUD);
+    }
+
     if (cinematicTextTimer > 0.f) {
         float alpha = 255.f;
         if (cinematicTextTimer > 3.0f) alpha = (4.0f - cinematicTextTimer) * 255.f; 
@@ -1522,7 +1631,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         window.draw(transitionText);
     }
     
-    sim::ApeData* pDataHUD = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     bool isCinematicWait = false;
     
     if (pDataHUD && pDataHUD->isWaitingForAudience) {

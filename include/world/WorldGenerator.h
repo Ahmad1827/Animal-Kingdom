@@ -8,6 +8,7 @@
 
 enum class ClearanceType {
     Base,
+    Border,
     MeetingGround
 };
 

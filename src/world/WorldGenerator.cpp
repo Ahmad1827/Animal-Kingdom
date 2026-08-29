@@ -7,7 +7,7 @@
 #include <iostream>
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
-static constexpr float MIN_APE_BODY_GAP = 90.0f;
+static constexpr float MIN_APE_BODY_GAP = 140.0f;
 
 static uint32_t hashCoord(uint32_t worldSeed, int gridPos, uint32_t salt = 0) {
     uint32_t h = worldSeed ^ static_cast<uint32_t>(gridPos * 73856093) ^ (salt * 19349663);
@@ -44,34 +44,34 @@ static int pickTreeVariant(uint32_t seed, float& outVisualWidth, float& outTrunk
 
 static float sampleWeightedClearGap(uint32_t seed, int variant, int prevVariant, float jungleWeight) {
     int spacingRoll = (seed >> 8) % 100;
-    float minRange = 120.0f;
-    float maxRange = 220.0f;
+    float minRange = 180.0f;
+    float maxRange = 320.0f;
 
     if (spacingRoll < 35) {
-        minRange = 110.0f;
-        maxRange = 190.0f;
+        minRange = 160.0f;
+        maxRange = 280.0f;
     } else if (spacingRoll < 72) {
-        minRange = 190.0f;
-        maxRange = 320.0f;
+        minRange = 280.0f;
+        maxRange = 440.0f;
     } else if (spacingRoll < 90) {
-        minRange = 320.0f;
-        maxRange = 480.0f;
+        minRange = 440.0f;
+        maxRange = 640.0f;
     } else {
-        minRange = 480.0f;
-        maxRange = 680.0f;
+        minRange = 640.0f;
+        maxRange = 880.0f;
     }
 
     float frac = static_cast<float>((seed >> 16) % 1000) / 1000.0f;
     float chosenClearGap = minRange + frac * (maxRange - minRange);
 
     if (variant >= 4) {
-        chosenClearGap += (variant == 5) ? 180.0f : 110.0f;
+        chosenClearGap += (variant == 5) ? 220.0f : 140.0f;
     }
     if (prevVariant >= 4) {
-        chosenClearGap += (prevVariant == 5) ? 180.0f : 110.0f;
+        chosenClearGap += (prevVariant == 5) ? 220.0f : 140.0f;
     }
     if (variant >= 4 && prevVariant >= 4) {
-        chosenClearGap += 220.0f;
+        chosenClearGap += 280.0f;
     }
 
     float transitionDilation = 1.0f / std::clamp(jungleWeight, 0.12f, 1.0f);
@@ -90,21 +90,33 @@ std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t world
     };
 
     std::vector<SettlementBounds> settlements;
-    settlements.push_back({SettlementLayout::getPlayerCenterX(), SettlementLayout::getPlayerCenterX() - SettlementLayout::getPlayerTerritoryRadius(), SettlementLayout::getPlayerCenterX() + SettlementLayout::getPlayerTerritoryRadius()});
+    settlements.push_back({
+        SettlementLayout::getPlayerCenterX(),
+        SettlementLayout::getPlayerCenterX() - SettlementLayout::getPlayerTerritoryRadius(),
+        SettlementLayout::getPlayerCenterX() + SettlementLayout::getPlayerTerritoryRadius()
+    });
 
     std::vector<float> aiCenters = SettlementLayout::getVillageCenters(worldSeed);
     for (float cX : aiCenters) {
-        settlements.push_back({cX, cX - SettlementLayout::getVillageTerritoryRadius(), cX + SettlementLayout::getVillageTerritoryRadius()});
+        settlements.push_back({
+            cX,
+            cX - SettlementLayout::getVillageTerritoryRadius(),
+            cX + SettlementLayout::getVillageTerritoryRadius()
+        });
     }
 
     std::sort(settlements.begin(), settlements.end(), [](const auto& a, const auto& b) {
         return a.centerX < b.centerX;
     });
 
-    const float VILLAGE_CLEARANCE_RADIUS = 1050.0f;
+    const float BASE_CLEARANCE_RADIUS = 1180.0f;
+    const float BORDER_CLEARANCE_RADIUS = 280.0f;
+    const float MEETING_CLEARANCE_RADIUS = 360.0f;
 
     for (const auto& s : settlements) {
-        zones.push_back({s.centerX - VILLAGE_CLEARANCE_RADIUS, s.centerX + VILLAGE_CLEARANCE_RADIUS, ClearanceType::Base, "VillageBase"});
+        zones.push_back({s.centerX - BASE_CLEARANCE_RADIUS, s.centerX + BASE_CLEARANCE_RADIUS, ClearanceType::Base, "VillageBase"});
+        zones.push_back({s.borderMinX - BORDER_CLEARANCE_RADIUS, s.borderMinX + BORDER_CLEARANCE_RADIUS, ClearanceType::Border, "BorderMin"});
+        zones.push_back({s.borderMaxX - BORDER_CLEARANCE_RADIUS, s.borderMaxX + BORDER_CLEARANCE_RADIUS, ClearanceType::Border, "BorderMax"});
     }
 
     for (size_t i = 0; i + 1 < settlements.size(); ++i) {
@@ -112,7 +124,7 @@ std::vector<WorldClearanceZone> WorldGenerator::getClearanceZones(uint32_t world
         float leftBorderB = settlements[i + 1].borderMinX;
 
         float midX = (rightBorderA < leftBorderB) ? ((rightBorderA + leftBorderB) * 0.5f) : ((settlements[i].centerX + settlements[i + 1].centerX) * 0.5f);
-        zones.push_back({midX - 220.0f, midX + 220.0f, ClearanceType::MeetingGround, "MeetingGround"});
+        zones.push_back({midX - MEETING_CLEARANCE_RADIUS, midX + MEETING_CLEARANCE_RADIUS, ClearanceType::MeetingGround, "MeetingGround"});
     }
 
     return zones;
@@ -130,21 +142,18 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
     std::vector<Tree> result;
     result.reserve(60);
 
+    auto clearanceZones = getClearanceZones(worldSeed);
+
     float prevTreeX = -999999.0f;
     float prevVisualWidth = 100.0f;
     int prevVariant = 1;
     int treeCounter = 1;
 
-    float simX = startX - 1000.0f;
+    float simX = startX - 1200.0f;
     while (simX < startX) {
-        if (isPositionClear(simX, worldSeed)) {
-            simX += 50.0f;
-            continue;
-        }
-
         BiomeTransitionInfo trans = Biome::getTransitionInfo(simX);
         if (trans.jungleWeight < 0.10f) {
-            simX += 180.0f;
+            simX += 200.0f;
             continue;
         }
 
@@ -155,22 +164,30 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
         int variant = pickTreeVariant(seed, visualW, trunkW);
 
         float candidateTreeX = simX;
-        if (!isPositionClear(candidateTreeX, worldSeed)) {
-            if (prevTreeX > -900000.0f) {
-                float requiredCenterDist = (prevVisualWidth * 0.5f) + (visualW * 0.5f) + MIN_APE_BODY_GAP;
-                if (candidateTreeX - prevTreeX < requiredCenterDist) {
-                    candidateTreeX = prevTreeX + requiredCenterDist;
-                }
+        if (prevTreeX > -900000.0f) {
+            float requiredCenterDist = (prevVisualWidth * 0.5f) + (visualW * 0.5f) + MIN_APE_BODY_GAP;
+            if (candidateTreeX - prevTreeX < requiredCenterDist) {
+                candidateTreeX = prevTreeX + requiredCenterDist;
             }
-            float clearGap = sampleWeightedClearGap(seed, variant, prevVariant, trans.jungleWeight);
-            simX = candidateTreeX + (visualW * 0.5f) + clearGap;
-            prevTreeX = candidateTreeX;
-            prevVisualWidth = visualW;
-            prevVariant = variant;
-            treeCounter++;
-        } else {
-            simX += 50.0f;
         }
+
+        bool inClearance = false;
+        for (const auto& z : clearanceZones) {
+            if (candidateTreeX + (visualW * 0.5f) + 50.0f >= z.minX && candidateTreeX - (visualW * 0.5f) - 50.0f <= z.maxX) {
+                simX = z.maxX + (visualW * 0.5f) + 60.0f;
+                inClearance = true;
+                break;
+            }
+        }
+
+        if (inClearance) continue;
+
+        float clearGap = sampleWeightedClearGap(seed, variant, prevVariant, trans.jungleWeight);
+        simX = candidateTreeX + (visualW * 0.5f) + clearGap;
+        prevTreeX = candidateTreeX;
+        prevVisualWidth = visualW;
+        prevVariant = variant;
+        treeCounter++;
     }
 
     float currentX = startX + 35.0f;
@@ -180,15 +197,10 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
     float endX = startX + width;
 
     while (currentX < endX) {
-        if (isPositionClear(currentX, worldSeed)) {
-            currentX += 50.0f;
-            continue;
-        }
-
         BiomeTransitionInfo trans = Biome::getTransitionInfo(currentX);
 
         if (trans.jungleWeight < 0.10f) {
-            currentX += 180.0f;
+            currentX += 200.0f;
             continue;
         }
 
@@ -206,10 +218,16 @@ std::vector<Tree> WorldGenerator::generateTrees(float startX, float width, uint3
             }
         }
 
-        if (isPositionClear(treeX, worldSeed)) {
-            currentX += 50.0f;
-            continue;
+        bool inClearance = false;
+        for (const auto& z : clearanceZones) {
+            if (treeX + (visualW * 0.5f) + 50.0f >= z.minX && treeX - (visualW * 0.5f) - 50.0f <= z.maxX) {
+                currentX = z.maxX + (visualW * 0.5f) + 60.0f;
+                inClearance = true;
+                break;
+            }
         }
+
+        if (inClearance) continue;
 
         int uniqueTreeId = static_cast<int>(std::abs(treeX)) * 100 + (treeCounter++);
         result.emplace_back(treeX, FLAT_GROUND_Y, variant, decorTex, uniqueTreeId);
@@ -228,6 +246,8 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
     std::vector<Decoration> decors;
     decors.reserve(100);
 
+    auto clearanceZones = getClearanceZones(worldSeed);
+
     float currentX = startX + 10.0f;
     float endX = startX + width;
     int decorIndex = 0;
@@ -235,28 +255,34 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
     sf::Texture& jungleGroundTex = Tree::getJungleGroundTexture(decorTex);
 
     while (currentX < endX) {
-        if (isPositionClear(currentX, worldSeed)) {
-            currentX += 50.0f;
-            continue;
+        bool inClearance = false;
+        for (const auto& z : clearanceZones) {
+            if (currentX >= z.minX && currentX <= z.maxX) {
+                currentX = z.maxX + 30.0f;
+                inClearance = true;
+                break;
+            }
         }
+
+        if (inClearance) continue;
 
         BiomeTransitionInfo trans = Biome::getTransitionInfo(currentX);
 
         uint32_t itemSeed = chunkSeed + decorIndex * 53 + static_cast<int>(std::abs(currentX));
         itemSeed = (itemSeed ^ (itemSeed >> 13)) * 0x5bd1e995;
 
-        float step = 70.0f;
+        float step = 85.0f;
 
         if (trans.jungleWeight > 0.35f) {
             float densityNoise = (std::sin(currentX * 0.012f + worldSeed * 0.001f) * 0.5f +
                                   std::cos(currentX * 0.031f) * 0.5f + 1.0f) * 0.5f;
 
             if (densityNoise > 0.60f) {
-                step = 28.0f + (itemSeed % 18);
+                step = 35.0f + (itemSeed % 20);
             } else if (densityNoise > 0.28f) {
-                step = 55.0f + (itemSeed % 28);
+                step = 65.0f + (itemSeed % 30);
             } else {
-                step = 110.0f + (itemSeed % 50);
+                step = 130.0f + (itemSeed % 60);
             }
 
             int roll = itemSeed % 100;
@@ -297,15 +323,15 @@ std::vector<Decoration> WorldGenerator::generateDecorations(float startX, float 
                 decors.emplace_back(currentX, FLAT_GROUND_Y, rockRect, itemSeed, jungleGroundTex, rockScale, 2.0f);
             }
         } else if (trans.desertWeight > 0.70f) {
-            step = 260.0f;
+            step = 280.0f;
             int type = (itemSeed % 100 < 70) ? 3 : 4;
             decors.emplace_back(currentX, FLAT_GROUND_Y, type, itemSeed, decorTex);
         } else if (trans.fieldWeight > 0.60f) {
-            step = 95.0f + (itemSeed % 40);
+            step = 110.0f + (itemSeed % 45);
             int type = (itemSeed % 100 < 75) ? 1 : 0;
             decors.emplace_back(currentX, FLAT_GROUND_Y, type, itemSeed, decorTex);
         } else {
-            step = 110.0f + (itemSeed % 45);
+            step = 125.0f + (itemSeed % 50);
             int type = (itemSeed % 100 < 50) ? 2 : 1;
             decors.emplace_back(currentX, FLAT_GROUND_Y, type, itemSeed, decorTex);
         }

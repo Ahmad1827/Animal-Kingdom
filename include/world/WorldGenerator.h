@@ -18,17 +18,15 @@ struct WorldClearanceZone {
     std::string identifier;
 };
 
-// Decoration type ids passed to Decoration(). Kept as ints to match the
-// existing constructor signature.
 namespace DecorType {
-    constexpr int GenericBush     = 0;
-    constexpr int SmallBush       = 1;
-    constexpr int JungleUndergrowth = 2; // fern / bush / root variety roll
-    constexpr int Rock            = 3;
-    constexpr int SmallRock       = 4;
-    constexpr int Flower          = 5;   // NEW
-    constexpr int LeafLitter      = 6;   // NEW
-    constexpr int GrassTuft       = 7;   // NEW
+    constexpr int GenericBush       = 0;
+    constexpr int SmallBush         = 1;
+    constexpr int JungleUndergrowth = 2;
+    constexpr int Rock              = 3;
+    constexpr int SmallRock         = 4;
+    constexpr int Flower            = 5;
+    constexpr int LeafLitter        = 6;
+    constexpr int GrassTuft         = 7;
 }
 
 class WorldGenerator {

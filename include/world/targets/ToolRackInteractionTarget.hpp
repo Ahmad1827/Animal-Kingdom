@@ -4,6 +4,8 @@
 #include "world/WorldManager.h"
 #include <cmath>
 #include <iostream>
+#include <vector>
+#include <string>
 
 class ToolRackInteractionTarget : public InteractionTarget {
 private:
@@ -28,75 +30,60 @@ public:
         }
     }
 
-    sf::Vector2f getPosition() const override {
+    std::string getInteractionType() const override {
+        return "ToolRack";
+    }
+
+    sf::Vector2f getInteractionPosition() const override {
         return sf::Vector2f(worldX, worldY);
     }
 
-    sf::FloatRect getBounds() const override {
-        return sf::FloatRect(worldX - 45.f, worldY - 70.f, 90.f, 70.f);
-    }
-
-    bool canInteract(sim::EntityID actorId) const override {
+    bool canInteract() const override {
         sim::StructureData* s = registry.getStructure(structureId);
         if (!s || !s->isFinished) return false;
-
-        sim::ApeData* actor = registry.getApe(actorId);
-        if (!actor) return false;
-
-        if (actor->villageId != villageId && actor->currentKingdom == 0) return false;
-
         return true;
     }
 
-    void onInteract(sim::EntityID actorId) override {
-        sim::ApeData* actor = registry.getApe(actorId);
-        sim::StructureData* s = registry.getStructure(structureId);
-        if (!actor || !s) return;
-
-        if (s->axeCount > 0 || s->claimedAxes > 0) return;
-
-        const int AXE_COST = 2;
-        if (actor->amberCount >= AXE_COST) {
-            int oldAmber = actor->amberCount;
-            actor->amberCount -= AXE_COST;
-            s->axeCount += 1;
-
-            std::cout << "[TOOL] Axe purchase requested\n";
-            std::cout << "[ECONOMY] Amber " << oldAmber << " -> " << actor->amberCount << "\n";
-            std::cout << "[TOOL] Axe placed on rack\n";
-        }
+    std::string getInteractionTitle() const override {
+        return "TOOL RACK";
     }
 
-    std::string getPromptText() const override {
+    std::vector<InteractionMenuEntry> buildInteractionMenu() override {
+        std::vector<InteractionMenuEntry> menu;
         sim::StructureData* s = registry.getStructure(structureId);
-        if (!s) return "";
-
         sim::ApeData* actor = registry.getApe(registry.getControlledApe());
+        if (!s || !actor) return menu;
+
         if (s->axeCount > 0) {
-            return "Tool Rack (Axe Available)";
-        }
-        if (s->claimedAxes > 0) {
-            return "Tool Rack (Axe Claimed)";
-        }
-        if (actor && actor->amberCount < 2) {
-            return "Woodcutter Axe (Need 2 Amber)";
-        }
-        return "Woodcutter Axe (Cost: 2 Amber)";
-    }
+            menu.push_back({
+                "Stone Axe on Rack (Awaiting worker)",
+                []() {}
+            });
+        } else if (s->claimedAxes > 0) {
+            menu.push_back({
+                "Stone Axe (Claimed by worker)",
+                []() {}
+            });
+        } else {
+            bool canAfford = (actor->amberCount >= 2);
+            std::string label = canAfford ? "Buy Woodcutter Axe (Cost: 2 Amber)" : "Buy Woodcutter Axe (Need 2 Amber)";
 
-    std::string getActionText() const override {
-        sim::StructureData* s = registry.getStructure(structureId);
-        sim::ApeData* actor = registry.getApe(registry.getControlledApe());
-        if (s && (s->axeCount > 0 || s->claimedAxes > 0)) {
-            return "Axe on Rack";
+            menu.push_back({
+                label,
+                [this, actor, s, canAfford]() {
+                    if (!canAfford) return;
+                    if (actor->amberCount >= 2 && s->axeCount == 0 && s->claimedAxes == 0) {
+                        int oldAmber = actor->amberCount;
+                        actor->amberCount -= 2;
+                        s->axeCount += 1;
+                        std::cout << "[TOOL] Axe purchase requested\n";
+                        std::cout << "[ECONOMY] Amber " << oldAmber << " -> " << actor->amberCount << "\n";
+                        std::cout << "[TOOL] Axe placed on rack\n";
+                    }
+                }
+            });
         }
-        if (actor && actor->amberCount < 2) {
-            return "Not Enough Amber";
-        }
-        return "Hold to Buy Axe";
-    }
 
-    float getHoldDuration() const override {
-        return 0.35f;
+        return menu;
     }
 };

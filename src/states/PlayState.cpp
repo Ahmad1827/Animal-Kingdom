@@ -7,6 +7,7 @@
 #include "simulation/WarfareManager.h"
 #include "world/targets/BonfireInteractionTarget.hpp"
 #include "world/targets/VillageCenterInteractionTarget.hpp"
+#include "world/targets/ToolRackInteractionTarget.hpp"
 #include "world/targets/StorageHutInteractionTarget.hpp"
 #include "world/targets/KingInteractionTarget.hpp"
 #include "world/targets/BorderTotemInteractionTarget.hpp"
@@ -1786,13 +1787,17 @@ void PlayState::refreshInteractionTargets() {
         ));
 
         interactionManager.registerTarget(std::make_shared<BonfireInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX + 65.f, groundY, audioManager.get(), particleSystem.get()
+            v.id, simulationManager->getRegistry(), v.centerX + 150.f, groundY, audioManager.get(), particleSystem.get()
         ));
 
         for (const auto& sPair : simulationManager->getRegistry().getAllStructures()) {
             const sim::StructureData& s = sPair.second;
             if (s.villageId == v.id) {
-                if (s.type != sim::StructureType::VillageCenter && s.type != sim::StructureType::Bonfire && s.type != sim::StructureType::WoodPile) {
+                if (s.type == sim::StructureType::ToolRack) {
+                    interactionManager.registerTarget(std::make_shared<ToolRackInteractionTarget>(
+                        s.id, v.id, simulationManager->getRegistry(), worldManager.get()
+                    ));
+                } else if (s.type != sim::StructureType::VillageCenter && s.type != sim::StructureType::Bonfire && s.type != sim::StructureType::WoodPile) {
                     interactionManager.registerTarget(std::make_shared<BuildNodeInteractionTarget>(
                         s.id, v.id, simulationManager->getRegistry(), worldManager.get()
                     ));

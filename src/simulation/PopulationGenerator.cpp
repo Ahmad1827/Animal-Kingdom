@@ -95,18 +95,14 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
         registry.registerStructure(s);
     };
 
-    addFinished(StructureType::VillageCenter, "Clan Hearth & Lodge", 0.f, "Heart of the Clan & Ruling Seat");
-    addFinished(StructureType::Bonfire, "Central Fire Circle", 65.f, "Warmth & Clan Cohesion");
-    addFinished(StructureType::ToolRack, "Tool Rack", -75.f, "Stores Tools for Clan Workers");
-    addFinished(StructureType::WoodPile, "Timber Stockpile", 245.f, "Stores Harvested Wood");
-    addFinished(StructureType::SimpleBarrier, "West Palisade", -360.f, "Settlement Perimeter");
-    addFinished(StructureType::SimpleBarrier, "East Palisade", 400.f, "Settlement Perimeter");
+    addFinished(StructureType::VillageCenter, "Clan Hearth & Great Lodge", 0.f, "Seat of the Clan & Ruling Authority");
+    addFinished(StructureType::ToolRack, "Tool Rack", -450.f, "Stores Tools for Clan Workers");
+    addFinished(StructureType::WoodPile, "Timber Stockpile", 450.f, "Stores Harvested Wood");
+    addFinished(StructureType::SimpleBarrier, "West Palisade Gate", -900.f, "Settlement Perimeter");
+    addFinished(StructureType::SimpleBarrier, "East Palisade Gate", 900.f, "Settlement Perimeter");
 
-    addBuildNode(StructureType::StorageHut, "Granary & Food Cache", 185.f, 8, 0, 15.f, "Food Capacity +25");
-    addBuildNode(StructureType::Nest, "Worker Sleeping Nest", -145.f, 10, 0, 10.f, "Clan Worker Capacity +1");
-    addBuildNode(StructureType::Nest, "Communal Sleeping Nest", -205.f, 10, 0, 10.f, "Clan Worker Capacity +1");
-    addBuildNode(StructureType::BuilderHut, "Tool & Crafting Shed", -285.f, 12, 0, 15.f, "Enables Tool Production");
-    addBuildNode(StructureType::WatchPlatform, "Lookout Watch Post", 340.f, 10, 0, 12.f, "Early Threat Detection");
+    addBuildNode(StructureType::StorageHut, "Granary & Food Cache", 650.f, 8, 0, 15.f, "Food Capacity +25");
+    addBuildNode(StructureType::WatchPlatform, "Lookout Watch Post", -650.f, 10, 0, 12.f, "Early Threat Detection");
 }
 
 void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t worldSeed) {
@@ -114,7 +110,7 @@ void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t worldSeed)
         ResourceNode res;
         res.id = IDGenerator::generateEntityID();
         res.type = ResourceType::Food;
-        res.worldX = centerX + (i * 700.f) + (i >= 0 ? 550.f : -550.f);
+        res.worldX = centerX + (i * 1400.f) + (i >= 0 ? 1200.f : -1200.f);
         res.worldY = 500.0f - 50.f;
         res.amount = 12;
         res.maxAmount = 12;
@@ -125,7 +121,7 @@ void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t worldSeed)
         ResourceNode res;
         res.id = IDGenerator::generateEntityID();
         res.type = ResourceType::Wood;
-        res.worldX = centerX + (i * 950.f);
+        res.worldX = centerX + (i * 1600.f);
         res.worldY = 500.0f - 50.f;
         res.amount = 25;
         res.maxAmount = 25;
@@ -135,7 +131,7 @@ void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t worldSeed)
     ResourceNode res;
     res.id = IDGenerator::generateEntityID();
     res.type = ResourceType::Stone;
-    res.worldX = centerX + 1300.f;
+    res.worldX = centerX + 2000.f;
     res.worldY = 500.0f - 50.f;
     res.amount = 20;
     res.maxAmount = 20;
@@ -199,7 +195,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     spouse.name = "Maya";
     spouse.age = 32.0f;
     spouse.gender = Gender::Female;
-    spouse.worldX = pVillage.centerX + 55.0f;
+    spouse.worldX = pVillage.centerX + 70.0f;
     spouse.worldY = 500.0f;
     spouse.homeX = spouse.worldX;
     spouse.homeY = spouse.worldY;
@@ -211,19 +207,19 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     child.name = "Tano";
     child.age = 15.0f;
     child.gender = Gender::Male;
-    child.worldX = pVillage.centerX - 145.0f;
+    child.worldX = pVillage.centerX - 180.0f;
     child.worldY = 500.0f;
     child.homeX = child.worldX;
     child.homeY = child.worldY;
     child.fatherId = founder.id;
     child.motherId = spouse.id;
-    child.currentJob = Job::Sleep;
+    child.currentJob = Job::Idle;
 
     ApeData sibling = createRandomApe(worldSeed + 1003, dyn.id, pVillage.id, names, allTraits, worldSeed);
     sibling.name = "Boro";
     sibling.age = 42.0f;
     sibling.gender = Gender::Male;
-    sibling.worldX = pVillage.centerX + 340.0f;
+    sibling.worldX = pVillage.centerX + 900.0f;
     sibling.worldY = 500.0f;
     sibling.homeX = sibling.worldX;
     sibling.homeY = sibling.worldY;
@@ -232,16 +228,16 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     ApeData worker1 = createRandomApe(worldSeed + 1004, dyn.id, pVillage.id, names, allTraits, worldSeed);
     worker1.name = "Aldo";
     worker1.age = 28.0f;
-    worker1.worldX = pVillage.centerX - 285.0f;
+    worker1.worldX = pVillage.centerX - 900.0f;
     worker1.worldY = 500.0f;
     worker1.homeX = worker1.worldX;
     worker1.homeY = worker1.worldY;
-    worker1.currentJob = Job::Builder;
+    worker1.currentJob = Job::Guard;
 
     ApeData worker2 = createRandomApe(worldSeed + 1005, dyn.id, pVillage.id, names, allTraits, worldSeed);
     worker2.name = "Maurice";
     worker2.age = 30.0f;
-    worker2.worldX = pVillage.centerX + 185.0f;
+    worker2.worldX = pVillage.centerX - 240.0f;
     worker2.worldY = 500.0f;
     worker2.homeX = worker2.worldX;
     worker2.homeY = worker2.worldY;
@@ -326,19 +322,19 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
                 village.leaderId = ape.id;
             } else if (i == 1) {
                 ape.currentJob = Job::Guard;
-                xOffset = 340.f;
+                xOffset = 900.f;
             } else if (i == 2) {
-                ape.currentJob = Job::Builder;
-                xOffset = -285.f;
+                ape.currentJob = Job::Guard;
+                xOffset = -900.f;
             } else if (i == 3) {
                 ape.currentJob = Job::Forage;
-                xOffset = 185.f;
+                xOffset = 450.f;
             } else if (i == 4) {
-                ape.currentJob = Job::Sleep;
-                xOffset = -145.f;
+                ape.currentJob = Job::Idle;
+                xOffset = -450.f;
             } else {
                 ape.currentJob = Job::Socialize;
-                xOffset = (i % 2 == 0 ? 65.f : -65.f);
+                xOffset = (i % 2 == 0 ? 120.f : -120.f);
             }
 
             ape.worldX = village.centerX + xOffset;

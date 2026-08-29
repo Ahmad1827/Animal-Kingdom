@@ -28,9 +28,11 @@ ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId,
     ape.carriedType = ResourceType::None;
     ape.carriedAmount = 0;
     ape.equippedTool = ToolType::None;
+    ape.amberCount = 0;
+    ape.maxAmber = 50;
 
     int traitCount = SeedManager::getRandomInt(apeSeed, 1, 3);
-    for(int t = 0; t < traitCount; ++t) {
+    for (int t = 0; t < traitCount; ++t) {
         ape.traits.push_back(traits[SeedManager::getRandomInt(apeSeed, 0, traits.size() - 1)]);
     }
 
@@ -52,6 +54,10 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
         s.reqStone = 0;
         s.curWood = 0;
         s.curStone = 0;
+        s.tier = 1;
+        s.requiredAmber = 0;
+        s.requiredWood = 0;
+        s.requiredStone = 0;
         s.isPlanned = false;
         s.isUnderConstruction = false;
         s.isFinished = true;
@@ -74,6 +80,10 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
         s.reqStone = reqStone;
         s.curWood = 0;
         s.curStone = 0;
+        s.tier = 1;
+        s.requiredAmber = 0;
+        s.requiredWood = reqWood;
+        s.requiredStone = reqStone;
         s.isPlanned = true;
         s.isUnderConstruction = false;
         s.isFinished = false;
@@ -137,17 +147,25 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.name = "First Tree";
     pVillage.identity = VillageIdentity::Balanced;
     pVillage.homeChunkX = 0;
-    // Shared with the tree-clearance generator so the base is always tree-free.
     pVillage.centerX = SettlementLayout::getPlayerCenterX();
     pVillage.centerY = 500.0f;
+    pVillage.tier = SettlementTier::FirePit;
+    pVillage.amber = 12;
     pVillage.food = 65;
     pVillage.wood = 35;
     pVillage.stone = 15;
+    pVillage.maxAmber = 60;
+    pVillage.maxFood = 100;
+    pVillage.maxWood = 80;
+    pVillage.maxStone = 40;
     pVillage.toolsAxe = 2;
     pVillage.toolsPick = 1;
     pVillage.toolsSpear = 2;
     pVillage.toolsBasket = 2;
     pVillage.toolsTorch = 1;
+    pVillage.availableAxeSlots = 0;
+    pVillage.availableSpearSlots = 0;
+    pVillage.availableBasketSlots = 1;
     pVillage.territoryRadius = SettlementLayout::getPlayerTerritoryRadius();
     pVillage.borderMinX = pVillage.centerX - pVillage.territoryRadius;
     pVillage.borderMaxX = pVillage.centerX + pVillage.territoryRadius;
@@ -168,6 +186,8 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     founder.worldY = 500.0f;
     founder.homeX = founder.worldX;
     founder.homeY = founder.worldY;
+    founder.amberCount = 8;
+    founder.maxAmber = 40;
     founder.currentJob = Job::Idle;
 
     ApeData spouse = createRandomApe(worldSeed + 1001, dyn.id, pVillage.id, names, allTraits, worldSeed);
@@ -256,16 +276,9 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
     std::vector<VillageIdentity> identities = {VillageIdentity::Aggressive, VillageIdentity::FoodRich, VillageIdentity::StoneFocused, VillageIdentity::WoodFocused, VillageIdentity::Peaceful};
 
     uint32_t popSeed = worldSeed;
-    // Consume the same roll as before so the per-village population stream
-    // downstream is unchanged for existing seeds.
     int numVillages = SeedManager::getRandomInt(popSeed, 3, 5);
     (void)numVillages;
 
-    // Positions now come from the shared layout, which is also what
-    // WorldGenerator::getClearanceZones() reads. Previously this function and
-    // the clearance generator computed the village COUNT differently
-    // (getRandomInt vs worldSeed % 3), so on many seeds the last village or
-    // two had no clearance zone and got jungle trees generated on top of them.
     std::vector<float> centers = SettlementLayout::getVillageCenters(worldSeed);
 
     for (size_t v = 0; v < centers.size(); ++v) {
@@ -277,11 +290,20 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         village.centerX = centers[v];
         village.homeChunkX = static_cast<int>(std::floor((village.centerX - 1000.f) / 2000.f));
         village.centerY = 500.0f;
+        village.tier = SettlementTier::FirePit;
+        village.amber = 5;
         village.food = 40;
         village.wood = 20;
         village.stone = 10;
+        village.maxAmber = 50;
+        village.maxFood = 60;
+        village.maxWood = 40;
+        village.maxStone = 20;
         village.toolsAxe = 1;
         village.toolsSpear = 2;
+        village.availableAxeSlots = 0;
+        village.availableSpearSlots = 0;
+        village.availableBasketSlots = 1;
         village.territoryRadius = SettlementLayout::getVillageTerritoryRadius();
         village.borderMinX = village.centerX - village.territoryRadius;
         village.borderMaxX = village.centerX + village.territoryRadius;

@@ -29,7 +29,7 @@ ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId,
     ape.carriedAmount = 0;
     ape.equippedTool = ToolType::None;
     ape.amberCount = 0;
-    ape.maxAmber = 50;
+    ape.maxAmber = 40;
 
     int traitCount = SeedManager::getRandomInt(apeSeed, 1, 3);
     for (int t = 0; t < traitCount; ++t) {
@@ -58,6 +58,8 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
         s.requiredAmber = 0;
         s.requiredWood = 0;
         s.requiredStone = 0;
+        s.axeCount = 0;
+        s.claimedAxes = 0;
         s.isPlanned = false;
         s.isUnderConstruction = false;
         s.isFinished = true;
@@ -84,6 +86,8 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
         s.requiredAmber = 0;
         s.requiredWood = reqWood;
         s.requiredStone = reqStone;
+        s.axeCount = 0;
+        s.claimedAxes = 0;
         s.isPlanned = true;
         s.isUnderConstruction = false;
         s.isFinished = false;
@@ -93,6 +97,7 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
 
     addFinished(StructureType::VillageCenter, "Clan Hearth & Lodge", 0.f, "Heart of the Clan & Ruling Seat");
     addFinished(StructureType::Bonfire, "Central Fire Circle", 65.f, "Warmth & Clan Cohesion");
+    addFinished(StructureType::ToolRack, "Tool Rack", -75.f, "Stores Tools for Clan Workers");
     addFinished(StructureType::WoodPile, "Timber Stockpile", 245.f, "Stores Harvested Wood");
     addFinished(StructureType::SimpleBarrier, "West Palisade", -360.f, "Settlement Perimeter");
     addFinished(StructureType::SimpleBarrier, "East Palisade", 400.f, "Settlement Perimeter");
@@ -158,11 +163,11 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.maxFood = 100;
     pVillage.maxWood = 80;
     pVillage.maxStone = 40;
-    pVillage.toolsAxe = 2;
-    pVillage.toolsPick = 1;
-    pVillage.toolsSpear = 2;
-    pVillage.toolsBasket = 2;
-    pVillage.toolsTorch = 1;
+    pVillage.toolsAxe = 0;
+    pVillage.toolsPick = 0;
+    pVillage.toolsSpear = 0;
+    pVillage.toolsBasket = 1;
+    pVillage.toolsTorch = 0;
     pVillage.availableAxeSlots = 0;
     pVillage.availableSpearSlots = 0;
     pVillage.availableBasketSlots = 1;
@@ -299,8 +304,8 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         village.maxFood = 60;
         village.maxWood = 40;
         village.maxStone = 20;
-        village.toolsAxe = 1;
-        village.toolsSpear = 2;
+        village.toolsAxe = 0;
+        village.toolsSpear = 1;
         village.availableAxeSlots = 0;
         village.availableSpearSlots = 0;
         village.availableBasketSlots = 1;

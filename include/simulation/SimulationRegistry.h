@@ -174,6 +174,9 @@ struct StructureData {
     int requiredWood = 0;
     int requiredStone = 0;
 
+    int axeCount = 0;
+    int claimedAxes = 0;
+
     bool isPlanned = false;
     bool isUnderConstruction = false;
     bool isFinished = true;

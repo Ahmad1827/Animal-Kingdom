@@ -2,12 +2,12 @@
 #include "simulation/WorldEventManager.h"
 #include "simulation/KingdomManager.h"
 #include "simulation/WarfareManager.h"
+#include "world/WorldManager.h"
+#include "entities/Tree.h"
 #include <cmath>
 #include <cstdlib>
 #include <algorithm>
 #include <iostream>
-#include "world/WorldManager.h"
-#include "entities/Tree.h"
 
 namespace sim {
 
@@ -126,7 +126,7 @@ void JobSystem::villagePlanningAI(SimulationRegistry& registry, VillageData& vil
     }
 }
 
-void JobSystem::handleLeader(SimulationRegistry& registry, ApeData& leader, VillageData& village) {
+void JobSystem::handleLeader(SimulationRegistry&, ApeData& leader, VillageData&) {
     leader.currentJob = Job::Guard;
     leader.currentTargetNode = 0;
     leader.currentTargetStructure = 0;
@@ -175,14 +175,83 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
         villagePlanningAI(registry, pair.second, totalTicks);
     }
 
+    EntityID playerControlledId = registry.getControlledApe();
+
     for (auto& pair : registry.getAllApes()) {
         ApeData& ape = pair.second;
         if (!ape.alive) continue;
 
-        if (ape.currentJob == Job::Woodcutter) {
-            continue;
+        if (ape.id != playerControlledId && ape.equippedTool == ToolType::None && ape.currentTargetStructure == 0 &&
+            (ape.currentJob == Job::Idle || ape.currentJob == Job::Wander || ape.currentJob == Job::Socialize)) {
+            for (auto& sPair : registry.getAllStructures()) {
+                StructureData& s = sPair.second;
+                if (s.villageId == ape.villageId && s.type == StructureType::ToolRack && s.isFinished && s.axeCount > 0) {
+                    s.axeCount--;
+                    s.claimedAxes++;
+                    ape.currentTargetStructure = s.id;
+                    ape.hasTravelDestination = true;
+                    ape.travelDestinationX = s.worldX;
+                    std::cout << "[TOOL] Ape " << ape.id << " (" << ape.name << ") claimed Axe\n";
+                    std::cout << "[TOOL] Ape " << ape.id << " walking to Tool Rack\n";
+                    break;
+                }
+            }
         }
 
+        if (ape.currentTargetStructure != 0) {
+            StructureData* s = registry.getStructure(ape.currentTargetStructure);
+            if (s && s->type == StructureType::ToolRack) {
+                if (std::abs(ape.worldX - s->worldX) <= 35.0f) {
+                    s->claimedAxes = std::max(0, s->claimedAxes - 1);
+                    ape.equippedTool = ToolType::StoneAxe;
+                    ape.currentJob = Job::Woodcutter;
+                    ape.currentOccupation = Occupation::Woodcutter;
+                    ape.currentGoal = Goal::GatherWood;
+                    ape.currentTargetStructure = 0;
+                    ape.hasTravelDestination = false;
+                    std::cout << "[TOOL] Ape " << ape.id << " (" << ape.name << ") acquired Axe\n";
+                    std::cout << "[JOB] Ape " << ape.id << " -> WOODCUTTER\n";
+                } else {
+                    ape.hasTravelDestination = true;
+                    ape.travelDestinationX = s->worldX;
+                }
+            }
+        }
+
+        if (ape.currentJob == Job::Woodcutter) {
+            WorldManager* wm = registry.getWorldManager();
+            if (wm) {
+                if (!ape.hasTravelDestination || ape.currentTargetNode == 0) {
+                    std::vector<Tree*> nearby = wm->getNearbyTrees(ape.worldX, 2500.f);
+                    Tree* targetTree = nullptr;
+                    float bestDist = 99999.f;
+
+                    for (Tree* t : nearby) {
+                        if (!t || t->getHarvestState() == TreeHarvestState::Harvested) continue;
+                        float dist = std::abs(ape.worldX - t->getTrunkCenter());
+                        if (dist < bestDist) {
+                            bestDist = dist;
+                            targetTree = t;
+                        }
+                    }
+
+                    if (targetTree) {
+                        ape.currentTargetNode = static_cast<EntityID>(targetTree->getId());
+                        ape.travelDestinationX = targetTree->getTrunkCenter();
+                        ape.hasTravelDestination = true;
+                    }
+                } else {
+                    if (std::abs(ape.worldX - ape.travelDestinationX) <= 25.0f) {
+                        int treeId = static_cast<int>(ape.currentTargetNode);
+                        wm->harvestTree(treeId);
+                        ape.hasTravelDestination = false;
+                        ape.currentTargetNode = 0;
+                        ape.skills.woodcutting += 0.05f;
+                    }
+                }
+            }
+            continue;
+        }
 
         if (ape.hasTravelDestination && ape.currentJob != Job::Builder && ape.currentJob != Job::CarryResource) {
             ape.currentJob = Job::March;

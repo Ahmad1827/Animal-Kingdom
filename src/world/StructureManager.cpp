@@ -2,11 +2,65 @@
 #include <cmath>
 #include <algorithm>
 
+static void drawToolRackProp(sf::RenderTarget& target, const sim::StructureData& s, float groundY) {
+    sf::RectangleShape postL(sf::Vector2f(6.f, 38.f));
+    postL.setOrigin(3.f, 38.f);
+    postL.setPosition(s.worldX - 16.f, groundY);
+    postL.setFillColor(sf::Color(85, 55, 30));
+    postL.setOutlineColor(sf::Color(25, 15, 8));
+    postL.setOutlineThickness(1.5f);
+    target.draw(postL);
+
+    sf::RectangleShape postR(sf::Vector2f(6.f, 38.f));
+    postR.setOrigin(3.f, 38.f);
+    postR.setPosition(s.worldX + 16.f, groundY);
+    postR.setFillColor(sf::Color(85, 55, 30));
+    postR.setOutlineColor(sf::Color(25, 15, 8));
+    postR.setOutlineThickness(1.5f);
+    target.draw(postR);
+
+    sf::RectangleShape beam(sf::Vector2f(44.f, 5.f));
+    beam.setOrigin(22.f, 2.5f);
+    beam.setPosition(s.worldX, groundY - 24.f);
+    beam.setFillColor(sf::Color(115, 75, 40));
+    beam.setOutlineColor(sf::Color(30, 20, 10));
+    beam.setOutlineThickness(1.f);
+    target.draw(beam);
+
+    if (s.axeCount > 0 || s.claimedAxes > 0) {
+        sf::RectangleShape handle(sf::Vector2f(32.f, 4.f));
+        handle.setOrigin(16.f, 2.f);
+        handle.setPosition(s.worldX, groundY - 26.f);
+        handle.setRotation(-18.f);
+        handle.setFillColor(sf::Color(140, 95, 50));
+        handle.setOutlineColor(sf::Color(40, 25, 12));
+        handle.setOutlineThickness(1.f);
+        target.draw(handle);
+
+        sf::ConvexShape blade(4);
+        blade.setPoint(0, sf::Vector2f(-7.f, -8.f));
+        blade.setPoint(1, sf::Vector2f(5.f, -5.f));
+        blade.setPoint(2, sf::Vector2f(7.f, 6.f));
+        blade.setPoint(3, sf::Vector2f(-5.f, 5.f));
+        blade.setPosition(s.worldX + 10.f, groundY - 30.f);
+        blade.setFillColor(sf::Color(110, 115, 120));
+        blade.setOutlineColor(sf::Color(40, 42, 45));
+        blade.setOutlineThickness(1.f);
+        target.draw(blade);
+
+        sf::RectangleShape twine(sf::Vector2f(4.f, 6.f));
+        twine.setOrigin(2.f, 3.f);
+        twine.setPosition(s.worldX + 6.f, groundY - 28.f);
+        twine.setFillColor(sf::Color(195, 160, 110));
+        target.draw(twine);
+    }
+}
+
 StructureManager::StructureManager() {}
 
-void StructureManager::update(float dt, sim::SimulationRegistry& registry) {}
+void StructureManager::update(float, sim::SimulationRegistry&) {}
 
-void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
+void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager*, const sf::FloatRect& viewBounds) {
     for (auto& pair : registry.getAllVillages()) {
         const sim::VillageData& v = pair.second;
         if (v.centerX + 600.f < viewBounds.left || v.centerX - 600.f > viewBounds.left + viewBounds.width) continue;
@@ -50,6 +104,9 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
                 case sim::StructureType::WoodPile:
                 case sim::StructureType::StonePile:
                     drawStockpileProps(target, s, *v, groundY);
+                    break;
+                case sim::StructureType::ToolRack:
+                    drawToolRackProp(target, s, groundY);
                     break;
                 default:
                     break;
@@ -165,7 +222,7 @@ void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::St
     target.draw(skull);
 }
 
-void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     sf::RectangleShape stilt1(sf::Vector2f(8.f, 32.f));
     stilt1.setOrigin(4.f, 32.f);
     stilt1.setPosition(s.worldX - 26.f, groundY);
@@ -202,7 +259,7 @@ void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureDa
     target.draw(leaves);
 }
 
-void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     sf::RectangleShape base(sf::Vector2f(105.f, 52.f));
     base.setOrigin(52.5f, 52.f);
     base.setPosition(s.worldX, groundY);
@@ -242,7 +299,7 @@ void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::Struc
     }
 }
 
-void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     sf::RectangleShape p1(sf::Vector2f(10.f, 150.f));
     p1.setOrigin(5.f, 150.f);
     p1.setPosition(s.worldX - 24.f, groundY);
@@ -282,7 +339,7 @@ void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::St
     target.draw(rail);
 }
 
-void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     sf::RectangleShape postL(sf::Vector2f(10.f, 62.f));
     postL.setOrigin(5.f, 62.f);
     postL.setPosition(s.worldX - 42.f, groundY);
@@ -317,7 +374,7 @@ void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::Struc
     target.draw(anvil);
 }
 
-void StructureManager::drawBonfire(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+void StructureManager::drawBonfire(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     sf::CircleShape stoneRing(24.f, 8);
     stoneRing.setOrigin(24.f, 24.f);
     stoneRing.setPosition(s.worldX, groundY - 2.f);
@@ -358,7 +415,7 @@ void StructureManager::drawBonfire(sf::RenderTarget& target, const sim::Structur
     target.draw(fireInner);
 }
 
-void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     for (int i = -2; i <= 2; ++i) {
         float stakeH = 48.f + std::abs(i) * 5.f;
         sf::ConvexShape stake(3);
@@ -373,7 +430,7 @@ void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::St
     }
 }
 
-void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (s.type == sim::StructureType::WoodPile) {
         for (int row = 0; row < 3; ++row) {
             int count = 4 - row;
@@ -403,7 +460,6 @@ void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::S
 void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim::StructureData& s, float groundY) {
     float progressRatio = std::clamp(s.progress / std::max(1.f, s.maxProgress), 0.f, 1.f);
 
-    // 1. Staked Perimeter Pegs (Visible for all planned & active sites)
     sf::RectangleShape stakeL(sf::Vector2f(6.f, 28.f));
     stakeL.setOrigin(3.f, 28.f);
     stakeL.setPosition(s.worldX - 45.f, groundY);
@@ -420,21 +476,18 @@ void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim:
     stakeR.setOutlineThickness(1.f);
     target.draw(stakeR);
 
-    // Guide Cord
     sf::RectangleShape cord(sf::Vector2f(90.f, 2.f));
     cord.setOrigin(45.f, 1.f);
     cord.setPosition(s.worldX, groundY - 18.f);
     cord.setFillColor(sf::Color(215, 185, 95));
     target.draw(cord);
 
-    // Ground Plot Marker
     sf::RectangleShape plotBase(sf::Vector2f(86.f, 4.f));
     plotBase.setOrigin(43.f, 4.f);
     plotBase.setPosition(s.worldX, groundY);
     plotBase.setFillColor(s.isUnderConstruction ? sf::Color(150, 110, 60) : sf::Color(75, 55, 35, 180));
     target.draw(plotBase);
 
-    // 2. Stage 1: Foundation Timber (25%+)
     if (progressRatio >= 0.25f) {
         sf::RectangleShape foundation(sf::Vector2f(80.f, 10.f));
         foundation.setOrigin(40.f, 10.f);
@@ -445,7 +498,6 @@ void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim:
         target.draw(foundation);
     }
 
-    // 3. Stage 2: Timber Framing & Scaffolding (50%+)
     if (progressRatio >= 0.50f) {
         sf::RectangleShape frameL(sf::Vector2f(8.f, 45.f));
         frameL.setOrigin(4.f, 45.f);
@@ -466,7 +518,6 @@ void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim:
         target.draw(topCross);
     }
 
-    // 4. Stage 3: Partial Roof & Infill (75%+)
     if (progressRatio >= 0.75f) {
         sf::RectangleShape partialWall(sf::Vector2f(60.f, 25.f));
         partialWall.setOrigin(30.f, 25.f);
@@ -475,7 +526,6 @@ void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim:
         target.draw(partialWall);
     }
 
-    // Build Progress Bar when actively being constructed
     if (s.isUnderConstruction) {
         float barW = 48.f;
         sf::RectangleShape barBg(sf::Vector2f(barW, 5.f));

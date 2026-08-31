@@ -1715,9 +1715,20 @@ void PlayState::refreshInteractionTargets() {
         const sim::VillageData& v = pair.second;
         float groundY = 500.0f;
 
-        interactionManager.registerTarget(std::make_shared<VillageCenterInteractionTarget>(
-            v.id, simulationManager->getRegistry(), v.centerX, groundY, audioManager.get()
-        ));
+        for (const auto& sPair : simulationManager->getRegistry().getAllStructures()) {
+            const sim::StructureData& s = sPair.second;
+            if (s.villageId == v.id && s.isFinished) {
+                if (s.type == sim::StructureType::VillageCenter) {
+                    interactionManager.registerTarget(std::make_shared<VillageCenterInteractionTarget>(
+                        v.id, simulationManager->getRegistry(), s.worldX, groundY, audioManager.get()
+                    ));
+                } else if (s.type == sim::StructureType::ToolRack) {
+                    interactionManager.registerTarget(std::make_shared<ToolRackInteractionTarget>(
+                        s.id, v.id, simulationManager->getRegistry(), worldManager.get(), actorId
+                    ));
+                }
+            }
+        }
 
         interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
             v.id, simulationManager->getRegistry(), worldManager.get(), true, actorId
@@ -1725,21 +1736,6 @@ void PlayState::refreshInteractionTargets() {
         interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
             v.id, simulationManager->getRegistry(), worldManager.get(), false, actorId
         ));
-
-        for (const auto& sPair : simulationManager->getRegistry().getAllStructures()) {
-            const sim::StructureData& s = sPair.second;
-            if (s.villageId == v.id) {
-                if (s.type == sim::StructureType::ToolRack) {
-                    interactionManager.registerTarget(std::make_shared<ToolRackInteractionTarget>(
-                        s.id, v.id, simulationManager->getRegistry(), worldManager.get(), actorId
-                    ));
-                } else if (s.type != sim::StructureType::VillageCenter && s.type != sim::StructureType::Bonfire && s.type != sim::StructureType::WoodPile && s.type != sim::StructureType::SimpleBarrier) {
-                    interactionManager.registerTarget(std::make_shared<BuildNodeInteractionTarget>(
-                        s.id, v.id, simulationManager->getRegistry(), worldManager.get()
-                    ));
-                }
-            }
-        }
     }
 
     for (const auto& pair : simulationManager->getRegistry().getAllKingdoms()) {

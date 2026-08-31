@@ -34,7 +34,8 @@ enum class StructureType {
     ToolRack,
     Barricade,
     Watchtower,
-    Armory
+    Armory,
+    EmptyPlot
 };
 
 enum class SettlementTier {

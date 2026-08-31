@@ -214,6 +214,7 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                 }
             } else {
                 if (std::abs(ape.worldX - myVillage->targetBorderX) <= 25.0f) {
+                    float oldBorderX = myVillage->expandingSideRight ? myVillage->borderMaxX : myVillage->borderMinX;
                     float plantedBorderX = myVillage->targetBorderX;
                     ape.worldX = plantedBorderX;
                     ape.isCarryingBorder = false;
@@ -227,10 +228,26 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                     }
                     myVillage->territoryRadius = std::max(myVillage->borderMaxX - myVillage->centerX, myVillage->centerX - myVillage->borderMinX);
 
+                    float plotX = (oldBorderX + plantedBorderX) * 0.5f;
+                    StructureData newPlot;
+                    newPlot.id = IDGenerator::generateStructureID();
+                    newPlot.type = StructureType::EmptyPlot;
+                    newPlot.name = "Empty Building Plot";
+                    newPlot.villageId = myVillage->id;
+                    newPlot.worldX = plotX;
+                    newPlot.worldY = 500.0f;
+                    newPlot.progress = 0.f;
+                    newPlot.maxProgress = 20.f;
+                    newPlot.isPlanned = true;
+                    newPlot.isUnderConstruction = false;
+                    newPlot.isFinished = false;
+                    newPlot.benefitText = "Unclaimed ground for expansion";
+                    registry.registerStructure(newPlot);
+
                     myVillage->isExpandingBorder = false;
                     myVillage->borderMoverApe = 0;
                     std::cout << "[BORDER] Border marker planted at X=" << plantedBorderX << "\n";
-                    std::cout << "[BORDER] Village border updated: [" << myVillage->borderMinX << " to " << myVillage->borderMaxX << "]\n";
+                    std::cout << "[BORDER] New building plot appeared at X=" << plotX << "\n";
                 } else {
                     ape.hasTravelDestination = true;
                     ape.travelDestinationX = myVillage->targetBorderX;

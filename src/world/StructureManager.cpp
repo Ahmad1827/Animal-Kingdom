@@ -6,6 +6,48 @@ StructureManager::StructureManager() {}
 
 void StructureManager::update(float, sim::SimulationRegistry&) {}
 
+static void drawEmptyPlot(sf::RenderTarget& target, const sim::StructureData& s, float groundY) {
+    sf::RectangleShape plotBase(sf::Vector2f(130.f, 6.f));
+    plotBase.setOrigin(65.f, 3.f);
+    plotBase.setPosition(s.worldX, groundY - 2.f);
+    plotBase.setFillColor(sf::Color(105, 80, 50, 180));
+    target.draw(plotBase);
+
+    for (int i = -1; i <= 1; i += 2) {
+        sf::RectangleShape peg(sf::Vector2f(8.f, 36.f));
+        peg.setOrigin(4.f, 36.f);
+        peg.setPosition(s.worldX + i * 55.f, groundY);
+        peg.setFillColor(sf::Color(85, 55, 28));
+        peg.setOutlineColor(sf::Color(20, 10, 5));
+        peg.setOutlineThickness(1.5f);
+        target.draw(peg);
+
+        sf::ConvexShape pennant(3);
+        pennant.setPoint(0, sf::Vector2f(0.f, -34.f));
+        pennant.setPoint(1, sf::Vector2f(i * 18.f, -27.f));
+        pennant.setPoint(2, sf::Vector2f(0.f, -20.f));
+        pennant.setPosition(s.worldX + i * 55.f, groundY);
+        pennant.setFillColor(sf::Color(220, 180, 60));
+        pennant.setOutlineColor(sf::Color(24, 14, 6));
+        pennant.setOutlineThickness(1.f);
+        target.draw(pennant);
+    }
+
+    sf::RectangleShape twine(sf::Vector2f(110.f, 2.f));
+    twine.setOrigin(55.f, 1.f);
+    twine.setPosition(s.worldX, groundY - 24.f);
+    twine.setFillColor(sf::Color(210, 185, 120, 220));
+    target.draw(twine);
+
+    sf::CircleShape centerStone(8.f, 5);
+    centerStone.setOrigin(8.f, 8.f);
+    centerStone.setPosition(s.worldX, groundY - 3.f);
+    centerStone.setFillColor(sf::Color(90, 85, 75));
+    centerStone.setOutlineColor(sf::Color(25, 20, 15));
+    centerStone.setOutlineThickness(1.5f);
+    target.draw(centerStone);
+}
+
 void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager*, const sf::FloatRect& viewBounds) {
     for (auto& pair : registry.getAllVillages()) {
         const sim::VillageData& v = pair.second;
@@ -23,7 +65,9 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
         sim::VillageData fallbackVillage;
         if (!v) v = &fallbackVillage;
 
-        if (!s.isFinished) {
+        if (s.type == sim::StructureType::EmptyPlot && !s.isUnderConstruction && !s.isFinished) {
+            drawEmptyPlot(target, s, groundY);
+        } else if (!s.isFinished) {
             drawConstructionSite(target, s, groundY);
         } else {
             switch (s.type) {

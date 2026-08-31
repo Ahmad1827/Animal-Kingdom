@@ -74,41 +74,41 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
         registry.registerStructure(s);
     };
 
-    auto addBuildNode = [&](StructureType type, const std::string& name, float offsetX, int reqWood, int reqStone, float buildTime, const std::string& benefit) {
+    auto addBuildPlot = [&](float offsetX) {
         StructureData s;
         s.id = IDGenerator::generateStructureID();
-        s.type = type;
-        s.name = name;
+        s.type = StructureType::EmptyPlot;
+        s.name = "Empty Building Plot";
         s.villageId = village.id;
         s.worldX = village.centerX + offsetX;
         s.worldY = 500.0f;
         s.progress = 0.f;
-        s.maxProgress = buildTime;
-        s.reqWood = reqWood;
-        s.reqStone = reqStone;
+        s.maxProgress = 20.f;
+        s.reqWood = 0;
+        s.reqStone = 0;
         s.curWood = 0;
         s.curStone = 0;
         s.tier = 1;
         s.requiredAmber = 0;
-        s.requiredWood = reqWood;
-        s.requiredStone = reqStone;
+        s.requiredWood = 0;
+        s.requiredStone = 0;
         s.axeCount = 0;
         s.claimedAxes = 0;
         s.isPlanned = true;
         s.isUnderConstruction = false;
         s.isFinished = false;
-        s.benefitText = benefit;
+        s.benefitText = "Unclaimed ground for expansion";
         registry.registerStructure(s);
     };
 
     addFinished(StructureType::VillageCenter, "Clan Hearth & Great Lodge", 0.f, "Seat of the Clan & Ruling Authority");
     addFinished(StructureType::ToolRack, "Tool Rack", -450.f, "Stores Tools for Clan Workers");
     addFinished(StructureType::WoodPile, "Timber Stockpile", 450.f, "Stores Harvested Wood");
-    addFinished(StructureType::SimpleBarrier, "West Palisade Gate", -900.f, "Settlement Perimeter");
-    addFinished(StructureType::SimpleBarrier, "East Palisade Gate", 900.f, "Settlement Perimeter");
+    addFinished(StructureType::SimpleBarrier, "West Palisade Wall", -900.f, "Settlement Palisade Barrier");
+    addFinished(StructureType::SimpleBarrier, "East Palisade Wall", 900.f, "Settlement Palisade Barrier");
 
-    addBuildNode(StructureType::StorageHut, "Granary & Food Cache", 650.f, 8, 0, 15.f, "Food Capacity +25");
-    addBuildNode(StructureType::WatchPlatform, "Lookout Watch Post", -650.f, 10, 0, 12.f, "Early Threat Detection");
+    addBuildPlot(-680.f);
+    addBuildPlot(680.f);
 }
 
 void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t) {

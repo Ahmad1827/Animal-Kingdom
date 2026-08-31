@@ -3,8 +3,12 @@
 #include "world/SeedManager.h"
 #include "world/SettlementLayout.h"
 #include <cmath>
+#include <algorithm>
 
 namespace sim {
+
+static constexpr float WALL_HALF_WIDTH = 104.0f;
+static constexpr float WALL_TO_BORDER_OFFSET = WALL_HALF_WIDTH * 2.0f;
 
 ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId, VillageID villageId, const std::vector<std::string>& names, const std::vector<Trait>& traits, uint32_t worldSeed) {
     uint32_t apeSeed = seed;
@@ -30,6 +34,8 @@ ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId,
     ape.equippedTool = ToolType::None;
     ape.amberCount = 0;
     ape.maxAmber = 40;
+    ape.currentDisease = DiseaseType::None;
+    ape.diseaseSeverity = 0.0f;
 
     int traitCount = SeedManager::getRandomInt(apeSeed, 1, 3);
     for (int t = 0; t < traitCount; ++t) {
@@ -105,7 +111,7 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
     addBuildNode(StructureType::WatchPlatform, "Lookout Watch Post", -650.f, 10, 0, 12.f, "Early Threat Detection");
 }
 
-void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t worldSeed) {
+void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t) {
     for (int i = -1; i <= 1; ++i) {
         ResourceNode res;
         res.id = IDGenerator::generateEntityID();
@@ -167,9 +173,12 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.availableAxeSlots = 0;
     pVillage.availableSpearSlots = 0;
     pVillage.availableBasketSlots = 1;
-    pVillage.territoryRadius = SettlementLayout::getPlayerTerritoryRadius();
-    pVillage.borderMinX = pVillage.centerX - pVillage.territoryRadius;
-    pVillage.borderMaxX = pVillage.centerX + pVillage.territoryRadius;
+
+    float westWallX = pVillage.centerX - 900.0f;
+    float eastWallX = pVillage.centerX + 900.0f;
+    pVillage.borderMinX = westWallX - WALL_TO_BORDER_OFFSET;
+    pVillage.borderMaxX = eastWallX + WALL_TO_BORDER_OFFSET;
+    pVillage.territoryRadius = std::max(pVillage.borderMaxX - pVillage.centerX, pVillage.centerX - pVillage.borderMinX);
 
     spawnBaseStructures(registry, pVillage);
 
@@ -219,7 +228,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     sibling.name = "Boro";
     sibling.age = 42.0f;
     sibling.gender = Gender::Male;
-    sibling.worldX = pVillage.centerX + 900.0f;
+    sibling.worldX = pVillage.centerX + 850.0f;
     sibling.worldY = 500.0f;
     sibling.homeX = sibling.worldX;
     sibling.homeY = sibling.worldY;
@@ -228,7 +237,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     ApeData worker1 = createRandomApe(worldSeed + 1004, dyn.id, pVillage.id, names, allTraits, worldSeed);
     worker1.name = "Aldo";
     worker1.age = 28.0f;
-    worker1.worldX = pVillage.centerX - 900.0f;
+    worker1.worldX = pVillage.centerX - 850.0f;
     worker1.worldY = 500.0f;
     worker1.homeX = worker1.worldX;
     worker1.homeY = worker1.worldY;
@@ -277,9 +286,6 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
     std::vector<VillageIdentity> identities = {VillageIdentity::Aggressive, VillageIdentity::FoodRich, VillageIdentity::StoneFocused, VillageIdentity::WoodFocused, VillageIdentity::Peaceful};
 
     uint32_t popSeed = worldSeed;
-    int numVillages = SeedManager::getRandomInt(popSeed, 3, 5);
-    (void)numVillages;
-
     std::vector<float> centers = SettlementLayout::getVillageCenters(worldSeed);
 
     for (size_t v = 0; v < centers.size(); ++v) {
@@ -305,9 +311,12 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         village.availableAxeSlots = 0;
         village.availableSpearSlots = 0;
         village.availableBasketSlots = 1;
-        village.territoryRadius = SettlementLayout::getVillageTerritoryRadius();
-        village.borderMinX = village.centerX - village.territoryRadius;
-        village.borderMaxX = village.centerX + village.territoryRadius;
+
+        float westWallX = village.centerX - 900.0f;
+        float eastWallX = village.centerX + 900.0f;
+        village.borderMinX = westWallX - WALL_TO_BORDER_OFFSET;
+        village.borderMaxX = eastWallX + WALL_TO_BORDER_OFFSET;
+        village.territoryRadius = std::max(village.borderMaxX - village.centerX, village.centerX - village.borderMinX);
 
         spawnBaseStructures(registry, village);
 
@@ -322,10 +331,10 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
                 village.leaderId = ape.id;
             } else if (i == 1) {
                 ape.currentJob = Job::Guard;
-                xOffset = 900.f;
+                xOffset = 850.f;
             } else if (i == 2) {
                 ape.currentJob = Job::Guard;
-                xOffset = -900.f;
+                xOffset = -850.f;
             } else if (i == 3) {
                 ape.currentJob = Job::Forage;
                 xOffset = 450.f;

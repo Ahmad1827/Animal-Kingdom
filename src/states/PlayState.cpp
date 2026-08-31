@@ -66,6 +66,7 @@ void PlayState::init() {
 
     sim::EntityID startApeId = sim::PopulationGenerator::generatePlayerDynasty(simulationManager->getRegistry(), activeSeed);
     simulationManager->setControlledApe(startApeId);
+    simulationManager->getRegistry().setControlledApe(startApeId);
     sim::PopulationGenerator::generateVillages(simulationManager->getRegistry(), activeSeed);
     
     npcManager = std::make_unique<NPCManager>(game->getAssetManager().getTexture("playerTex"));
@@ -663,6 +664,7 @@ void PlayState::update(float dt) {
             sim::EntityID heirId = sim::SuccessionManager::findNextHeir(simulationManager->getRegistry(), pData->id);
             if (heirId != 0) {
                 simulationManager->setControlledApe(heirId);
+                simulationManager->getRegistry().setControlledApe(heirId);
                 isTransitioning = true;
                 transitionTimer = 3.0f;
                 playerWrapper.reset();
@@ -1782,6 +1784,9 @@ void PlayState::draw(sf::RenderWindow& window) {
 void PlayState::refreshInteractionTargets() {
     interactionManager.clearTargets();
 
+    sim::ApeData* controlledApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
+    sim::EntityID actorId = controlledApe ? controlledApe->id : 0;
+
     for (const auto& pair : simulationManager->getRegistry().getAllVillages()) {
         const sim::VillageData& v = pair.second;
         float groundY = 500.0f;
@@ -1791,10 +1796,10 @@ void PlayState::refreshInteractionTargets() {
         ));
 
         interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-            v.id, simulationManager->getRegistry(), worldManager.get(), true
+            v.id, simulationManager->getRegistry(), worldManager.get(), true, actorId
         ));
         interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-            v.id, simulationManager->getRegistry(), worldManager.get(), false
+            v.id, simulationManager->getRegistry(), worldManager.get(), false, actorId
         ));
 
         for (const auto& sPair : simulationManager->getRegistry().getAllStructures()) {
@@ -1802,7 +1807,7 @@ void PlayState::refreshInteractionTargets() {
             if (s.villageId == v.id) {
                 if (s.type == sim::StructureType::ToolRack) {
                     interactionManager.registerTarget(std::make_shared<ToolRackInteractionTarget>(
-                        s.id, v.id, simulationManager->getRegistry(), worldManager.get()
+                        s.id, v.id, simulationManager->getRegistry(), worldManager.get(), actorId
                     ));
                 } else if (s.type != sim::StructureType::VillageCenter && s.type != sim::StructureType::Bonfire && s.type != sim::StructureType::WoodPile && s.type != sim::StructureType::SimpleBarrier) {
                     interactionManager.registerTarget(std::make_shared<BuildNodeInteractionTarget>(
@@ -1818,12 +1823,12 @@ void PlayState::refreshInteractionTargets() {
 
         if (k.territoryMinX != 0.f) {
             interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-                k.id, simulationManager->getRegistry(), worldManager.get(), true
+                k.id, simulationManager->getRegistry(), worldManager.get(), true, actorId
             ));
         }
         if (k.territoryMaxX != 0.f) {
             interactionManager.registerTarget(std::make_shared<BorderTotemInteractionTarget>(
-                k.id, simulationManager->getRegistry(), worldManager.get(), false
+                k.id, simulationManager->getRegistry(), worldManager.get(), false, actorId
             ));
         }
 
@@ -1873,7 +1878,6 @@ void PlayState::refreshInteractionTargets() {
     }
 
     sim::VillageData* pVillage = simulationManager->getRegistry().getVillage(activeClanId);
-    sim::ApeData* controlledApe = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     if (pVillage && controlledApe && worldManager) {
         float playerX = controlledApe->worldX;
 

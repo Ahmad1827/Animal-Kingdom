@@ -14,13 +14,17 @@ private:
     sim::SimulationRegistry& registry;
     WorldManager* worldManager;
     bool isMin;
+    sim::EntityID actorId;
     float currentX;
     float currentY;
 
+    static constexpr float WALL_HALF_WIDTH = 104.0f;
+    static constexpr float WALL_TO_BORDER_OFFSET = WALL_HALF_WIDTH * 2.0f;
+
 public:
     BorderTotemInteractionTarget(sim::EntityID targetId, sim::SimulationRegistry& registry,
-                                 WorldManager* worldManager, bool isMin)
-        : targetId(targetId), registry(registry), worldManager(worldManager), isMin(isMin) {
+                                 WorldManager* worldManager, bool isMin, sim::EntityID actorId = 0)
+        : targetId(targetId), registry(registry), worldManager(worldManager), isMin(isMin), actorId(actorId) {
         sim::VillageData* v = registry.getVillage(targetId);
         sim::KingdomData* k = registry.getKingdom(targetId);
         if (v) {
@@ -57,7 +61,6 @@ public:
         std::vector<InteractionMenuEntry> menu;
         sim::VillageData* v = registry.getVillage(targetId);
         sim::ApeData* actor = registry.getApe(registry.getControlledApe());
-        if (!actor) return menu;
 
         if (!v) {
             sim::KingdomData* k = registry.getKingdom(targetId);
@@ -78,8 +81,22 @@ public:
             return menu;
         }
 
+        float currentWallX = isMin ? (v->borderMinX + WALL_TO_BORDER_OFFSET) : (v->borderMaxX - WALL_TO_BORDER_OFFSET);
+        for (sim::EntityID sId : v->finishedStructures) {
+            sim::StructureData* s = registry.getStructure(sId);
+            if (s && s->type == sim::StructureType::SimpleBarrier) {
+                if (isMin && s->worldX < v->centerX) {
+                    currentWallX = s->worldX;
+                    break;
+                } else if (!isMin && s->worldX > v->centerX) {
+                    currentWallX = s->worldX;
+                    break;
+                }
+            }
+        }
+
         const float EXPANSION_STEP = 500.0f;
-        float proposedTargetX = isMin ? (v->borderMinX - EXPANSION_STEP) : (v->borderMaxX + EXPANSION_STEP);
+        float proposedTargetWallX = isMin ? (currentWallX - EXPANSION_STEP) : (currentWallX + EXPANSION_STEP);
 
         float limitX = isMin ? -999999.0f : 999999.0f;
         auto clearanceZones = WorldGenerator::getClearanceZones(0);
@@ -88,44 +105,48 @@ public:
             if (z.type == ClearanceType::MeetingGround) {
                 float mid = (z.minX + z.maxX) * 0.5f;
                 if (isMin && mid < v->centerX && mid > limitX) {
-                    limitX = z.maxX;
+                    limitX = z.maxX + WALL_TO_BORDER_OFFSET + 50.0f;
                 } else if (!isMin && mid > v->centerX && mid < limitX) {
-                    limitX = z.minX;
+                    limitX = z.minX - WALL_TO_BORDER_OFFSET - 50.0f;
                 }
             }
         }
 
         bool reachedLimit = false;
-        if (isMin && proposedTargetX <= limitX) {
-            proposedTargetX = limitX + 60.0f;
-            if (std::abs(v->borderMinX - proposedTargetX) < 80.0f) reachedLimit = true;
-        } else if (!isMin && proposedTargetX >= limitX) {
-            proposedTargetX = limitX - 60.0f;
-            if (std::abs(v->borderMaxX - proposedTargetX) < 80.0f) reachedLimit = true;
+        if (isMin && proposedTargetWallX <= limitX) {
+            proposedTargetWallX = limitX;
+            if (std::abs(currentWallX - proposedTargetWallX) < 80.0f) reachedLimit = true;
+        } else if (!isMin && proposedTargetWallX >= limitX) {
+            proposedTargetWallX = limitX;
+            if (std::abs(currentWallX - proposedTargetWallX) < 80.0f) reachedLimit = true;
         }
 
         if (reachedLimit) {
             menu.push_back({
-                "Border reached neutral meeting ground",
+                "Perimeter reached neutral meeting ground limit",
                 []() {}
             });
             return menu;
         }
 
+        int amber = actor ? actor->amberCount : 0;
         const int AMBER_COST = 3;
-        bool canAfford = (actor->amberCount >= AMBER_COST);
-        std::string label = canAfford ? "Expand Perimeter (Cost: 3 Amber)" : "Expand Perimeter (Need 3 Amber)";
+        std::string label = (amber >= AMBER_COST)
+            ? "Expand Perimeter (Cost: 3 Amber) [Have: " + std::to_string(amber) + "]"
+            : "Expand Perimeter [Need 3 Amber, Have: " + std::to_string(amber) + "]";
 
         menu.push_back({
             label,
-            [this, actor, v, canAfford, proposedTargetX]() {
-                if (!canAfford || v->isExpandingBorder) return;
-                if (actor->amberCount >= 3) {
-                    int oldAmber = actor->amberCount;
-                    actor->amberCount -= 3;
+            [this, v, proposedTargetWallX]() {
+                if (!v || v->isExpandingBorder) return;
+                sim::ApeData* a = registry.getApe(registry.getControlledApe());
+                if (!a) return;
+                if (a->amberCount >= 3) {
+                    int oldAmber = a->amberCount;
+                    a->amberCount -= 3;
                     v->isExpandingBorder = true;
                     v->expandingSideRight = !isMin;
-                    v->targetBorderX = proposedTargetX;
+                    v->targetBorderX = proposedTargetWallX;
                     v->borderMoverApe = 0;
 
                     for (sim::EntityID sId : v->finishedStructures) {
@@ -141,8 +162,10 @@ public:
                         }
                     }
 
-                    std::cout << "[BORDER] Expansion ordered. Amber " << oldAmber << " -> " << actor->amberCount << "\n";
-                    std::cout << "[BORDER] New Target X = " << proposedTargetX << "\n";
+                    std::cout << "[BORDER] Expansion ordered. Amber " << oldAmber << " -> " << a->amberCount << "\n";
+                    std::cout << "[BORDER] New Target Wall X = " << proposedTargetWallX << "\n";
+                } else {
+                    std::cout << "[BORDER] Expansion failed: Need 3 amber, have " << a->amberCount << "\n";
                 }
             }
         });

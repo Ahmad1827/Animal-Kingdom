@@ -191,7 +191,91 @@ void PlayState::processEvents(const sf::Event& event) {
         return; 
     }
 
+    if (isCouncilMenuOpen) {
+        if (event.type == sf::Event::KeyPressed) {
+            if (event.key.code == sf::Keyboard::Escape) {
+                isCouncilMenuOpen = false;
+                selectedCouncilApeId = 0;
+                return;
+            }
+
+            if (selectedCouncilApeId != 0) {
+                sim::SimulationRegistry& reg = simulationManager->getRegistry();
+                sim::ApeData* targetApe = reg.getApe(selectedCouncilApeId);
+                sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
+                if (targetApe && player) {
+                    sim::VillageData* village = reg.getVillage(player->villageId);
+                    if (village) {
+                        if (event.key.code == sf::Keyboard::Num1) {
+                            village->warChiefId = targetApe->id;
+                            targetApe->councilRole = sim::CouncilRole::WarChief;
+                            return;
+                        } else if (event.key.code == sf::Keyboard::Num2) {
+                            village->chiefBuilderId = targetApe->id;
+                            targetApe->councilRole = sim::CouncilRole::ChiefBuilder;
+                            return;
+                        } else if (event.key.code == sf::Keyboard::Num3) {
+                            village->leadForagerId = targetApe->id;
+                            targetApe->councilRole = sim::CouncilRole::LeadForager;
+                            return;
+                        } else if (event.key.code == sf::Keyboard::Num4) {
+                            village->shamanId = targetApe->id;
+                            targetApe->councilRole = sim::CouncilRole::Shaman;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+            sf::Vector2f mouseWorld = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y));
+            sim::SimulationRegistry& reg = simulationManager->getRegistry();
+            sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
+            if (player) {
+                sim::VillageData* village = reg.getVillage(player->villageId);
+                if (village) {
+                    for (sim::EntityID mId : village->members) {
+                        sim::ApeData* ape = reg.getApe(mId);
+                        if (!ape || !ape->alive || !ape->isMainApe || ape->id == village->leaderId) continue;
+                        if (std::abs(mouseWorld.x - ape->worldX) < 45.f && std::abs(mouseWorld.y - ape->worldY) < 65.f) {
+                            selectedCouncilApeId = ape->id;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     if (event.type == sf::Event::KeyPressed) {
+        if (event.key.code == sf::Keyboard::G && mapMode == MapMode::Hidden && !isDialogueActive && !dynastyUI.isOpen()) {
+            sim::SimulationRegistry& reg = simulationManager->getRegistry();
+            sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
+            if (player) {
+                sim::VillageData* village = reg.getVillage(player->villageId);
+                if (village) {
+                    float distToThrone = std::abs(player->worldX - village->centerX);
+                    if (distToThrone <= 140.0f) {
+                        village->isGatheringActive = !village->isGatheringActive;
+                        isCouncilMenuOpen = village->isGatheringActive;
+                        selectedCouncilApeId = 0;
+
+                        if (!village->isGatheringActive) {
+                            for (sim::EntityID mId : village->members) {
+                                sim::ApeData* ape = reg.getApe(mId);
+                                if (ape && ape->alive && ape->isMainApe && ape->id != village->leaderId) {
+                                    ape->hasTravelDestination = false;
+                                    ape->currentJob = sim::Job::Idle;
+                                }
+                            }
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
         if (event.key.code == sf::Keyboard::B && playerWrapper) {
             float pX = playerWrapper->getPosition().x;
             BiomeType bType = Biome::determineRegionAtWorldX(pX, activeSeed);
@@ -206,7 +290,7 @@ void PlayState::processEvents(const sf::Event& event) {
             return;
         }
 
-        if (mapMode == MapMode::Hidden && !isDialogueActive) {
+        if (mapMode == MapMode::Hidden && !isDialogueActive && !isCouncilMenuOpen) {
             if (event.key.code == sf::Keyboard::C) {
                 dynastyUI.toggle(sim::DynastyUIMode::CHARACTER_VIEW);
                 return;
@@ -420,6 +504,7 @@ void PlayState::processEvents(const sf::Event& event) {
         }
     }
 }
+
 
 void PlayState::update(float dt) {
     static float targetRefreshTimer = 0.f;
@@ -1677,6 +1762,8 @@ void PlayState::draw(sf::RenderWindow& window) {
             drawKingdomProfile(window, selectedKingdomId);
         }
     }
+
+    drawCouncilMenu(window);
 
     if (dynastyUI.isOpen()) {
         sim::DynastyData* dData = simulationManager->getRegistry().getDynasty(activeDynastyId);
@@ -3226,4 +3313,80 @@ void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId)
 
     curY = startY + panelH - 60.f;
     drawText("[ View Ruler ]", curY, 18, sf::Color(255, 255, 150), true);
+}
+
+void PlayState::drawCouncilMenu(sf::RenderWindow& window) {
+    if (!isCouncilMenuOpen) return;
+
+    sim::SimulationRegistry& reg = simulationManager->getRegistry();
+    sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
+    if (!player) return;
+
+    sim::VillageData* village = reg.getVillage(player->villageId);
+    if (!village || !village->isGatheringActive) return;
+
+    sf::Vector2f viewCenter = window.getView().getCenter();
+    sf::Vector2f panelPos(viewCenter.x - 300.f, viewCenter.y - 200.f);
+
+    sf::RectangleShape panel(sf::Vector2f(600.f, 400.f));
+    panel.setPosition(panelPos);
+    panel.setFillColor(sf::Color(20, 15, 12, 235));
+    panel.setOutlineColor(sf::Color(180, 140, 60));
+    panel.setOutlineThickness(2.f);
+    window.draw(panel);
+
+    sf::Text headerText;
+    headerText.setFont(cinematicFont);
+    headerText.setString("CLAN GATHERING - COUNCIL CHAMBER");
+    headerText.setCharacterSize(22);
+    headerText.setFillColor(sf::Color(240, 200, 80));
+    headerText.setPosition(panelPos.x + 30.f, panelPos.y + 20.f);
+    window.draw(headerText);
+
+    float entryY = panelPos.y + 70.f;
+    for (sim::EntityID mId : village->members) {
+        sim::ApeData* ape = reg.getApe(mId);
+        if (!ape || !ape->alive || !ape->isMainApe || ape->id == village->leaderId) continue;
+
+        sf::RectangleShape row(sf::Vector2f(540.f, 50.f));
+        row.setPosition(panelPos.x + 30.f, entryY);
+        row.setFillColor((selectedCouncilApeId == ape->id) ? sf::Color(60, 45, 30, 220) : sf::Color(35, 25, 20, 180));
+        row.setOutlineColor(sf::Color(100, 80, 50));
+        row.setOutlineThickness(1.f);
+        window.draw(row);
+
+        sf::Text apeNameText;
+        apeNameText.setFont(cinematicFont);
+        apeNameText.setString(ape->name);
+        apeNameText.setCharacterSize(16);
+        apeNameText.setFillColor(sf::Color::White);
+        apeNameText.setPosition(panelPos.x + 45.f, entryY + 8.f);
+        window.draw(apeNameText);
+
+        std::string roleStr = "None";
+        if (village->warChiefId == ape->id) roleStr = "War Chief";
+        else if (village->chiefBuilderId == ape->id) roleStr = "Chief Builder";
+        else if (village->leadForagerId == ape->id) roleStr = "Lead Forager";
+        else if (village->shamanId == ape->id) roleStr = "Shaman";
+
+        sf::Text roleText;
+        roleText.setFont(cinematicFont);
+        roleText.setString("Role: " + roleStr);
+        roleText.setCharacterSize(14);
+        roleText.setFillColor(sf::Color(200, 180, 120));
+        roleText.setPosition(panelPos.x + 45.f, entryY + 28.f);
+        window.draw(roleText);
+
+        entryY += 60.f;
+    }
+
+    if (selectedCouncilApeId != 0) {
+        sf::Text assignHelp;
+        assignHelp.setFont(cinematicFont);
+        assignHelp.setString("Assign: [1] War Chief  [2] Builder  [3] Forager  [4] Shaman");
+        assignHelp.setCharacterSize(14);
+        assignHelp.setFillColor(sf::Color(220, 180, 90));
+        assignHelp.setPosition(panelPos.x + 30.f, panelPos.y + 360.f);
+        window.draw(assignHelp);
+    }
 }

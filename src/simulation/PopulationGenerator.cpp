@@ -16,6 +16,8 @@ ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId,
     ape.id = IDGenerator::generateEntityID();
     ape.dynastyId = dynastyId;
     ape.villageId = villageId;
+    ape.isMainApe = (dynastyId != 0);
+    ape.councilRole = CouncilRole::None;
     ape.name = names[SeedManager::getRandomInt(apeSeed, 0, names.size() - 1)];
     ape.age = SeedManager::getRandomFloat(apeSeed, 14.0f, 42.0f);
     ape.gender = (SeedManager::getRandomInt(apeSeed, 0, 1) == 0) ? Gender::Male : Gender::Female;
@@ -147,7 +149,7 @@ void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t) {
 
 EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry, uint32_t worldSeed) {
     std::vector<std::string> names = {"Caesar", "Maurice", "Cornelius", "Zira", "Aldo", "Blue Eyes", "Rocket", "Nova", "Luca"};
-    std::vector<Trait> allTraits = {Trait::Brave, Trait::Strategic, Trait::Honorable, Trait::Charismatic};
+    std::vector<Trait> allTraits = {Trait::Brave, Trait::Strategic, Trait::Honorable, Trait::Charismatic, Trait::Hardworking, Trait::Clever};
 
     VillageData pVillage;
     pVillage.id = IDGenerator::generateVillageID();
@@ -156,6 +158,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.homeChunkX = 0;
     pVillage.centerX = SettlementLayout::getPlayerCenterX();
     pVillage.centerY = 500.0f;
+    pVillage.throneX = pVillage.centerX;
     pVillage.tier = SettlementTier::FirePit;
     pVillage.amber = 12;
     pVillage.food = 65;
@@ -196,6 +199,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     founder.worldY = 500.0f;
     founder.homeX = founder.worldX;
     founder.homeY = founder.worldY;
+    founder.isMainApe = true;
     founder.amberCount = 8;
     founder.maxAmber = 40;
     founder.currentJob = Job::Idle;
@@ -208,6 +212,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     spouse.worldY = 500.0f;
     spouse.homeX = spouse.worldX;
     spouse.homeY = spouse.worldY;
+    spouse.isMainApe = true;
     spouse.spouseId = founder.id;
     founder.spouseId = spouse.id;
     spouse.currentJob = Job::Idle;
@@ -220,6 +225,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     child.worldY = 500.0f;
     child.homeX = child.worldX;
     child.homeY = child.worldY;
+    child.isMainApe = true;
     child.fatherId = founder.id;
     child.motherId = spouse.id;
     child.currentJob = Job::Idle;
@@ -232,24 +238,27 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     sibling.worldY = 500.0f;
     sibling.homeX = sibling.worldX;
     sibling.homeY = sibling.worldY;
+    sibling.isMainApe = true;
     sibling.currentJob = Job::Guard;
 
-    ApeData worker1 = createRandomApe(worldSeed + 1004, dyn.id, pVillage.id, names, allTraits, worldSeed);
+    ApeData worker1 = createRandomApe(worldSeed + 1004, 0, pVillage.id, names, allTraits, worldSeed);
     worker1.name = "Aldo";
     worker1.age = 28.0f;
     worker1.worldX = pVillage.centerX - 1720.0f;
     worker1.worldY = 500.0f;
     worker1.homeX = worker1.worldX;
     worker1.homeY = worker1.worldY;
+    worker1.isMainApe = false;
     worker1.currentJob = Job::Guard;
 
-    ApeData worker2 = createRandomApe(worldSeed + 1005, dyn.id, pVillage.id, names, allTraits, worldSeed);
+    ApeData worker2 = createRandomApe(worldSeed + 1005, 0, pVillage.id, names, allTraits, worldSeed);
     worker2.name = "Maurice";
     worker2.age = 30.0f;
     worker2.worldX = pVillage.centerX - 350.0f;
     worker2.worldY = 500.0f;
     worker2.homeX = worker2.worldX;
     worker2.homeY = worker2.worldY;
+    worker2.isMainApe = false;
     worker2.currentJob = Job::Idle;
 
     founder.children.push_back(child.id);
@@ -260,11 +269,11 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     dyn.founderId = founder.id;
     dyn.currentLeaderId = founder.id;
     dyn.primaryHeirId = child.id;
-    dyn.members = {founder.id, spouse.id, child.id, sibling.id, worker1.id, worker2.id};
+    dyn.members = {founder.id, spouse.id, child.id, sibling.id};
 
     pVillage.founderId = founder.id;
     pVillage.leaderId = founder.id;
-    pVillage.members = dyn.members;
+    pVillage.members = {founder.id, spouse.id, child.id, sibling.id, worker1.id, worker2.id};
 
     registry.registerVillage(pVillage);
     registry.registerDynasty(dyn);
@@ -282,7 +291,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
 
 void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_t worldSeed) {
     std::vector<std::string> names = {"Spear", "Fang", "Goro", "Kala", "Kerchak", "Terk", "Ash", "Buck", "Brutus", "Goliath"};
-    std::vector<Trait> allTraits = {Trait::Brave, Trait::Coward, Trait::Greedy, Trait::Cruel, Trait::Lazy, Trait::Strategic};
+    std::vector<Trait> allTraits = {Trait::Brave, Trait::Coward, Trait::Greedy, Trait::Cruel, Trait::Lazy, Trait::Strategic, Trait::Aggressive};
     std::vector<VillageIdentity> identities = {VillageIdentity::Aggressive, VillageIdentity::FoodRich, VillageIdentity::StoneFocused, VillageIdentity::WoodFocused, VillageIdentity::Peaceful};
 
     uint32_t popSeed = worldSeed;
@@ -297,6 +306,7 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         village.centerX = centers[v];
         village.homeChunkX = static_cast<int>(std::floor((village.centerX - 1000.f) / 2000.f));
         village.centerY = 500.0f;
+        village.throneX = village.centerX;
         village.tier = SettlementTier::FirePit;
         village.amber = 5;
         village.food = 40;
@@ -323,6 +333,8 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         int pop = SeedManager::getRandomInt(popSeed, 5, 8);
         for (int i = 0; i < pop; ++i) {
             ApeData ape = createRandomApe(worldSeed + (static_cast<uint32_t>(v) * 1000) + i, 0, village.id, names, allTraits, worldSeed);
+            ape.isMainApe = (i < 3);
+
             float xOffset = 0.f;
             if (i == 0) {
                 ape.currentJob = Job::Idle;

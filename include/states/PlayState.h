@@ -126,6 +126,9 @@ private:
     float amberPulseTimer = 0.f;
     int lastObservedAmber = -1;
 
+    bool isCouncilMenuOpen = false;
+    sim::EntityID selectedCouncilApeId = 0;
+
     bool f3PressedLastFrame = false;
     bool f4PressedLastFrame = false;
     bool f5PressedLastFrame = false;
@@ -136,6 +139,7 @@ private:
     bool f10PressedLastFrame = false;
     bool f11PressedLastFrame = false;
 
+    void drawCouncilMenu(sf::RenderWindow& window);
     void initDynastySimulation();
     void refreshInteractionTargets();
     void startDiplomaticDialogue(sim::EntityID repId, int startNode = 0);

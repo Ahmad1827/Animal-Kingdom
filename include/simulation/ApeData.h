@@ -7,9 +7,29 @@
 
 namespace sim {
 
-enum class Gender { Male, Female };
-enum class Occupation { Unemployed, Woodcutter, Gatherer, Builder, Guard, Hunter };
-enum class Goal { Survive, GatherFood, GatherWood, Build, Socialize, Sleep };
+enum class Gender { 
+    Male, 
+    Female 
+};
+
+enum class Occupation { 
+    Unemployed, 
+    Woodcutter, 
+    Gatherer, 
+    Builder, 
+    Guard, 
+    Hunter 
+};
+
+enum class Goal { 
+    Survive, 
+    GatherFood, 
+    GatherWood, 
+    Build, 
+    Socialize, 
+    Sleep 
+};
+
 enum class Job { 
     Idle, 
     Woodcutter, 
@@ -30,11 +50,54 @@ enum class Job {
     Intimidate, 
     Observe, 
     Muster, 
-    Flee 
+    Flee, 
+    Gathering 
 };
-enum class ToolType { None, Basket, StoneAxe, StonePick, WoodenSpear, Torch };
-enum class DiseaseType { None, Flu, Fever, Plague, Parasite, Infection };
-enum class Trait { Brave, Coward, Greedy, Honorable, Cruel, Charismatic, Lazy, Strategic, Impulsive, Curious, Energetic };
+
+enum class ToolType { 
+    None, 
+    Basket, 
+    StoneAxe, 
+    StonePick, 
+    WoodenSpear, 
+    Torch 
+};
+
+enum class DiseaseType { 
+    None, 
+    Flu, 
+    Fever, 
+    Plague, 
+    Parasite, 
+    Infection 
+};
+
+enum class Trait { 
+    Brave, 
+    Coward, 
+    Greedy, 
+    Honorable, 
+    Cruel, 
+    Charismatic, 
+    Lazy, 
+    Strategic, 
+    Impulsive, 
+    Curious, 
+    Energetic, 
+    Clever, 
+    Hardworking, 
+    Patient, 
+    Aggressive, 
+    Perceptive 
+};
+
+enum class CouncilRole {
+    None,
+    WarChief,
+    ChiefBuilder,
+    LeadForager,
+    Shaman
+};
 
 struct ApeSkills {
     float woodcutting = 1.0f;
@@ -51,6 +114,10 @@ struct ApeData {
     VillageID villageId = 0;
     KingdomID currentKingdom = 0;
     std::string name = "Ape";
+
+    bool isMainApe = false;
+    CouncilRole councilRole = CouncilRole::None;
+
     float age = 20.0f;
     Gender gender = Gender::Male;
     float health = 100.0f;

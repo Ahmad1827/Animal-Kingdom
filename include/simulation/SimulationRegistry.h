@@ -9,6 +9,8 @@
 
 #include "simulation/EntityID.h"
 #include "simulation/ApeData.h"
+#include "simulation/VillageData.h"
+#include "simulation/StructureData.h"
 #include "simulation/ResourceNode.h"
 #include "dynasty/Character.h"
 #include "dynasty/Clan.h"
@@ -20,40 +22,6 @@ class WorldManager;
 
 namespace sim {
 
-enum class StructureType {
-    VillageCenter,
-    Bonfire,
-    WoodPile,
-    StonePile,
-    SimpleBarrier,
-    StorageHut,
-    Nest,
-    BuilderHut,
-    WatchPlatform,
-    Granary,
-    ToolRack,
-    Barricade,
-    Watchtower,
-    Armory,
-    EmptyPlot
-};
-
-enum class SettlementTier {
-    FirePit = 1,
-    ClanHearth = 2,
-    GreatCanopy = 3,
-    DynastySeat = 4
-};
-
-enum class VillageIdentity {
-    Balanced,
-    Aggressive,
-    FoodRich,
-    StoneFocused,
-    WoodFocused,
-    Peaceful
-};
-
 enum class DiplomacyStatus {
     Neutral,
     Friendly,
@@ -62,14 +30,6 @@ enum class DiplomacyStatus {
     Suspicious,
     Rival,
     War
-};
-
-enum class Reputation {
-    Hostile,
-    Suspicious,
-    Neutral,
-    Friendly,
-    Allied
 };
 
 enum class Season {
@@ -156,35 +116,6 @@ struct DynastyData {
     std::vector<EntityID> members;
 };
 
-struct StructureData {
-    EntityID id = 0;
-    StructureType type = StructureType::VillageCenter;
-    std::string name;
-    VillageID villageId = 0;
-    float worldX = 0.0f;
-    float worldY = 500.0f;
-    float progress = 0.0f;
-    float maxProgress = 100.0f;
-    int reqWood = 0;
-    int reqStone = 0;
-    int curWood = 0;
-    int curStone = 0;
-
-    int tier = 1;
-    int requiredAmber = 0;
-    int requiredWood = 0;
-    int requiredStone = 0;
-
-    int axeCount = 0;
-    int claimedAxes = 0;
-
-    bool isPlanned = false;
-    bool isUnderConstruction = false;
-    bool isFinished = true;
-    std::string benefitText;
-    EntityID currentBuilder = 0;
-};
-
 struct ArmyData {
     EntityID id = 0;
     KingdomID homeKingdom = 0;
@@ -196,59 +127,6 @@ struct ArmyData {
     int supplies = 0;
     std::vector<EntityID> members;
     ArmyObjective objective = ArmyObjective::Muster;
-};
-
-struct VillageData {
-    VillageID id = 0;
-    std::string name = "Tribe";
-    VillageIdentity identity = VillageIdentity::Balanced;
-    KingdomID kingdomId = 0;
-    EntityID founderId = 0;
-    EntityID leaderId = 0;
-    int homeChunkX = 0;
-    float centerX = 1000.0f;
-    float centerY = 500.0f;
-    float borderMinX = -500.0f;
-    float borderMaxX = 2500.0f;
-    float territoryRadius = 1500.0f;
-    float migrationTargetX = 0.0f;
-
-    bool isExpandingBorder = false;
-    bool expandingSideRight = true;
-    float targetBorderX = 0.0f;
-    EntityID borderMoverApe = 0;
-    EntityID borderStructureId = 0;
-
-    SettlementTier tier = SettlementTier::FirePit;
-    int amber = 12;
-    int food = 30;
-    int wood = 10;
-    int stone = 0;
-
-    int maxAmber = 60;
-    int maxFood = 100;
-    int maxWood = 80;
-    int maxStone = 40;
-
-    int toolsAxe = 0;
-    int toolsSpear = 0;
-    int toolsBasket = 0;
-    int toolsPick = 0;
-    int toolsTorch = 0;
-    int toolsRope = 0;
-
-    int availableAxeSlots = 0;
-    int availableSpearSlots = 0;
-    int availableBasketSlots = 1;
-
-    bool isMigrating = false;
-    std::vector<EntityID> members;
-    std::vector<EntityID> constructionQueue;
-    std::vector<EntityID> finishedStructures;
-    std::unordered_set<VillageID> knownVillages;
-    std::unordered_set<EntityID> permittedApes;
-    std::unordered_map<EntityID, int> personalOpinions;
-    std::unordered_map<VillageID, Reputation> relations;
 };
 
 struct KingdomData {

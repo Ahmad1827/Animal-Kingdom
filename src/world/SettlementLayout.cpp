@@ -1,11 +1,12 @@
 #include "world/SettlementLayout.h"
 #include "world/SeedManager.h"
+#include <cmath>
 
 namespace SettlementLayout {
 
 float getPlayerCenterX() { return 1000.0f; }
-float getPlayerTerritoryRadius() { return 1500.0f; }
-float getVillageTerritoryRadius() { return 1500.0f; }
+float getPlayerTerritoryRadius() { return 2200.0f; }
+float getVillageTerritoryRadius() { return 2200.0f; }
 
 int getVillageCount(uint32_t worldSeed) {
     uint32_t popSeed = worldSeed;
@@ -22,6 +23,20 @@ std::vector<float> getVillageCenters(uint32_t worldSeed) {
         centers.push_back(1000.0f + static_cast<float>(dir * step) * 12000.0f);
     }
     return centers;
+}
+
+bool isSettlementArea(float worldX, uint32_t worldSeed, float buffer) {
+    if (std::abs(worldX - getPlayerCenterX()) <= (getPlayerTerritoryRadius() + buffer)) {
+        return true;
+    }
+
+    std::vector<float> centers = getVillageCenters(worldSeed);
+    for (float c : centers) {
+        if (std::abs(worldX - c) <= (getVillageTerritoryRadius() + buffer)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 }

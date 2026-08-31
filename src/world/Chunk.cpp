@@ -1,6 +1,7 @@
 #include "world/Chunk.h"
 #include "world/WorldGenerator.h"
 #include "world/SeedManager.h"
+#include "world/SettlementLayout.h"
 #include "core/VisualConfig.h"
 #include <cmath>
 #include <algorithm>
@@ -179,7 +180,9 @@ Chunk::Chunk(ChunkPos pos, float width, float height, uint32_t worldSeed, sf::Te
         trees.reserve(40);
         std::vector<Tree> candidateTrees = WorldGenerator::generateTrees(bounds.left, bounds.width, chunkSeed, worldSeed, props, decorTex);
         for (auto& tree : candidateTrees) {
-            trees.push_back(std::move(tree));
+            if (!SettlementLayout::isSettlementArea(tree.getTrunkCenter(), worldSeed, 800.0f)) {
+                trees.push_back(std::move(tree));
+            }
         }
 
         decorations.reserve(100);

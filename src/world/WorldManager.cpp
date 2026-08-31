@@ -358,13 +358,13 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
         if (v.kingdomId % 3 == 1) kingdomColor = sf::Color(50, 100, 200);
         else if (v.kingdomId % 3 == 2) kingdomColor = sf::Color(200, 150, 20);
 
-        if (!hideLeft && leftEdge >= viewBounds.left - 400.f && leftEdge <= viewBounds.left + viewBounds.width + 400.f) {
+        if (!hideLeft && leftEdge >= viewBounds.left - 500.f && leftEdge <= viewBounds.left + viewBounds.width + 500.f) {
             float groundY = getTerrainHeight(leftEdge);
 
             if (villageTexture && villageTexture->getSize().x > 0) {
                 sf::Sprite lookpost(*villageTexture, rectLookpost);
                 lookpost.setOrigin(static_cast<float>(rectLookpost.width) * 0.5f, static_cast<float>(rectLookpost.height));
-                lookpost.setPosition(leftEdge + 140.f, groundY);
+                lookpost.setPosition(leftEdge + 360.f, groundY);
                 lookpost.setScale(0.82f, 0.82f);
                 target.draw(lookpost);
 
@@ -396,13 +396,13 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
             }
         }
 
-        if (!hideRight && rightEdge >= viewBounds.left - 400.f && rightEdge <= viewBounds.left + viewBounds.width + 400.f) {
+        if (!hideRight && rightEdge >= viewBounds.left - 500.f && rightEdge <= viewBounds.left + viewBounds.width + 500.f) {
             float groundY = getTerrainHeight(rightEdge);
 
             if (villageTexture && villageTexture->getSize().x > 0) {
                 sf::Sprite lookpost(*villageTexture, rectLookpost);
                 lookpost.setOrigin(static_cast<float>(rectLookpost.width) * 0.5f, static_cast<float>(rectLookpost.height));
-                lookpost.setPosition(rightEdge - 140.f, groundY);
+                lookpost.setPosition(rightEdge - 360.f, groundY);
                 lookpost.setScale(0.82f, 0.82f);
                 target.draw(lookpost);
 

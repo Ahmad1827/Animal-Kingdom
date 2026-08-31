@@ -104,6 +104,7 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
     };
 
     addFinished(StructureType::VillageCenter, "Clan Hearth & Great Lodge", 0.f, "Seat of the Clan & Ruling Authority");
+    addFinished(StructureType::Throne, "Chieftain's Throne", 0.f, "Throne of Ruling Authority");
     addFinished(StructureType::ToolRack, "Tool Rack", -700.f, "Stores Tools for Clan Workers");
     addFinished(StructureType::WoodPile, "Timber Stockpile", 700.f, "Stores Harvested Wood");
     addFinished(StructureType::SimpleBarrier, "West Palisade Wall", -1800.f, "Settlement Palisade Barrier");

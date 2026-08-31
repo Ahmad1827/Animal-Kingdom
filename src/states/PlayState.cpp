@@ -191,21 +191,21 @@ void PlayState::processEvents(const sf::Event& event) {
         return; 
     }
 
-    if (isCouncilMenuOpen) {
+    if (isInspectingCharacter) {
         if (event.type == sf::Event::KeyPressed) {
             if (event.key.code == sf::Keyboard::Escape) {
-                isCouncilMenuOpen = false;
-                selectedCouncilApeId = 0;
+                isInspectingCharacter = false;
+                inspectedApeId = 0;
                 return;
             }
 
-            if (selectedCouncilApeId != 0) {
+            if (inspectedApeId != 0) {
                 sim::SimulationRegistry& reg = simulationManager->getRegistry();
-                sim::ApeData* targetApe = reg.getApe(selectedCouncilApeId);
+                sim::ApeData* targetApe = reg.getApe(inspectedApeId);
                 sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
                 if (targetApe && player) {
                     sim::VillageData* village = reg.getVillage(player->villageId);
-                    if (village) {
+                    if (village && targetApe->id != village->leaderId) {
                         if (event.key.code == sf::Keyboard::Num1) {
                             village->warChiefId = targetApe->id;
                             targetApe->councilRole = sim::CouncilRole::WarChief;
@@ -222,24 +222,12 @@ void PlayState::processEvents(const sf::Event& event) {
                             village->shamanId = targetApe->id;
                             targetApe->councilRole = sim::CouncilRole::Shaman;
                             return;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
-            sf::Vector2f mouseWorld = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y));
-            sim::SimulationRegistry& reg = simulationManager->getRegistry();
-            sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
-            if (player) {
-                sim::VillageData* village = reg.getVillage(player->villageId);
-                if (village) {
-                    for (sim::EntityID mId : village->members) {
-                        sim::ApeData* ape = reg.getApe(mId);
-                        if (!ape || !ape->alive || !ape->isMainApe || ape->id == village->leaderId) continue;
-                        if (std::abs(mouseWorld.x - ape->worldX) < 45.f && std::abs(mouseWorld.y - ape->worldY) < 65.f) {
-                            selectedCouncilApeId = ape->id;
+                        } else if (event.key.code == sf::Keyboard::Num0) {
+                            if (village->warChiefId == targetApe->id) village->warChiefId = 0;
+                            if (village->chiefBuilderId == targetApe->id) village->chiefBuilderId = 0;
+                            if (village->leadForagerId == targetApe->id) village->leadForagerId = 0;
+                            if (village->shamanId == targetApe->id) village->shamanId = 0;
+                            targetApe->councilRole = sim::CouncilRole::None;
                             return;
                         }
                     }
@@ -248,30 +236,67 @@ void PlayState::processEvents(const sf::Event& event) {
         }
     }
 
-    if (event.type == sf::Event::KeyPressed) {
-        if (event.key.code == sf::Keyboard::G && mapMode == MapMode::Hidden && !isDialogueActive && !dynastyUI.isOpen()) {
-            sim::SimulationRegistry& reg = simulationManager->getRegistry();
-            sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
-            if (player) {
-                sim::VillageData* village = reg.getVillage(player->villageId);
-                if (village) {
-                    float distToThrone = std::abs(player->worldX - village->centerX);
-                    if (distToThrone <= 140.0f) {
-                        village->isGatheringActive = !village->isGatheringActive;
-                        isCouncilMenuOpen = village->isGatheringActive;
-                        selectedCouncilApeId = 0;
+    if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left && mapMode == MapMode::Hidden && !dynastyUI.isOpen() && !isDialogueActive) {
+        sf::Vector2f worldClick = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraManager->getView());
+        sim::SimulationRegistry& reg = simulationManager->getRegistry();
+        sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
+        if (player) {
+            sim::VillageData* village = reg.getVillage(player->villageId);
+            if (village) {
+                for (sim::EntityID mId : village->members) {
+                    sim::ApeData* ape = reg.getApe(mId);
+                    if (!ape || !ape->alive) continue;
+                    if (std::abs(worldClick.x - ape->worldX) < 45.f && std::abs(worldClick.y - ape->worldY) < 70.f) {
+                        inspectedApeId = ape->id;
+                        isInspectingCharacter = true;
+                        return;
+                    }
+                }
+            }
+        }
+    }
 
-                        if (!village->isGatheringActive) {
-                            for (sim::EntityID mId : village->members) {
-                                sim::ApeData* ape = reg.getApe(mId);
-                                if (ape && ape->alive && ape->isMainApe && ape->id != village->leaderId) {
-                                    ape->hasTravelDestination = false;
-                                    ape->currentJob = sim::Job::Idle;
-                                }
+    if (event.type == sf::Event::KeyPressed) {
+        sim::SimulationRegistry& reg = simulationManager->getRegistry();
+        sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
+
+        if (player) {
+            sim::VillageData* village = reg.getVillage(player->villageId);
+            if (village) {
+                float distToThrone = std::abs(player->worldX - village->throneX);
+
+                if (event.key.code == sf::Keyboard::E && !isDialogueActive) {
+                    if (distToThrone <= 100.0f) {
+                        isSittingOnThrone = !isSittingOnThrone;
+                        if (isSittingOnThrone) {
+                            player->worldX = village->throneX;
+                            if (playerWrapper) {
+                                playerWrapper->setPosition(village->throneX, playerWrapper->getPosition().y);
+                                playerWrapper->setVelocity(0.f, 0.f);
                             }
                         }
                         return;
                     }
+                }
+
+                if (isSittingOnThrone && event.key.code == sf::Keyboard::G) {
+                    village->isGatheringActive = !village->isGatheringActive;
+                    if (!village->isGatheringActive) {
+                        for (sim::EntityID mId : village->members) {
+                            sim::ApeData* ape = reg.getApe(mId);
+                            if (ape && ape->alive && ape->isMainApe && ape->id != village->leaderId) {
+                                ape->hasTravelDestination = false;
+                                ape->currentJob = sim::Job::Idle;
+                            }
+                        }
+                    }
+                    return;
+                }
+
+                if (isSittingOnThrone && (event.key.code == sf::Keyboard::A || event.key.code == sf::Keyboard::D ||
+                                          event.key.code == sf::Keyboard::Left || event.key.code == sf::Keyboard::Right ||
+                                          event.key.code == sf::Keyboard::Space)) {
+                    isSittingOnThrone = false;
                 }
             }
         }
@@ -285,12 +310,13 @@ void PlayState::processEvents(const sf::Event& event) {
                       << " | Mode=" << bp.vegetationMode 
                       << std::endl;
         }
+
         if (event.key.code == sf::Keyboard::Escape && dynastyUI.isOpen()) {
             dynastyUI.close();
             return;
         }
 
-        if (mapMode == MapMode::Hidden && !isDialogueActive && !isCouncilMenuOpen) {
+        if (mapMode == MapMode::Hidden && !isDialogueActive && !isInspectingCharacter) {
             if (event.key.code == sf::Keyboard::C) {
                 dynastyUI.toggle(sim::DynastyUIMode::CHARACTER_VIEW);
                 return;
@@ -303,21 +329,6 @@ void PlayState::processEvents(const sf::Event& event) {
                 dynastyUI.toggle(sim::DynastyUIMode::SUCCESSION_VIEW);
                 return;
             }
-            if (dynastyUI.isOpen() && dynastyUI.getMode() == sim::DynastyUIMode::CHARACTER_VIEW) {
-                sim::DynastyData* dData = simulationManager->getRegistry().getDynasty(activeDynastyId);
-                if (dData) {
-                    sim::Dynasty dyn;
-                    dyn.memberIds = dData->members;
-                    if (event.key.code == sf::Keyboard::Right) {
-                        dynastyUI.nextCharacter(dyn);
-                        return;
-                    }
-                    if (event.key.code == sf::Keyboard::Left) {
-                        dynastyUI.previousCharacter(dyn);
-                        return;
-                    }
-                }
-            }
         }
     }
 
@@ -325,6 +336,7 @@ void PlayState::processEvents(const sf::Event& event) {
         if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
             if (isInspectingCharacter) {
                 isInspectingCharacter = false;
+                inspectedApeId = 0;
                 return;
             } else if (selectedVillageId != 0 || selectedKingdomId != 0) {
                 selectedVillageId = 0;
@@ -1576,6 +1588,34 @@ void PlayState::draw(sf::RenderWindow& window) {
         structureManager->drawForeground(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
 
+    sim::SimulationRegistry& reg = simulationManager->getRegistry();
+    sim::ApeData* pDataHUD = reg.getApe(simulationManager->getControlledApe());
+    sim::VillageData* pVillage = pDataHUD ? reg.getVillage(pDataHUD->villageId) : nullptr;
+
+    if (pVillage && pVillage->isGatheringActive) {
+        for (sim::EntityID mId : pVillage->members) {
+            sim::ApeData* ape = reg.getApe(mId);
+            if (!ape || !ape->alive || ape->id == pVillage->leaderId) continue;
+
+            std::string roleLabel = "";
+            if (pVillage->warChiefId == ape->id) roleLabel = "[War Chief]";
+            else if (pVillage->chiefBuilderId == ape->id) roleLabel = "[Builder]";
+            else if (pVillage->leadForagerId == ape->id) roleLabel = "[Forager]";
+            else if (pVillage->shamanId == ape->id) roleLabel = "[Shaman]";
+
+            if (!roleLabel.empty()) {
+                sf::Text tag(roleLabel, cinematicFont, 14);
+                tag.setFillColor(sf::Color(255, 215, 100));
+                tag.setOutlineColor(sf::Color::Black);
+                tag.setOutlineThickness(1.5f);
+                sf::FloatRect tb = tag.getLocalBounds();
+                tag.setOrigin(tb.left + tb.width / 2.f, tb.top + tb.height / 2.f);
+                tag.setPosition(ape->worldX, ape->worldY - 50.f);
+                rt.draw(tag);
+            }
+        }
+    }
+
     if (debugOverlay && debugOverlay->getShowVillageDebug()) {
         for (auto& p : simulationManager->getRegistry().getAllVillages()) {
             float minX = p.second.borderMinX;
@@ -1624,7 +1664,6 @@ void PlayState::draw(sf::RenderWindow& window) {
     sf::Color waterTint = dayNightCycle ? dayNightCycle->getSkyColor() : sf::Color::White;
     waterPlane.draw(window, sceneTexture.getTexture(), cameraManager->getView(), waterTint);
 
-    sim::ApeData* pDataHUD = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
     if (pDataHUD && !dynastyUI.isOpen()) {
         drawAmberHUD(window, pDataHUD);
     }
@@ -1705,7 +1744,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             window.draw(speakerText);
 
             sf::Text bodyText(dialogueText, cinematicFont, 20);
-            bodyText.setFillColor(sf::Color::White);
+            bodyText.setFillColor(sf::Color(sf::Uint8(255), sf::Uint8(255), sf::Uint8(255)));
             bodyText.setOutlineColor(sf::Color::Black);
             bodyText.setOutlineThickness(2.f);
             sf::FloatRect bRect = bodyText.getLocalBounds();
@@ -1743,6 +1782,33 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     window.setView(window.getDefaultView());
 
+    if (pVillage && !dynastyUI.isOpen() && !isDialogueActive) {
+        float distToThrone = std::abs(pDataHUD->worldX - pVillage->throneX);
+        if (distToThrone <= 100.0f && !isSittingOnThrone && !isInspectingCharacter) {
+            sf::Text prompt("[E] Sit on Throne", cinematicFont, 18);
+            prompt.setFillColor(sf::Color(255, 230, 120));
+            prompt.setOutlineColor(sf::Color::Black);
+            prompt.setOutlineThickness(1.5f);
+            sf::FloatRect pb = prompt.getLocalBounds();
+            prompt.setOrigin(pb.left + pb.width / 2.f, pb.top + pb.height / 2.f);
+            prompt.setPosition(window.getSize().x / 2.f, window.getSize().y * 0.82f);
+            window.draw(prompt);
+        } else if (isSittingOnThrone && !isInspectingCharacter) {
+            std::string sitPromptStr = pVillage->isGatheringActive ? 
+                "[G] Dismiss Gathering   |   Click Ape to Inspect & Assign Role   |   [E / Move] Stand Up" : 
+                "[G] Summon Clan Gathering   |   [E / Move] Stand Up";
+            
+            sf::Text prompt(sitPromptStr, cinematicFont, 18);
+            prompt.setFillColor(sf::Color(255, 215, 90));
+            prompt.setOutlineColor(sf::Color::Black);
+            prompt.setOutlineThickness(1.5f);
+            sf::FloatRect pb = prompt.getLocalBounds();
+            prompt.setOrigin(pb.left + pb.width / 2.f, pb.top + pb.height / 2.f);
+            prompt.setPosition(window.getSize().x / 2.f, window.getSize().y * 0.82f);
+            window.draw(prompt);
+        }
+    }
+
     if (mapMode != MapMode::Hidden) {
         drawWorldMap(window);
 
@@ -1761,19 +1827,18 @@ void PlayState::draw(sf::RenderWindow& window) {
         } else if (selectedKingdomId != 0) {
             drawKingdomProfile(window, selectedKingdomId);
         }
+    } else if (isInspectingCharacter && inspectedApeId != 0) {
+        drawCharacterProfile(window, inspectedApeId);
     }
-
-    drawCouncilMenu(window);
 
     if (dynastyUI.isOpen()) {
         sim::DynastyData* dData = simulationManager->getRegistry().getDynasty(activeDynastyId);
         sim::Clan* cl = simulationManager->getRegistry().getClan(activeClanId);
-        sim::ApeData* cData = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-        if (dData && cl && cData) {
+        if (dData && cl && pDataHUD) {
             sim::Dynasty dynWrapper;
             dynWrapper.id = dData->id;
             dynWrapper.name = dData->name;
-            dynWrapper.currentAlphaId = cData->id;
+            dynWrapper.currentAlphaId = pDataHUD->id;
             dynWrapper.memberIds = dData->members;
 
             dynastyUI.render(
@@ -1782,7 +1847,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                 *cl,
                 simulationManager->getRegistry().getAllCharacters(),
                 simulationManager->getRegistry().getFactions(),
-                cData->id
+                pDataHUD->id
             );
         }
     }
@@ -2664,145 +2729,10 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
     sim::ApeData* ape = simulationManager->getRegistry().getApe(apeId);
     if (!ape) return;
 
-    std::string name = ape->name;
-    std::string ageHealth = "Age: " + std::to_string(static_cast<int>(ape->age));
-    
-    sim::DynastyData* dyn = simulationManager->getRegistry().getDynasty(ape->dynastyId);
-    std::string dynastyName = dyn ? dyn->name + " Dynasty" : "Unlanded Wanderer";
-
-    std::string title = "Villager";
-    std::string realm = "Unknown Lands";
-    
-    sim::KingdomData* kData = nullptr;
-    sim::VillageData* vData = nullptr;
-    
-    if (ape->currentKingdom != 0) {
-        kData = simulationManager->getRegistry().getKingdom(ape->currentKingdom);
-        if (kData) {
-            realm = kData->name;
-            title = (kData->currentKingId == ape->id) ? "King of " + realm : "Noble of " + realm;
-        }
-    } else if (ape->villageId != 0) {
-        vData = simulationManager->getRegistry().getVillage(ape->villageId);
-        if (vData) {
-            realm = vData->name;
-            title = (vData->leaderId == ape->id) ? "Chief of " + realm : "Villager of " + realm;
-        }
-    }
-
-    std::string traitsStr = "Traits:\n";
-    for (auto t : ape->traits) {
-        switch(t) {
-            case sim::Trait::Brave: traitsStr += "- Brave\n"; break;
-            case sim::Trait::Coward: traitsStr += "- Coward\n"; break;
-            case sim::Trait::Greedy: traitsStr += "- Greedy\n"; break;
-            case sim::Trait::Honorable: traitsStr += "- Honorable\n"; break;
-            case sim::Trait::Cruel: traitsStr += "- Cruel\n"; break;
-            case sim::Trait::Charismatic: traitsStr += "- Charismatic\n"; break;
-            case sim::Trait::Lazy: traitsStr += "- Lazy\n"; break;
-            case sim::Trait::Strategic: traitsStr += "- Strategic\n"; break;
-            case sim::Trait::Impulsive: traitsStr += "- Impulsive\n"; break;
-            case sim::Trait::Curious: traitsStr += "- Curious\n"; break;
-            case sim::Trait::Energetic: traitsStr += "- Energetic\n"; break;
-        }
-    }
-    if (ape->traits.empty()) traitsStr += "- None\n";
-
-    std::string relDisplay = "";
-    sf::Color relColor = sf::Color(200, 200, 200);
-
     sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-    
-    if (player && player->currentKingdom != 0 && kData != nullptr) {
-        if (player->currentKingdom == kData->id) {
-            relDisplay = "Subject of your Realm";
-            relColor = sf::Color(255, 215, 100);
-        } else {
-            sim::KingdomData* pK = simulationManager->getRegistry().getKingdom(player->currentKingdom);
-            if (pK) {
-                std::string statusStr = "Neutral";
-                if (pK->relations.count(kData->id)) {
-                    switch (pK->relations[kData->id]) {
-                        case sim::DiplomacyStatus::War: statusStr = "At War"; break;
-                        case sim::DiplomacyStatus::Rival: statusStr = "Rival"; break;
-                        case sim::DiplomacyStatus::Alliance: statusStr = "Alliance"; break;
-                        case sim::DiplomacyStatus::Trade: statusStr = "Trade Partner"; break;
-                        case sim::DiplomacyStatus::Friendly: statusStr = "Friendly"; break;
-                        default: break;
-                    }
-                }
+    sim::VillageData* village = player ? simulationManager->getRegistry().getVillage(player->villageId) : nullptr;
 
-                float tensionRaw = 0.0f;
-                if (pK->borderTension.count(kData->id)) {
-                    tensionRaw = pK->borderTension[kData->id];
-                }
-
-                int tensionInt = static_cast<int>(tensionRaw);
-                int opinionScore = -tensionInt;
-                
-                std::string opinionDesc = "Neutral";
-                if (statusStr == "At War") { opinionDesc = "Hostile"; relColor = sf::Color(255, 100, 100); }
-                else if (tensionInt >= 40) { opinionDesc = "Hostile"; relColor = sf::Color(255, 120, 120); }
-                else if (tensionInt >= 20) { opinionDesc = "Uneasy"; relColor = sf::Color(255, 180, 100); }
-                else if (statusStr == "Trade Partner" || statusStr == "Friendly" || statusStr == "Alliance") { 
-                    opinionDesc = "Friendly"; 
-                    relColor = sf::Color(120, 255, 120); 
-                    if (tensionInt == 0) opinionScore = 15;
-                }
-
-                relDisplay = "Opinion of Us: " + std::to_string(opinionScore) + "  " + opinionDesc + "\n\n";
-                relDisplay += "Diplomatic Status: " + statusStr + "\n";
-                relDisplay += "Border Tension: " + std::to_string(tensionInt);
-            }
-        }
-    } else if (vData != nullptr) {
-        sim::EntityID pId = player ? player->id : 0;
-
-        if (player && vData->id == player->villageId) {
-            relDisplay = "Member of your Village";
-            relColor = sf::Color(255, 215, 100);
-        } else {
-            int opinion = 0;
-            if (pId != 0 && vData->personalOpinions.count(pId)) {
-                opinion = vData->personalOpinions[pId];
-            }
-
-            std::string repStr = "Neutral";
-            relColor = sf::Color(200, 200, 200);
-
-            if (opinion >= 30) {
-                repStr = "Friendly";
-                relColor = sf::Color(120, 255, 120);
-            } else if (opinion <= -30) {
-                repStr = "Hostile";
-                relColor = sf::Color(255, 100, 100);
-            } else if (opinion <= -10) {
-                repStr = "Suspicious";
-                relColor = sf::Color(255, 180, 100);
-            }
-
-            bool underAttack = false;
-            for (const auto& aPair : simulationManager->getRegistry().getAllArmies()) {
-                if (aPair.second.targetVillage == vData->id && aPair.second.homeKingdom != 0 && player && aPair.second.homeKingdom == player->currentKingdom) {
-                    underAttack = true;
-                    break;
-                }
-            }
-
-            relDisplay = "Opinion of You: " + std::to_string(opinion) + "\n\n";
-            relDisplay += "Reputation: " + repStr;
-            
-            if (underAttack) {
-                relDisplay += "\n\nActive Conflict: Army approaching!";
-                relColor = sf::Color(255, 50, 50);
-            }
-        }
-    } else {
-        relDisplay = "Wanderer / No Affiliation";
-        relColor = sf::Color(150, 150, 150);
-    }
-
-    float panelW = 320.f;
+    float panelW = 340.f;
     float panelH = 500.f;
     float startX = profilePanelPos.x; 
     float startY = profilePanelPos.y;
@@ -2829,33 +2759,74 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
         window.draw(t);
     };
 
-    float curY = startY + 25.f;
-    drawText(name, startX, curY, 28, sf::Color(255, 215, 100), true);
-    curY += 35.f;
-    drawText(dynastyName, startX, curY, 16, sf::Color(180, 180, 180), true);
-    curY += 40.f;
-    drawText(title, startX, curY, 20, sf::Color(220, 220, 220), true);
-    curY += 35.f;
-    drawText(ageHealth, startX, curY, 16, sf::Color(150, 200, 150), true);
-    curY += 40.f;
+    float curY = startY + 20.f;
+    drawText(ape->name, startX, curY, 26, sf::Color(255, 215, 100), true);
+    curY += 32.f;
 
-    sf::RectangleShape div(sf::Vector2f(panelW - 60.f, 2.f));
-    div.setPosition(startX + 30.f, curY);
+    std::string roleStr = "None";
+    if (village) {
+        if (village->warChiefId == ape->id) roleStr = "War Chief";
+        else if (village->chiefBuilderId == ape->id) roleStr = "Chief Builder";
+        else if (village->leadForagerId == ape->id) roleStr = "Lead Forager";
+        else if (village->shamanId == ape->id) roleStr = "Shaman";
+    }
+
+    drawText("Role: " + roleStr, startX, curY, 18, sf::Color(240, 190, 80), true);
+    curY += 28.f;
+
+    drawText("Age: " + std::to_string(static_cast<int>(ape->age)) + "   Health: " + std::to_string(static_cast<int>(ape->health)) + "%", startX, curY, 15, sf::Color(180, 180, 180), true);
+    curY += 30.f;
+
+    sf::RectangleShape div(sf::Vector2f(panelW - 40.f, 2.f));
+    div.setPosition(startX + 20.f, curY);
     div.setFillColor(sf::Color(120, 90, 50, 200));
     window.draw(div);
-    curY += 20.f;
+    curY += 15.f;
 
-    drawText(traitsStr, startX + 30.f, curY, 16, sf::Color(200, 200, 200), false);
-    curY += 130.f;
+    std::string traitsStr = "Traits:\n";
+    for (auto t : ape->traits) {
+        switch(t) {
+            case sim::Trait::Brave: traitsStr += "- Brave\n"; break;
+            case sim::Trait::Coward: traitsStr += "- Coward\n"; break;
+            case sim::Trait::Greedy: traitsStr += "- Greedy\n"; break;
+            case sim::Trait::Honorable: traitsStr += "- Honorable\n"; break;
+            case sim::Trait::Cruel: traitsStr += "- Cruel\n"; break;
+            case sim::Trait::Charismatic: traitsStr += "- Charismatic\n"; break;
+            case sim::Trait::Lazy: traitsStr += "- Lazy\n"; break;
+            case sim::Trait::Strategic: traitsStr += "- Strategic\n"; break;
+            case sim::Trait::Impulsive: traitsStr += "- Impulsive\n"; break;
+            case sim::Trait::Curious: traitsStr += "- Curious\n"; break;
+            case sim::Trait::Energetic: traitsStr += "- Energetic\n"; break;
+            case sim::Trait::Clever: traitsStr += "- Clever\n"; break;
+            case sim::Trait::Hardworking: traitsStr += "- Hardworking\n"; break;
+            case sim::Trait::Patient: traitsStr += "- Patient\n"; break;
+            case sim::Trait::Aggressive: traitsStr += "- Aggressive\n"; break;
+            case sim::Trait::Perceptive: traitsStr += "- Perceptive\n"; break;
+        }
+    }
+    if (ape->traits.empty()) traitsStr += "- None\n";
+    drawText(traitsStr, startX + 25.f, curY, 14, sf::Color(200, 200, 200), false);
+    curY += 90.f;
 
-    div.setPosition(startX + 30.f, curY);
-    window.draw(div);
-    curY += 20.f;
+    if (village && ape->isMainApe && ape->id != village->leaderId) {
+        sf::RectangleShape assignBox(sf::Vector2f(panelW - 40.f, 160.f));
+        assignBox.setPosition(startX + 20.f, curY);
+        assignBox.setFillColor(sf::Color(45, 32, 24, 230));
+        assignBox.setOutlineColor(sf::Color(140, 100, 50));
+        assignBox.setOutlineThickness(1.f);
+        window.draw(assignBox);
 
-    drawText(relDisplay, startX + 30.f, curY, 16, relColor, false);
+        drawText("COUNCIL ROLE ASSIGNMENT", startX + 30.f, curY + 10.f, 13, sf::Color(255, 215, 100), false);
+        
+        std::string roleKeys = "[1] Appoint War Chief\n"
+                               "[2] Appoint Chief Builder\n"
+                               "[3] Appoint Lead Forager\n"
+                               "[4] Appoint Shaman\n"
+                               "[0] Strip Current Role";
+        drawText(roleKeys, startX + 30.f, curY + 35.f, 13, sf::Color(220, 220, 220), false);
+    }
 
-    curY = startY + panelH - 60.f;
-    drawText("[ Back ]", startX, curY, 18, sf::Color(255, 255, 150), true);
+    drawText("[ESC] Close Profile", startX, startY + panelH - 30.f, 14, sf::Color(255, 255, 150), true);
 }
 
 void PlayState::drawWorldMap(sf::RenderWindow& window) {
@@ -3313,80 +3284,4 @@ void PlayState::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId)
 
     curY = startY + panelH - 60.f;
     drawText("[ View Ruler ]", curY, 18, sf::Color(255, 255, 150), true);
-}
-
-void PlayState::drawCouncilMenu(sf::RenderWindow& window) {
-    if (!isCouncilMenuOpen) return;
-
-    sim::SimulationRegistry& reg = simulationManager->getRegistry();
-    sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
-    if (!player) return;
-
-    sim::VillageData* village = reg.getVillage(player->villageId);
-    if (!village || !village->isGatheringActive) return;
-
-    sf::Vector2f viewCenter = window.getView().getCenter();
-    sf::Vector2f panelPos(viewCenter.x - 300.f, viewCenter.y - 200.f);
-
-    sf::RectangleShape panel(sf::Vector2f(600.f, 400.f));
-    panel.setPosition(panelPos);
-    panel.setFillColor(sf::Color(20, 15, 12, 235));
-    panel.setOutlineColor(sf::Color(180, 140, 60));
-    panel.setOutlineThickness(2.f);
-    window.draw(panel);
-
-    sf::Text headerText;
-    headerText.setFont(cinematicFont);
-    headerText.setString("CLAN GATHERING - COUNCIL CHAMBER");
-    headerText.setCharacterSize(22);
-    headerText.setFillColor(sf::Color(240, 200, 80));
-    headerText.setPosition(panelPos.x + 30.f, panelPos.y + 20.f);
-    window.draw(headerText);
-
-    float entryY = panelPos.y + 70.f;
-    for (sim::EntityID mId : village->members) {
-        sim::ApeData* ape = reg.getApe(mId);
-        if (!ape || !ape->alive || !ape->isMainApe || ape->id == village->leaderId) continue;
-
-        sf::RectangleShape row(sf::Vector2f(540.f, 50.f));
-        row.setPosition(panelPos.x + 30.f, entryY);
-        row.setFillColor((selectedCouncilApeId == ape->id) ? sf::Color(60, 45, 30, 220) : sf::Color(35, 25, 20, 180));
-        row.setOutlineColor(sf::Color(100, 80, 50));
-        row.setOutlineThickness(1.f);
-        window.draw(row);
-
-        sf::Text apeNameText;
-        apeNameText.setFont(cinematicFont);
-        apeNameText.setString(ape->name);
-        apeNameText.setCharacterSize(16);
-        apeNameText.setFillColor(sf::Color::White);
-        apeNameText.setPosition(panelPos.x + 45.f, entryY + 8.f);
-        window.draw(apeNameText);
-
-        std::string roleStr = "None";
-        if (village->warChiefId == ape->id) roleStr = "War Chief";
-        else if (village->chiefBuilderId == ape->id) roleStr = "Chief Builder";
-        else if (village->leadForagerId == ape->id) roleStr = "Lead Forager";
-        else if (village->shamanId == ape->id) roleStr = "Shaman";
-
-        sf::Text roleText;
-        roleText.setFont(cinematicFont);
-        roleText.setString("Role: " + roleStr);
-        roleText.setCharacterSize(14);
-        roleText.setFillColor(sf::Color(200, 180, 120));
-        roleText.setPosition(panelPos.x + 45.f, entryY + 28.f);
-        window.draw(roleText);
-
-        entryY += 60.f;
-    }
-
-    if (selectedCouncilApeId != 0) {
-        sf::Text assignHelp;
-        assignHelp.setFont(cinematicFont);
-        assignHelp.setString("Assign: [1] War Chief  [2] Builder  [3] Forager  [4] Shaman");
-        assignHelp.setCharacterSize(14);
-        assignHelp.setFillColor(sf::Color(220, 180, 90));
-        assignHelp.setPosition(panelPos.x + 30.f, panelPos.y + 360.f);
-        window.draw(assignHelp);
-    }
 }

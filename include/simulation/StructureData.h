@@ -20,7 +20,8 @@ enum class StructureType {
     Watchtower,
     Armory,
     EmptyPlot,
-    TreeLadder
+    TreeLadder,
+    Throne
 };
 
 struct StructureData {

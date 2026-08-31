@@ -12,9 +12,9 @@
 #include "world/CameraManager.h"
 #include "world/WeatherManager.h"
 #include "world/DayNightCycle.h"
-#include "world/WaterPlane.h"
 #include "world/LightingManager.h"
 #include "world/ParticleSystem.h"
+#include "world/WaterPlane.h"
 #include "core/AudioManager.h"
 #include "core/WorldClock.h"
 #include "core/DebugOverlay.h"
@@ -110,8 +110,11 @@ private:
     sf::Vector2i dragStartMousePos;
     sf::Vector2f profilePanelPos;
     bool isInspectingCharacter = false;
+    sim::EntityID inspectedApeId = 0;
     sim::VillageID selectedVillageId = 0;
     sim::KingdomID selectedKingdomId = 0;
+
+    bool isSittingOnThrone = false;
 
     bool isDialogueActive = false;
     sim::EntityID currentDialogueRepId = 0;
@@ -126,9 +129,6 @@ private:
     float amberPulseTimer = 0.f;
     int lastObservedAmber = -1;
 
-    bool isCouncilMenuOpen = false;
-    sim::EntityID selectedCouncilApeId = 0;
-
     bool f3PressedLastFrame = false;
     bool f4PressedLastFrame = false;
     bool f5PressedLastFrame = false;
@@ -139,7 +139,6 @@ private:
     bool f10PressedLastFrame = false;
     bool f11PressedLastFrame = false;
 
-    void drawCouncilMenu(sf::RenderWindow& window);
     void initDynastySimulation();
     void refreshInteractionTargets();
     void startDiplomaticDialogue(sim::EntityID repId, int startNode = 0);

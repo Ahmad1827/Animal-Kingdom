@@ -26,7 +26,8 @@ private:
     float swayTime = 0.f;
     const sf::Texture* villageTexture = nullptr;
 
-    const sf::IntRect rectBorderMonument = sf::IntRect(905, 319, 224, 666);
+    const sf::IntRect rectBorderMonument = sf::IntRect(1070, 1423, 224, 666);
+    const sf::IntRect rectLookpost       = sf::IntRect(1832, 1430, 275, 659);
 
     void syncVineOwnership();
 
@@ -34,7 +35,7 @@ public:
     WorldManager(uint32_t seed, sf::Texture& decorTex);
 
     void setVillageTexture(const sf::Texture& tex) { villageTexture = &tex; }
-    const sf::Texture* getVillageTexture() const { return villageTexture; }
+    const sf::Texture* getTexture() const { return villageTexture; }
 
     void update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, ProfilerStats& profiler);
     void updateSway(float dt, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector);

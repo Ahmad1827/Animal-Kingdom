@@ -102,13 +102,13 @@ static void spawnBaseStructures(SimulationRegistry& registry, VillageData& villa
     };
 
     addFinished(StructureType::VillageCenter, "Clan Hearth & Great Lodge", 0.f, "Seat of the Clan & Ruling Authority");
-    addFinished(StructureType::ToolRack, "Tool Rack", -450.f, "Stores Tools for Clan Workers");
-    addFinished(StructureType::WoodPile, "Timber Stockpile", 450.f, "Stores Harvested Wood");
-    addFinished(StructureType::SimpleBarrier, "West Palisade Wall", -900.f, "Settlement Palisade Barrier");
-    addFinished(StructureType::SimpleBarrier, "East Palisade Wall", 900.f, "Settlement Palisade Barrier");
+    addFinished(StructureType::ToolRack, "Tool Rack", -700.f, "Stores Tools for Clan Workers");
+    addFinished(StructureType::WoodPile, "Timber Stockpile", 700.f, "Stores Harvested Wood");
+    addFinished(StructureType::SimpleBarrier, "West Palisade Wall", -1800.f, "Settlement Palisade Barrier");
+    addFinished(StructureType::SimpleBarrier, "East Palisade Wall", 1800.f, "Settlement Palisade Barrier");
 
-    addBuildPlot(-680.f);
-    addBuildPlot(680.f);
+    addBuildPlot(-1250.f);
+    addBuildPlot(1250.f);
 }
 
 void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t) {
@@ -116,7 +116,7 @@ void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t) {
         ResourceNode res;
         res.id = IDGenerator::generateEntityID();
         res.type = ResourceType::Food;
-        res.worldX = centerX + (i * 1400.f) + (i >= 0 ? 1200.f : -1200.f);
+        res.worldX = centerX + (i * 2200.f) + (i >= 0 ? 2000.f : -2000.f);
         res.worldY = 500.0f - 50.f;
         res.amount = 12;
         res.maxAmount = 12;
@@ -127,7 +127,7 @@ void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t) {
         ResourceNode res;
         res.id = IDGenerator::generateEntityID();
         res.type = ResourceType::Wood;
-        res.worldX = centerX + (i * 1600.f);
+        res.worldX = centerX + (i * 2600.f);
         res.worldY = 500.0f - 50.f;
         res.amount = 25;
         res.maxAmount = 25;
@@ -137,7 +137,7 @@ void spawnNodes(SimulationRegistry& registry, float centerX, uint32_t) {
     ResourceNode res;
     res.id = IDGenerator::generateEntityID();
     res.type = ResourceType::Stone;
-    res.worldX = centerX + 2000.f;
+    res.worldX = centerX + 3100.f;
     res.worldY = 500.0f - 50.f;
     res.amount = 20;
     res.maxAmount = 20;
@@ -174,8 +174,8 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.availableSpearSlots = 0;
     pVillage.availableBasketSlots = 1;
 
-    float westWallX = pVillage.centerX - 900.0f;
-    float eastWallX = pVillage.centerX + 900.0f;
+    float westWallX = pVillage.centerX - 1800.0f;
+    float eastWallX = pVillage.centerX + 1800.0f;
     pVillage.borderMinX = westWallX - WALL_TO_BORDER_OFFSET;
     pVillage.borderMaxX = eastWallX + WALL_TO_BORDER_OFFSET;
     pVillage.territoryRadius = std::max(pVillage.borderMaxX - pVillage.centerX, pVillage.centerX - pVillage.borderMinX);
@@ -204,7 +204,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     spouse.name = "Maya";
     spouse.age = 32.0f;
     spouse.gender = Gender::Female;
-    spouse.worldX = pVillage.centerX + 70.0f;
+    spouse.worldX = pVillage.centerX + 100.0f;
     spouse.worldY = 500.0f;
     spouse.homeX = spouse.worldX;
     spouse.homeY = spouse.worldY;
@@ -216,7 +216,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     child.name = "Tano";
     child.age = 15.0f;
     child.gender = Gender::Male;
-    child.worldX = pVillage.centerX - 180.0f;
+    child.worldX = pVillage.centerX - 220.0f;
     child.worldY = 500.0f;
     child.homeX = child.worldX;
     child.homeY = child.worldY;
@@ -228,7 +228,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     sibling.name = "Boro";
     sibling.age = 42.0f;
     sibling.gender = Gender::Male;
-    sibling.worldX = pVillage.centerX + 850.0f;
+    sibling.worldX = pVillage.centerX + 1720.0f;
     sibling.worldY = 500.0f;
     sibling.homeX = sibling.worldX;
     sibling.homeY = sibling.worldY;
@@ -237,7 +237,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     ApeData worker1 = createRandomApe(worldSeed + 1004, dyn.id, pVillage.id, names, allTraits, worldSeed);
     worker1.name = "Aldo";
     worker1.age = 28.0f;
-    worker1.worldX = pVillage.centerX - 850.0f;
+    worker1.worldX = pVillage.centerX - 1720.0f;
     worker1.worldY = 500.0f;
     worker1.homeX = worker1.worldX;
     worker1.homeY = worker1.worldY;
@@ -246,7 +246,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     ApeData worker2 = createRandomApe(worldSeed + 1005, dyn.id, pVillage.id, names, allTraits, worldSeed);
     worker2.name = "Maurice";
     worker2.age = 30.0f;
-    worker2.worldX = pVillage.centerX - 240.0f;
+    worker2.worldX = pVillage.centerX - 350.0f;
     worker2.worldY = 500.0f;
     worker2.homeX = worker2.worldX;
     worker2.homeY = worker2.worldY;
@@ -312,8 +312,8 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         village.availableSpearSlots = 0;
         village.availableBasketSlots = 1;
 
-        float westWallX = village.centerX - 900.0f;
-        float eastWallX = village.centerX + 900.0f;
+        float westWallX = village.centerX - 1800.0f;
+        float eastWallX = village.centerX + 1800.0f;
         village.borderMinX = westWallX - WALL_TO_BORDER_OFFSET;
         village.borderMaxX = eastWallX + WALL_TO_BORDER_OFFSET;
         village.territoryRadius = std::max(village.borderMaxX - village.centerX, village.centerX - village.borderMinX);
@@ -331,19 +331,19 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
                 village.leaderId = ape.id;
             } else if (i == 1) {
                 ape.currentJob = Job::Guard;
-                xOffset = 850.f;
+                xOffset = 1720.f;
             } else if (i == 2) {
                 ape.currentJob = Job::Guard;
-                xOffset = -850.f;
+                xOffset = -1720.f;
             } else if (i == 3) {
                 ape.currentJob = Job::Forage;
-                xOffset = 450.f;
+                xOffset = 700.f;
             } else if (i == 4) {
                 ape.currentJob = Job::Idle;
-                xOffset = -450.f;
+                xOffset = -700.f;
             } else {
                 ape.currentJob = Job::Socialize;
-                xOffset = (i % 2 == 0 ? 120.f : -120.f);
+                xOffset = (i % 2 == 0 ? 180.f : -180.f);
             }
 
             ape.worldX = village.centerX + xOffset;

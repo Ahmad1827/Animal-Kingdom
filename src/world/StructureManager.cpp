@@ -65,9 +65,9 @@ static void drawEmptyPlot(sf::RenderTarget& target, const sim::StructureData& s,
 
 void StructureManager::drawMeetingGround(sf::RenderTarget& target, float worldX, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectMeetingRootLog, worldX - 250.f, groundY, 0.65f);
+        drawSpriteAnchored(target, rectMeetingRootLog, worldX - 320.f, groundY, 0.65f);
         drawSpriteAnchored(target, rectMeetingStone, worldX, groundY, 0.65f);
-        drawSpriteAnchored(target, rectMeetingHollowLog, worldX + 250.f, groundY, 0.65f);
+        drawSpriteAnchored(target, rectMeetingHollowLog, worldX + 320.f, groundY, 0.65f);
     }
 }
 
@@ -76,8 +76,8 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
         float minX = village.borderMinX;
         float maxX = village.borderMaxX;
         if (maxX <= minX) {
-            minX = village.centerX - 1800.f;
-            maxX = village.centerX + 1800.f;
+            minX = village.centerX - 2400.f;
+            maxX = village.centerX + 2400.f;
         }
 
         sf::Color fenceColor(255, 255, 255, 110);
@@ -94,7 +94,7 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
         return;
     }
 
-    float footprintW = 3800.f;
+    float footprintW = 4800.f;
     float startX = village.centerX - footprintW / 2.f;
 
     sf::RectangleShape dirtBed(sf::Vector2f(footprintW, 36.f));
@@ -102,8 +102,8 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
     dirtBed.setFillColor(sf::Color(32, 22, 14, 235));
     target.draw(dirtBed);
 
-    sf::RectangleShape innerMat(sf::Vector2f(2200.f, 12.f));
-    innerMat.setOrigin(1100.f, 0.f);
+    sf::RectangleShape innerMat(sf::Vector2f(3000.f, 12.f));
+    innerMat.setOrigin(1500.f, 0.f);
     innerMat.setPosition(village.centerX, groundY - 3.f);
     innerMat.setFillColor(sf::Color(118, 88, 48, 220));
     target.draw(innerMat);
@@ -112,7 +112,7 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
 void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
     for (auto& pair : registry.getAllVillages()) {
         const sim::VillageData& v = pair.second;
-        if (v.centerX + 3000.f < viewBounds.left || v.centerX - 3000.f > viewBounds.left + viewBounds.width) continue;
+        if (v.centerX + 3500.f < viewBounds.left || v.centerX - 3500.f > viewBounds.left + viewBounds.width) continue;
         float groundY = world ? world->getTerrainHeight(v.centerX) : 500.0f;
         drawSettlementFootprint(target, v, groundY);
     }

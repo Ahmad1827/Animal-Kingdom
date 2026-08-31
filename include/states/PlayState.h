@@ -59,7 +59,7 @@ public:
 
 private:
     Game* game;
-
+    sf::Texture villageAssetsTexture;
     std::unique_ptr<Background> background;
     std::unique_ptr<WorldManager> worldManager;
     std::unique_ptr<CameraManager> cameraManager;

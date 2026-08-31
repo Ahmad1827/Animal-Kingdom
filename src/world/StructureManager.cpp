@@ -1,58 +1,58 @@
 #include "world/StructureManager.h"
+#include "world/WorldManager.h"
 #include <cmath>
 #include <algorithm>
 
 StructureManager::StructureManager() {}
 
+void StructureManager::setTexture(const sf::Texture& tex) {
+    villageTexture = &tex;
+}
+
 void StructureManager::update(float, sim::SimulationRegistry&) {}
 
+void StructureManager::drawSpriteAnchored(sf::RenderTarget& target, const sf::IntRect& rect, float x, float y, float scale, sf::Color color) {
+    if (!villageTexture || villageTexture->getSize().x == 0) return;
+    sf::Sprite sprite(*villageTexture, rect);
+    sprite.setOrigin(static_cast<float>(rect.width) * 0.5f, static_cast<float>(rect.height));
+    sprite.setPosition(x, y);
+    sprite.setScale(scale, scale);
+    sprite.setColor(color);
+    target.draw(sprite);
+}
+
 static void drawEmptyPlot(sf::RenderTarget& target, const sim::StructureData& s, float groundY) {
-    sf::RectangleShape plotBase(sf::Vector2f(130.f, 6.f));
-    plotBase.setOrigin(65.f, 3.f);
-    plotBase.setPosition(s.worldX, groundY - 2.f);
-    plotBase.setFillColor(sf::Color(105, 80, 50, 180));
+    sf::RectangleShape plotBase(sf::Vector2f(90.f, 4.f));
+    plotBase.setOrigin(45.f, 2.f);
+    plotBase.setPosition(s.worldX, groundY - 1.f);
+    plotBase.setFillColor(sf::Color(80, 55, 30, 160));
     target.draw(plotBase);
 
     for (int i = -1; i <= 1; i += 2) {
-        sf::RectangleShape peg(sf::Vector2f(8.f, 36.f));
-        peg.setOrigin(4.f, 36.f);
-        peg.setPosition(s.worldX + i * 55.f, groundY);
+        sf::RectangleShape peg(sf::Vector2f(4.f, 20.f));
+        peg.setOrigin(2.f, 20.f);
+        peg.setPosition(s.worldX + i * 35.f, groundY);
         peg.setFillColor(sf::Color(85, 55, 28));
         peg.setOutlineColor(sf::Color(20, 10, 5));
-        peg.setOutlineThickness(1.5f);
+        peg.setOutlineThickness(1.f);
         target.draw(peg);
-
-        sf::ConvexShape pennant(3);
-        pennant.setPoint(0, sf::Vector2f(0.f, -34.f));
-        pennant.setPoint(1, sf::Vector2f(i * 18.f, -27.f));
-        pennant.setPoint(2, sf::Vector2f(0.f, -20.f));
-        pennant.setPosition(s.worldX + i * 55.f, groundY);
-        pennant.setFillColor(sf::Color(220, 180, 60));
-        pennant.setOutlineColor(sf::Color(24, 14, 6));
-        pennant.setOutlineThickness(1.f);
-        target.draw(pennant);
     }
-
-    sf::RectangleShape twine(sf::Vector2f(110.f, 2.f));
-    twine.setOrigin(55.f, 1.f);
-    twine.setPosition(s.worldX, groundY - 24.f);
-    twine.setFillColor(sf::Color(210, 185, 120, 220));
-    target.draw(twine);
-
-    sf::CircleShape centerStone(8.f, 5);
-    centerStone.setOrigin(8.f, 8.f);
-    centerStone.setPosition(s.worldX, groundY - 3.f);
-    centerStone.setFillColor(sf::Color(90, 85, 75));
-    centerStone.setOutlineColor(sf::Color(25, 20, 15));
-    centerStone.setOutlineThickness(1.5f);
-    target.draw(centerStone);
 }
 
-void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager*, const sf::FloatRect& viewBounds) {
+void StructureManager::drawMeetingGround(sf::RenderTarget& target, float worldX, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectMeetingRootLog, worldX - 110.f, groundY, 0.35f);
+        drawSpriteAnchored(target, rectMeetingStone, worldX, groundY, 0.35f);
+        drawSpriteAnchored(target, rectMeetingHollowLog, worldX + 110.f, groundY, 0.35f);
+    }
+}
+
+void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
     for (auto& pair : registry.getAllVillages()) {
         const sim::VillageData& v = pair.second;
         if (v.centerX + 1400.f < viewBounds.left || v.centerX - 1400.f > viewBounds.left + viewBounds.width) continue;
-        drawSettlementFootprint(target, v, 500.0f);
+        float groundY = world ? world->getTerrainHeight(v.centerX) : 500.0f;
+        drawSettlementFootprint(target, v, groundY);
     }
 
     for (auto& pair : registry.getAllStructures()) {
@@ -60,7 +60,7 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
         if (s.type == sim::StructureType::SimpleBarrier) continue;
         if (s.worldX < viewBounds.left - 500.f || s.worldX > viewBounds.left + viewBounds.width + 500.f) continue;
 
-        float groundY = 500.0f;
+        float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
         sim::VillageData* v = registry.getVillage(s.villageId);
         sim::VillageData fallbackVillage;
         if (!v) v = &fallbackVillage;
@@ -111,23 +111,27 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
             if (mover && mover->isCarryingBorder) {
                 float groundY = world ? world->getTerrainHeight(mover->worldX) : 500.0f;
 
-                sf::RectangleShape pole(sf::Vector2f(10.f, 90.f));
-                pole.setOrigin(5.f, 45.f);
-                pole.setPosition(mover->worldX, groundY - 45.f);
-                pole.setRotation(v.expandingSideRight ? 35.f : -35.f);
-                pole.setFillColor(sf::Color(85, 55, 28));
-                pole.setOutlineColor(sf::Color(20, 10, 5));
-                pole.setOutlineThickness(2.f);
-                target.draw(pole);
+                if (villageTexture && villageTexture->getSize().x > 0) {
+                    drawSpriteAnchored(target, rectBorderMonument, mover->worldX, groundY, 0.35f);
+                } else {
+                    sf::RectangleShape pole(sf::Vector2f(10.f, 90.f));
+                    pole.setOrigin(5.f, 45.f);
+                    pole.setPosition(mover->worldX, groundY - 45.f);
+                    pole.setRotation(v.expandingSideRight ? 35.f : -35.f);
+                    pole.setFillColor(sf::Color(85, 55, 28));
+                    pole.setOutlineColor(sf::Color(20, 10, 5));
+                    pole.setOutlineThickness(2.f);
+                    target.draw(pole);
 
-                sf::CircleShape skullTop(14.f, 6);
-                skullTop.setOrigin(14.f, 14.f);
-                float topOffsetX = v.expandingSideRight ? 26.f : -26.f;
-                skullTop.setPosition(mover->worldX + topOffsetX, groundY - 75.f);
-                skullTop.setFillColor(sf::Color(220, 180, 80));
-                skullTop.setOutlineColor(sf::Color(24, 14, 6));
-                skullTop.setOutlineThickness(2.f);
-                target.draw(skullTop);
+                    sf::CircleShape skullTop(14.f, 6);
+                    skullTop.setOrigin(14.f, 14.f);
+                    float topOffsetX = v.expandingSideRight ? 26.f : -26.f;
+                    skullTop.setPosition(mover->worldX + topOffsetX, groundY - 75.f);
+                    skullTop.setFillColor(sf::Color(220, 180, 80));
+                    skullTop.setOutlineColor(sf::Color(24, 14, 6));
+                    skullTop.setOutlineThickness(2.f);
+                    target.draw(skullTop);
+                }
             }
         }
     }
@@ -151,6 +155,8 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
 }
 
 void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) return;
+
     float footprintW = 2400.f;
     float startX = village.centerX - footprintW / 2.f;
 
@@ -164,20 +170,14 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
     innerMat.setPosition(village.centerX, groundY - 3.f);
     innerMat.setFillColor(sf::Color(118, 88, 48, 220));
     target.draw(innerMat);
-
-    for (int i = -10; i <= 10; ++i) {
-        if (i == 0) continue;
-        sf::CircleShape stone(8.f + (std::abs(i) % 3) * 3.f, 5);
-        stone.setOrigin(stone.getRadius(), stone.getRadius());
-        stone.setPosition(village.centerX + i * 115.f, groundY - 4.f);
-        stone.setFillColor(sf::Color(72, 68, 60));
-        stone.setOutlineColor(sf::Color(22, 20, 16));
-        stone.setOutlineThickness(2.f);
-        target.draw(stone);
-    }
 }
 
 void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectCenterBuilding, s.worldX, groundY, 0.35f);
+        return;
+    }
+
     sf::Color woodColor(76, 50, 26);
     sf::Color roofColor(148, 108, 50);
     sf::Color bannerColor(195, 42, 32);
@@ -280,6 +280,11 @@ void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::St
 }
 
 void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectToolRack, s.worldX, groundY, 0.35f);
+        return;
+    }
+
     sf::RectangleShape basePlank(sf::Vector2f(190.f, 16.f));
     basePlank.setOrigin(95.f, 16.f);
     basePlank.setPosition(s.worldX, groundY);
@@ -329,37 +334,14 @@ void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::Structu
         peg.setFillColor(sf::Color(48, 30, 16));
         target.draw(peg);
     }
-
-    if (s.axeCount > 0 || s.claimedAxes > 0) {
-        sf::RectangleShape handle(sf::Vector2f(90.f, 11.f));
-        handle.setOrigin(45.f, 5.5f);
-        handle.setPosition(s.worldX, groundY - 98.f);
-        handle.setRotation(-18.f);
-        handle.setFillColor(sf::Color(148, 102, 54));
-        handle.setOutlineColor(sf::Color(40, 24, 12));
-        handle.setOutlineThickness(2.5f);
-        target.draw(handle);
-
-        sf::ConvexShape blade(4);
-        blade.setPoint(0, sf::Vector2f(-20.f, -22.f));
-        blade.setPoint(1, sf::Vector2f(18.f, -15.f));
-        blade.setPoint(2, sf::Vector2f(22.f, 20.f));
-        blade.setPoint(3, sf::Vector2f(-15.f, 18.f));
-        blade.setPosition(s.worldX + 30.f, groundY - 110.f);
-        blade.setFillColor(sf::Color(122, 128, 134));
-        blade.setOutlineColor(sf::Color(32, 34, 38));
-        blade.setOutlineThickness(3.f);
-        target.draw(blade);
-
-        sf::RectangleShape twine(sf::Vector2f(12.f, 18.f));
-        twine.setOrigin(6.f, 9.f);
-        twine.setPosition(s.worldX + 18.f, groundY - 105.f);
-        twine.setFillColor(sf::Color(212, 178, 122));
-        target.draw(twine);
-    }
 }
 
 void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.35f);
+        return;
+    }
+
     if (s.type == sim::StructureType::WoodPile) {
         sf::RectangleShape basePlatform(sf::Vector2f(220.f, 16.f));
         basePlatform.setOrigin(110.f, 16.f);
@@ -368,24 +350,6 @@ void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::S
         basePlatform.setOutlineColor(sf::Color(20, 12, 6));
         basePlatform.setOutlineThickness(2.5f);
         target.draw(basePlatform);
-
-        sf::RectangleShape cradleL(sf::Vector2f(20.f, 85.f));
-        cradleL.setOrigin(10.f, 85.f);
-        cradleL.setPosition(s.worldX - 98.f, groundY);
-        cradleL.setRotation(-18.f);
-        cradleL.setFillColor(sf::Color(80, 52, 28));
-        cradleL.setOutlineColor(sf::Color(20, 12, 6));
-        cradleL.setOutlineThickness(3.f);
-        target.draw(cradleL);
-
-        sf::RectangleShape cradleR(sf::Vector2f(20.f, 85.f));
-        cradleR.setOrigin(10.f, 85.f);
-        cradleR.setPosition(s.worldX + 98.f, groundY);
-        cradleR.setRotation(18.f);
-        cradleR.setFillColor(sf::Color(80, 52, 28));
-        cradleR.setOutlineColor(sf::Color(20, 12, 6));
-        cradleR.setOutlineThickness(3.f);
-        target.draw(cradleR);
 
         for (int row = 0; row < 3; ++row) {
             int count = 5 - row;
@@ -397,12 +361,6 @@ void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::S
                 logEnd.setOutlineColor(sf::Color(56, 36, 18));
                 logEnd.setOutlineThickness(3.5f);
                 target.draw(logEnd);
-
-                sf::CircleShape ring(9.f);
-                ring.setOrigin(9.f, 9.f);
-                ring.setPosition(logEnd.getPosition());
-                ring.setFillColor(sf::Color(138, 98, 54));
-                target.draw(ring);
             }
         }
     } else {
@@ -418,7 +376,18 @@ void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::S
     }
 }
 
-void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        if (s.worldX < village.centerX) {
+            drawSpriteAnchored(target, rectPalisadeLeft, s.worldX, groundY, 0.35f);
+        } else if (s.worldX > village.centerX) {
+            drawSpriteAnchored(target, rectPalisadeRight, s.worldX, groundY, 0.35f);
+        } else {
+            drawSpriteAnchored(target, rectPalisadeMiddle, s.worldX, groundY, 0.35f);
+        }
+        return;
+    }
+
     for (int i = -3; i <= 3; ++i) {
         float stakeH = 135.f + std::abs(i) * 15.f;
         sf::ConvexShape stake(3);
@@ -431,32 +400,13 @@ void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::St
         stake.setOutlineThickness(2.5f);
         target.draw(stake);
     }
-
-    sf::CircleShape sentinel(22.f, 6);
-    sentinel.setOrigin(22.f, 22.f);
-    sentinel.setPosition(s.worldX, groundY - 155.f);
-    sentinel.setFillColor(sf::Color(188, 144, 64));
-    sentinel.setOutlineColor(sf::Color(26, 16, 8));
-    sentinel.setOutlineThickness(3.f);
-    target.draw(sentinel);
 }
 
 void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
-    sf::RectangleShape stilt1(sf::Vector2f(18.f, 75.f));
-    stilt1.setOrigin(9.f, 75.f);
-    stilt1.setPosition(s.worldX - 52.f, groundY);
-    stilt1.setFillColor(sf::Color(78, 52, 28));
-    stilt1.setOutlineColor(sf::Color(20, 12, 6));
-    stilt1.setOutlineThickness(2.5f);
-    target.draw(stilt1);
-
-    sf::RectangleShape stilt2(sf::Vector2f(18.f, 75.f));
-    stilt2.setOrigin(9.f, 75.f);
-    stilt2.setPosition(s.worldX + 52.f, groundY);
-    stilt2.setFillColor(sf::Color(78, 52, 28));
-    stilt2.setOutlineColor(sf::Color(20, 12, 6));
-    stilt2.setOutlineThickness(2.5f);
-    target.draw(stilt2);
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.35f);
+        return;
+    }
 
     sf::CircleShape outer(80.f);
     outer.setOrigin(80.f, 80.f);
@@ -469,6 +419,11 @@ void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureDa
 }
 
 void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.35f);
+        return;
+    }
+
     sf::RectangleShape base(sf::Vector2f(220.f, 110.f));
     base.setOrigin(110.f, 110.f);
     base.setPosition(s.worldX, groundY);
@@ -476,27 +431,14 @@ void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::Struc
     base.setOutlineColor(sf::Color(30, 18, 9));
     base.setOutlineThickness(3.f);
     target.draw(base);
-
-    sf::RectangleShape door(sf::Vector2f(52.f, 75.f));
-    door.setOrigin(26.f, 75.f);
-    door.setPosition(s.worldX, groundY);
-    door.setFillColor(sf::Color(40, 24, 12));
-    door.setOutlineColor(sf::Color(20, 12, 6));
-    door.setOutlineThickness(2.5f);
-    target.draw(door);
-
-    sf::ConvexShape roof(3);
-    roof.setPoint(0, sf::Vector2f(0.f, -75.f));
-    roof.setPoint(1, sf::Vector2f(-135.f, 0.f));
-    roof.setPoint(2, sf::Vector2f(135.f, 0.f));
-    roof.setPosition(s.worldX, groundY - 110.f);
-    roof.setFillColor(sf::Color(142, 108, 52));
-    roof.setOutlineColor(sf::Color(48, 32, 16));
-    roof.setOutlineThickness(3.5f);
-    target.draw(roof);
 }
 
 void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 0.35f);
+        return;
+    }
+
     sf::RectangleShape p1(sf::Vector2f(22.f, 270.f));
     p1.setOrigin(11.f, 270.f);
     p1.setPosition(s.worldX - 52.f, groundY);
@@ -512,27 +454,14 @@ void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::St
     p2.setOutlineColor(sf::Color::Black);
     p2.setOutlineThickness(2.5f);
     target.draw(p2);
-
-    for (float y = groundY - 40.f; y > groundY - 240.f; y -= 40.f) {
-        sf::RectangleShape rung(sf::Vector2f(105.f, 10.f));
-        rung.setOrigin(52.5f, 5.f);
-        rung.setPosition(s.worldX, y);
-        rung.setFillColor(sf::Color(122, 88, 48));
-        rung.setOutlineColor(sf::Color(26, 16, 8));
-        rung.setOutlineThickness(2.f);
-        target.draw(rung);
-    }
-
-    sf::RectangleShape platform(sf::Vector2f(160.f, 22.f));
-    platform.setOrigin(80.f, 22.f);
-    platform.setPosition(s.worldX, groundY - 250.f);
-    platform.setFillColor(sf::Color(112, 78, 42));
-    platform.setOutlineColor(sf::Color::Black);
-    platform.setOutlineThickness(3.f);
-    target.draw(platform);
 }
 
 void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.35f);
+        return;
+    }
+
     sf::RectangleShape postL(sf::Vector2f(22.f, 125.f));
     postL.setOrigin(11.f, 125.f);
     postL.setPosition(s.worldX - 80.f, groundY);
@@ -548,18 +477,14 @@ void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::Struc
     postR.setOutlineColor(sf::Color(26, 16, 8));
     postR.setOutlineThickness(2.5f);
     target.draw(postR);
-
-    sf::RectangleShape roof(sf::Vector2f(205.f, 26.f));
-    roof.setOrigin(102.5f, 26.f);
-    roof.setPosition(s.worldX, groundY - 120.f);
-    roof.setRotation(-4.f);
-    roof.setFillColor(sf::Color(128, 92, 50));
-    roof.setOutlineColor(sf::Color(42, 26, 14));
-    roof.setOutlineThickness(3.f);
-    target.draw(roof);
 }
 
 void StructureManager::drawBonfire(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectFirePit, s.worldX, groundY, 0.35f);
+        return;
+    }
+
     sf::CircleShape stoneRing(55.f, 8);
     stoneRing.setOrigin(55.f, 55.f);
     stoneRing.setPosition(s.worldX, groundY - 5.f);
@@ -568,78 +493,28 @@ void StructureManager::drawBonfire(sf::RenderTarget& target, const sim::Structur
     stoneRing.setOutlineColor(sf::Color(26, 26, 26));
     stoneRing.setOutlineThickness(3.5f);
     target.draw(stoneRing);
-
-    sf::ConvexShape fireOuter(3);
-    fireOuter.setPoint(0, sf::Vector2f(0.f, -70.f));
-    fireOuter.setPoint(1, sf::Vector2f(30.f, 0.f));
-    fireOuter.setPoint(2, sf::Vector2f(-30.f, 0.f));
-    fireOuter.setPosition(s.worldX, groundY - 14.f);
-    fireOuter.setFillColor(sf::Color(238, 92, 22, 235));
-    target.draw(fireOuter);
 }
 
 void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim::StructureData& s, float groundY) {
     float progressRatio = std::clamp(s.progress / std::max(1.f, s.maxProgress), 0.f, 1.f);
 
-    sf::RectangleShape stakeL(sf::Vector2f(14.f, 65.f));
-    stakeL.setOrigin(7.f, 65.f);
-    stakeL.setPosition(s.worldX - 100.f, groundY);
-    stakeL.setFillColor(sf::Color(90, 60, 30));
-    stakeL.setOutlineColor(sf::Color(26, 16, 8));
-    stakeL.setOutlineThickness(2.5f);
-    target.draw(stakeL);
-
-    sf::RectangleShape stakeR(sf::Vector2f(14.f, 65.f));
-    stakeR.setOrigin(7.f, 65.f);
-    stakeR.setPosition(s.worldX + 100.f, groundY);
-    stakeR.setFillColor(sf::Color(90, 60, 30));
-    stakeR.setOutlineColor(sf::Color(26, 16, 8));
-    stakeR.setOutlineThickness(2.5f);
-    target.draw(stakeR);
-
-    sf::RectangleShape cord(sf::Vector2f(200.f, 5.f));
-    cord.setOrigin(100.f, 2.5f);
-    cord.setPosition(s.worldX, groundY - 42.f);
-    cord.setFillColor(sf::Color(224, 194, 104));
-    target.draw(cord);
-
-    if (progressRatio >= 0.25f) {
-        sf::RectangleShape foundation(sf::Vector2f(175.f, 24.f));
-        foundation.setOrigin(87.5f, 24.f);
-        foundation.setPosition(s.worldX, groundY - 5.f);
-        foundation.setFillColor(sf::Color(100, 70, 38));
-        foundation.setOutlineColor(sf::Color(36, 22, 11));
-        foundation.setOutlineThickness(2.5f);
-        target.draw(foundation);
-    }
-
-    if (progressRatio >= 0.50f) {
-        sf::RectangleShape frameL(sf::Vector2f(16.f, 100.f));
-        frameL.setOrigin(8.f, 100.f);
-        frameL.setPosition(s.worldX - 65.f, groundY - 24.f);
-        frameL.setFillColor(sf::Color(122, 88, 50));
-        target.draw(frameL);
-
-        sf::RectangleShape frameR(sf::Vector2f(16.f, 100.f));
-        frameR.setOrigin(8.f, 100.f);
-        frameR.setPosition(s.worldX + 65.f, groundY - 24.f);
-        frameR.setFillColor(sf::Color(122, 88, 50));
-        target.draw(frameR);
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.35f, sf::Color(255, 255, 255, static_cast<sf::Uint8>(60 + progressRatio * 140)));
     }
 
     if (s.isUnderConstruction) {
-        float barW = 110.f;
-        sf::RectangleShape barBg(sf::Vector2f(barW, 12.f));
-        barBg.setOrigin(barW / 2.f, 6.f);
-        barBg.setPosition(s.worldX, groundY - 130.f);
+        float barW = 80.f;
+        sf::RectangleShape barBg(sf::Vector2f(barW, 8.f));
+        barBg.setOrigin(barW * 0.5f, 4.f);
+        barBg.setPosition(s.worldX, groundY - 100.f);
         barBg.setFillColor(sf::Color(32, 22, 14, 235));
         barBg.setOutlineColor(sf::Color(168, 134, 68));
-        barBg.setOutlineThickness(2.5f);
+        barBg.setOutlineThickness(1.5f);
         target.draw(barBg);
 
-        sf::RectangleShape barFill(sf::Vector2f(barW * progressRatio, 12.f));
-        barFill.setOrigin(barW / 2.f, 6.f);
-        barFill.setPosition(s.worldX, groundY - 130.f);
+        sf::RectangleShape barFill(sf::Vector2f(barW * progressRatio, 8.f));
+        barFill.setOrigin(barW * 0.5f, 4.f);
+        barFill.setPosition(s.worldX, groundY - 100.f);
         barFill.setFillColor(sf::Color(228, 184, 52));
         target.draw(barFill);
     }

@@ -20,6 +20,8 @@ Game::Game() : window(sf::VideoMode(1280, 720), "Ape Dynasty") {
     assetManager.loadTexture("tree4", "assets/sprites/TREEFIXED_4.png", false);
     assetManager.loadTexture("tree5", "assets/sprites/TREEFIXED_5.png", false);
 
+    assetManager.loadTexture("village_assets", "assets/sprites/villageassets1.png", false);
+
     window.setFramerateLimit(60);
     stateMachine.addState(std::make_unique<PlayState>(this));
 }

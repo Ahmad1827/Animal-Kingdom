@@ -361,49 +361,65 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
         if (!hideLeft && leftEdge >= viewBounds.left - 100.f && leftEdge <= viewBounds.left + viewBounds.width + 100.f) {
             float groundY = getTerrainHeight(leftEdge);
 
-            sf::RectangleShape pole(sf::Vector2f(6.f, 120.f));
-            pole.setOrigin(3.f, 120.f);
-            pole.setPosition(leftEdge, groundY);
-            pole.setFillColor(sf::Color(101, 67, 33));
-            target.draw(pole);
+            if (villageTexture && villageTexture->getSize().x > 0) {
+                sf::Sprite totem(*villageTexture, rectBorderMonument);
+                totem.setOrigin(static_cast<float>(rectBorderMonument.width) * 0.5f, static_cast<float>(rectBorderMonument.height));
+                totem.setPosition(leftEdge, groundY);
+                totem.setScale(0.35f, 0.35f);
+                target.draw(totem);
+            } else {
+                sf::RectangleShape pole(sf::Vector2f(6.f, 120.f));
+                pole.setOrigin(3.f, 120.f);
+                pole.setPosition(leftEdge, groundY);
+                pole.setFillColor(sf::Color(101, 67, 33));
+                target.draw(pole);
 
-            sf::ConvexShape flag(3);
-            flag.setPoint(0, sf::Vector2f(0.f, 0.f));
-            flag.setPoint(1, sf::Vector2f(40.f, 15.f));
-            flag.setPoint(2, sf::Vector2f(0.f, 30.f));
-            flag.setPosition(leftEdge + 3.f, groundY - 110.f);
-            flag.setFillColor(kingdomColor);
-            target.draw(flag);
+                sf::ConvexShape flag(3);
+                flag.setPoint(0, sf::Vector2f(0.f, 0.f));
+                flag.setPoint(1, sf::Vector2f(40.f, 15.f));
+                flag.setPoint(2, sf::Vector2f(0.f, 30.f));
+                flag.setPosition(leftEdge + 3.f, groundY - 110.f);
+                flag.setFillColor(kingdomColor);
+                target.draw(flag);
 
-            sf::CircleShape skull(12.f);
-            skull.setOrigin(12.f, 12.f);
-            skull.setPosition(leftEdge, groundY - 120.f);
-            skull.setFillColor(sf::Color(220, 220, 220));
-            target.draw(skull);
+                sf::CircleShape skull(12.f);
+                skull.setOrigin(12.f, 12.f);
+                skull.setPosition(leftEdge, groundY - 120.f);
+                skull.setFillColor(sf::Color(220, 220, 220));
+                target.draw(skull);
+            }
         }
 
         if (!hideRight && rightEdge >= viewBounds.left - 100.f && rightEdge <= viewBounds.left + viewBounds.width + 100.f) {
             float groundY = getTerrainHeight(rightEdge);
 
-            sf::RectangleShape pole(sf::Vector2f(6.f, 120.f));
-            pole.setOrigin(3.f, 120.f);
-            pole.setPosition(rightEdge, groundY);
-            pole.setFillColor(sf::Color(101, 67, 33));
-            target.draw(pole);
+            if (villageTexture && villageTexture->getSize().x > 0) {
+                sf::Sprite totem(*villageTexture, rectBorderMonument);
+                totem.setOrigin(static_cast<float>(rectBorderMonument.width) * 0.5f, static_cast<float>(rectBorderMonument.height));
+                totem.setPosition(rightEdge, groundY);
+                totem.setScale(0.35f, 0.35f);
+                target.draw(totem);
+            } else {
+                sf::RectangleShape pole(sf::Vector2f(6.f, 120.f));
+                pole.setOrigin(3.f, 120.f);
+                pole.setPosition(rightEdge, groundY);
+                pole.setFillColor(sf::Color(101, 67, 33));
+                target.draw(pole);
 
-            sf::ConvexShape flag(3);
-            flag.setPoint(0, sf::Vector2f(0.f, 0.f));
-            flag.setPoint(1, sf::Vector2f(-40.f, 15.f));
-            flag.setPoint(2, sf::Vector2f(0.f, 30.f));
-            flag.setPosition(rightEdge - 3.f, groundY - 110.f);
-            flag.setFillColor(kingdomColor);
-            target.draw(flag);
+                sf::ConvexShape flag(3);
+                flag.setPoint(0, sf::Vector2f(0.f, 0.f));
+                flag.setPoint(1, sf::Vector2f(-40.f, 15.f));
+                flag.setPoint(2, sf::Vector2f(0.f, 30.f));
+                flag.setPosition(rightEdge - 3.f, groundY - 110.f);
+                flag.setFillColor(kingdomColor);
+                target.draw(flag);
 
-            sf::CircleShape skull(12.f);
-            skull.setOrigin(12.f, 12.f);
-            skull.setPosition(rightEdge, groundY - 120.f);
-            skull.setFillColor(sf::Color(220, 220, 220));
-            target.draw(skull);
+                sf::CircleShape skull(12.f);
+                skull.setOrigin(12.f, 12.f);
+                skull.setPosition(rightEdge, groundY - 120.f);
+                skull.setFillColor(sf::Color(220, 220, 220));
+                target.draw(skull);
+            }
         }
     }
 }

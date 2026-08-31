@@ -61,6 +61,18 @@ void PlayState::init() {
     simulationManager = std::make_unique<sim::SimulationManager>();
     simulationManager->getRegistry().setWorldManager(worldManager.get());
     structureManager = std::make_unique<StructureManager>();
+
+    if (!villageAssetsTexture.loadFromFile("assets/villageassets1.png")) {
+        villageAssetsTexture.loadFromFile("villageassets1.png");
+    }
+
+    const sf::Texture& vTex = game->getAssetManager().getTexture("village_assets");
+    if (structureManager) {
+        structureManager->setTexture(vTex);
+    }
+    if (worldManager) {
+        worldManager->setVillageTexture(vTex);
+    }
     
     cinematicFont.loadFromFile("font.ttf");
 
@@ -1421,26 +1433,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         worldManager->drawTerritoryMarkers(rt, simulationManager->getRegistry(), cameraManager->getViewBounds());
 
         worldManager->drawGeometry(rt, cameraManager->getViewBounds(), profiler);
-        
-        for (auto& p : simulationManager->getRegistry().getAllKingdoms()) {
-            float yLeft = worldManager->getTerrainHeight(p.second.territoryMinX);
-            sf::RectangleShape leftTotem(sf::Vector2f(16.f, 150.f));
-            leftTotem.setOrigin(8.f, 150.f);
-            leftTotem.setPosition(p.second.territoryMinX, yLeft);
-            leftTotem.setFillColor(sf::Color(60, 40, 20));
-            leftTotem.setOutlineColor(sf::Color::Black);
-            leftTotem.setOutlineThickness(2.f);
-            rt.draw(leftTotem);
-
-            float yRight = worldManager->getTerrainHeight(p.second.territoryMaxX);
-            sf::RectangleShape rightTotem(sf::Vector2f(16.f, 150.f));
-            rightTotem.setOrigin(8.f, 150.f);
-            rightTotem.setPosition(p.second.territoryMinX, yRight);
-            rightTotem.setFillColor(sf::Color(60, 40, 20));
-            rightTotem.setOutlineColor(sf::Color::Black);
-            rightTotem.setOutlineThickness(2.f);
-            rt.draw(rightTotem);
-        }
 
         struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; float centerX; };
         std::vector<Polity> polities;
@@ -1472,77 +1464,9 @@ void PlayState::draw(sf::RenderWindow& window) {
 
             float midY = worldManager->getTerrainHeight(midX);
 
-            sf::Color color1 = sf::Color(40, 140, 40); 
-            if (p1.isKingdom) {
-                sim::KingdomData* k1 = simulationManager->getRegistry().getKingdom(p1.id);
-                if (k1) color1 = k1->color;
-            } else {
-                if (p1.id % 3 == 1) color1 = sf::Color(50, 100, 200);
-                else if (p1.id % 3 == 2) color1 = sf::Color(200, 150, 20);
-                else color1 = sf::Color(200, 50, 50);
+            if (structureManager) {
+                structureManager->drawMeetingGround(rt, midX, midY);
             }
-
-            sf::Color color2 = sf::Color(40, 140, 40); 
-            if (p2.isKingdom) {
-                sim::KingdomData* k2 = simulationManager->getRegistry().getKingdom(p2.id);
-                if (k2) color2 = k2->color;
-            } else {
-                if (p2.id % 3 == 1) color2 = sf::Color(50, 100, 200);
-                else if (p2.id % 3 == 2) color2 = sf::Color(200, 150, 20);
-                else color2 = sf::Color(200, 50, 50);
-            }
-
-            sf::RectangleShape firePit(sf::Vector2f(60.f, 15.f));
-            firePit.setOrigin(30.f, 15.f);
-            firePit.setPosition(midX, midY);
-            firePit.setFillColor(sf::Color(100, 100, 100));
-            firePit.setOutlineColor(sf::Color::Black);
-            firePit.setOutlineThickness(2.f);
-            rt.draw(firePit);
-
-            sf::ConvexShape flameOuter(3);
-            flameOuter.setPoint(0, sf::Vector2f(0.f, -30.f));
-            flameOuter.setPoint(1, sf::Vector2f(15.f, 0.f));
-            flameOuter.setPoint(2, sf::Vector2f(-15.f, 0.f));
-            flameOuter.setPosition(midX, midY - 15.f);
-            flameOuter.setFillColor(sf::Color(220, 80, 20));
-            rt.draw(flameOuter);
-
-            sf::ConvexShape flameInner(3);
-            flameInner.setPoint(0, sf::Vector2f(0.f, -15.f));
-            flameInner.setPoint(1, sf::Vector2f(8.f, 0.f));
-            flameInner.setPoint(2, sf::Vector2f(-8.f, 0.f));
-            flameInner.setPosition(midX, midY - 15.f);
-            flameInner.setFillColor(sf::Color(240, 200, 40));
-            rt.draw(flameInner);
-
-            sf::RectangleShape leftPole(sf::Vector2f(4.f, 80.f));
-            leftPole.setOrigin(2.f, 80.f);
-            leftPole.setPosition(midX - 60.f, midY);
-            leftPole.setFillColor(sf::Color(90, 60, 40));
-            rt.draw(leftPole);
-
-            sf::RectangleShape leftFlag(sf::Vector2f(30.f, 40.f));
-            leftFlag.setOrigin(30.f, 0.f); 
-            leftFlag.setPosition(midX - 60.f, midY - 75.f);
-            leftFlag.setFillColor(color1);
-            leftFlag.setOutlineColor(sf::Color::Black);
-            leftFlag.setOutlineThickness(1.f);
-            rt.draw(leftFlag);
-
-            sf::RectangleShape rightPole(sf::Vector2f(4.f, 80.f));
-            rightPole.setOrigin(2.f, 80.f);
-            rightPole.setPosition(midX + 60.f, midY);
-            rightPole.setFillColor(sf::Color(90, 60, 40));
-            rt.draw(rightPole);
-
-            sf::RectangleShape rightFlag(sf::Vector2f(30.f, 40.f));
-            rightFlag.setOrigin(0.f, 0.f); 
-            rightFlag.setPosition(midX + 60.f, midY - 75.f);
-            rightFlag.setFillColor(color2);
-            rightFlag.setOutlineColor(sf::Color::Black);
-            rightFlag.setOutlineThickness(1.f);
-            rt.draw(rightFlag);
         }
 
         if (particleSystem) particleSystem->draw(rt);

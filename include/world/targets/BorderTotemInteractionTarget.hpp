@@ -18,9 +18,6 @@ private:
     float currentX;
     float currentY;
 
-    static constexpr float WALL_HALF_WIDTH = 104.0f;
-    static constexpr float WALL_TO_BORDER_OFFSET = WALL_HALF_WIDTH * 2.0f;
-
 public:
     BorderTotemInteractionTarget(sim::EntityID targetId, sim::SimulationRegistry& registry,
                                  WorldManager* worldManager, bool isMin, sim::EntityID actorId = 0)
@@ -54,7 +51,7 @@ public:
     }
 
     std::string getInteractionTitle() const override {
-        return isMin ? "WEST PERIMETER GATE" : "EAST PERIMETER GATE";
+        return isMin ? "WEST BORDER TOTEM" : "EAST BORDER TOTEM";
     }
 
     std::vector<InteractionMenuEntry> buildInteractionMenu() override {
@@ -67,7 +64,7 @@ public:
             if (k) {
                 menu.push_back({
                     "Kingdom Frontier Marker (" + k->name + ")",
-                    []() {}
+                    nullptr
                 });
             }
             return menu;
@@ -75,28 +72,15 @@ public:
 
         if (v->isExpandingBorder) {
             menu.push_back({
-                "Workers relocating perimeter...",
-                []() {}
+                "Workers relocating border marker...",
+                nullptr
             });
             return menu;
         }
 
-        float currentWallX = isMin ? (v->borderMinX + WALL_TO_BORDER_OFFSET) : (v->borderMaxX - WALL_TO_BORDER_OFFSET);
-        for (sim::EntityID sId : v->finishedStructures) {
-            sim::StructureData* s = registry.getStructure(sId);
-            if (s && s->type == sim::StructureType::SimpleBarrier) {
-                if (isMin && s->worldX < v->centerX) {
-                    currentWallX = s->worldX;
-                    break;
-                } else if (!isMin && s->worldX > v->centerX) {
-                    currentWallX = s->worldX;
-                    break;
-                }
-            }
-        }
-
+        float currentBorderX = isMin ? v->borderMinX : v->borderMaxX;
         const float EXPANSION_STEP = 500.0f;
-        float proposedTargetWallX = isMin ? (currentWallX - EXPANSION_STEP) : (currentWallX + EXPANSION_STEP);
+        float proposedTargetBorderX = isMin ? (currentBorderX - EXPANSION_STEP) : (currentBorderX + EXPANSION_STEP);
 
         float limitX = isMin ? -999999.0f : 999999.0f;
         auto clearanceZones = WorldGenerator::getClearanceZones(0);
@@ -105,26 +89,26 @@ public:
             if (z.type == ClearanceType::MeetingGround) {
                 float mid = (z.minX + z.maxX) * 0.5f;
                 if (isMin && mid < v->centerX && mid > limitX) {
-                    limitX = z.maxX + WALL_TO_BORDER_OFFSET + 50.0f;
+                    limitX = z.maxX + 50.0f;
                 } else if (!isMin && mid > v->centerX && mid < limitX) {
-                    limitX = z.minX - WALL_TO_BORDER_OFFSET - 50.0f;
+                    limitX = z.minX - 50.0f;
                 }
             }
         }
 
         bool reachedLimit = false;
-        if (isMin && proposedTargetWallX <= limitX) {
-            proposedTargetWallX = limitX;
-            if (std::abs(currentWallX - proposedTargetWallX) < 80.0f) reachedLimit = true;
-        } else if (!isMin && proposedTargetWallX >= limitX) {
-            proposedTargetWallX = limitX;
-            if (std::abs(currentWallX - proposedTargetWallX) < 80.0f) reachedLimit = true;
+        if (isMin && proposedTargetBorderX <= limitX) {
+            proposedTargetBorderX = limitX;
+            if (std::abs(currentBorderX - proposedTargetBorderX) < 80.0f) reachedLimit = true;
+        } else if (!isMin && proposedTargetBorderX >= limitX) {
+            proposedTargetBorderX = limitX;
+            if (std::abs(currentBorderX - proposedTargetBorderX) < 80.0f) reachedLimit = true;
         }
 
         if (reachedLimit) {
             menu.push_back({
-                "Perimeter reached neutral meeting ground limit",
-                []() {}
+                "Border reached neutral meeting ground limit",
+                nullptr
             });
             return menu;
         }
@@ -132,12 +116,12 @@ public:
         int amber = actor ? actor->amberCount : 0;
         const int AMBER_COST = 3;
         std::string label = (amber >= AMBER_COST)
-            ? "Expand Perimeter (Cost: 3 Amber) [Have: " + std::to_string(amber) + "]"
-            : "Expand Perimeter [Need 3 Amber, Have: " + std::to_string(amber) + "]";
+            ? "Expand Border (Cost: 3 Amber) [Have: " + std::to_string(amber) + "]"
+            : "Expand Border [Need 3 Amber, Have: " + std::to_string(amber) + "]";
 
         menu.push_back({
             label,
-            [this, v, proposedTargetWallX]() {
+            [this, v, proposedTargetBorderX]() {
                 if (!v || v->isExpandingBorder) return;
                 sim::ApeData* a = registry.getApe(registry.getControlledApe());
                 if (!a) return;
@@ -146,24 +130,11 @@ public:
                     a->amberCount -= 3;
                     v->isExpandingBorder = true;
                     v->expandingSideRight = !isMin;
-                    v->targetBorderX = proposedTargetWallX;
+                    v->targetBorderX = proposedTargetBorderX;
                     v->borderMoverApe = 0;
 
-                    for (sim::EntityID sId : v->finishedStructures) {
-                        sim::StructureData* s = registry.getStructure(sId);
-                        if (s && s->type == sim::StructureType::SimpleBarrier) {
-                            if (isMin && s->worldX < v->centerX) {
-                                v->borderStructureId = s->id;
-                                break;
-                            } else if (!isMin && s->worldX > v->centerX) {
-                                v->borderStructureId = s->id;
-                                break;
-                            }
-                        }
-                    }
-
                     std::cout << "[BORDER] Expansion ordered. Amber " << oldAmber << " -> " << a->amberCount << "\n";
-                    std::cout << "[BORDER] New Target Wall X = " << proposedTargetWallX << "\n";
+                    std::cout << "[BORDER] New Target Border X = " << proposedTargetBorderX << "\n";
                 } else {
                     std::cout << "[BORDER] Expansion failed: Need 3 amber, have " << a->amberCount << "\n";
                 }

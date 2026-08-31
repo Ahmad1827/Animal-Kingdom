@@ -67,23 +67,23 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
             if (mover && mover->isCarryingBorder) {
                 float groundY = world ? world->getTerrainHeight(mover->worldX) : 500.0f;
 
-                sf::RectangleShape post(sf::Vector2f(16.f, 120.f));
-                post.setOrigin(8.f, 60.f);
-                post.setPosition(mover->worldX, groundY - 50.f);
-                post.setRotation(v.expandingSideRight ? 40.f : -40.f);
-                post.setFillColor(sf::Color(90, 60, 32));
-                post.setOutlineColor(sf::Color(24, 14, 7));
-                post.setOutlineThickness(2.5f);
-                target.draw(post);
+                sf::RectangleShape pole(sf::Vector2f(10.f, 90.f));
+                pole.setOrigin(5.f, 45.f);
+                pole.setPosition(mover->worldX, groundY - 45.f);
+                pole.setRotation(v.expandingSideRight ? 35.f : -35.f);
+                pole.setFillColor(sf::Color(85, 55, 28));
+                pole.setOutlineColor(sf::Color(20, 10, 5));
+                pole.setOutlineThickness(2.f);
+                target.draw(pole);
 
-                sf::CircleShape sentinel(18.f, 6);
-                sentinel.setOrigin(18.f, 18.f);
-                float topOffsetX = v.expandingSideRight ? 35.f : -35.f;
-                sentinel.setPosition(mover->worldX + topOffsetX, groundY - 95.f);
-                sentinel.setFillColor(sf::Color(188, 144, 64));
-                sentinel.setOutlineColor(sf::Color(26, 16, 8));
-                sentinel.setOutlineThickness(2.5f);
-                target.draw(sentinel);
+                sf::CircleShape skullTop(14.f, 6);
+                skullTop.setOrigin(14.f, 14.f);
+                float topOffsetX = v.expandingSideRight ? 26.f : -26.f;
+                skullTop.setPosition(mover->worldX + topOffsetX, groundY - 75.f);
+                skullTop.setFillColor(sf::Color(220, 180, 80));
+                skullTop.setOutlineColor(sf::Color(24, 14, 6));
+                skullTop.setOutlineThickness(2.f);
+                target.draw(skullTop);
             }
         }
     }
@@ -91,16 +91,10 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
     for (auto& pair : registry.getAllStructures()) {
         sim::StructureData& s = pair.second;
         if (s.type != sim::StructureType::SimpleBarrier) continue;
-
-        sim::VillageData* v = registry.getVillage(s.villageId);
-        if (v && v->isExpandingBorder && v->borderStructureId == s.id) {
-            sim::ApeData* mover = registry.getApe(v->borderMoverApe);
-            if (mover && mover->isCarryingBorder) continue;
-        }
-
         if (s.worldX < viewBounds.left - 500.f || s.worldX > viewBounds.left + viewBounds.width + 500.f) continue;
 
         float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
+        sim::VillageData* v = registry.getVillage(s.villageId);
         sim::VillageData fallbackVillage;
         if (!v) v = &fallbackVillage;
 

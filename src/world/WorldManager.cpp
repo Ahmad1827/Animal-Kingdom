@@ -1,4 +1,5 @@
 #include "world/WorldManager.h"
+#include "simulation/SimulationRegistry.h"
 #include <set>
 #include <unordered_set>
 #include <cmath>
@@ -6,10 +7,6 @@
 
 static constexpr float FLAT_GROUND_Y = 500.0f;
 
-// A tree counts as "standing" - and therefore its vines should still exist -
-// only in these states. Once it starts falling the trunk rotates about its
-// base, so vertically hanging vines anchored to the old trunk positions would
-// visibly detach; they go at the same moment the fall starts.
 static inline bool treeIsStanding(TreeHarvestState s) {
     return s == TreeHarvestState::Untouched ||
            s == TreeHarvestState::Targeted ||
@@ -31,7 +28,6 @@ void WorldManager::syncVineOwnership() {
         }
         if (!anyActive) continue;
 
-        // Ids of the trees in this chunk that are still standing.
         std::unordered_set<int> standingIds;
         standingIds.reserve(chunkPair.second->getTrees().size() * 2);
         for (const auto& tree : chunkPair.second->getTrees()) {
@@ -40,8 +36,6 @@ void WorldManager::syncVineOwnership() {
             }
         }
 
-        // A vine dies when its owner is harvested, falling, or erased from the
-        // chunk entirely. Vines belonging to other trees are untouched.
         for (auto& av : vIt->second) {
             if (av.active && standingIds.find(av.ownerTreeId) == standingIds.end()) {
                 av.active = false;
@@ -62,10 +56,6 @@ void WorldManager::update(float dt, const sf::FloatRect& preloadBounds, const sf
         if (activePhysicalVines.find(coord) == activePhysicalVines.end()) {
             std::vector<ActiveVine> chunkVines;
             for (const auto& tree : pair.second->getTrees()) {
-                // Skip anything not standing. Tree::getVines() already returns
-                // an empty list for felled trees, but checking here keeps the
-                // intent obvious and covers a reloaded chunk whose trees were
-                // mid-fall when it was cached.
                 if (!treeIsStanding(tree.getHarvestState())) continue;
 
                 for (const auto& staticVine : tree.getVines()) {
@@ -83,9 +73,6 @@ void WorldManager::update(float dt, const sf::FloatRect& preloadBounds, const sf
         }
     }
 
-    // Retire vines whose parent tree stopped standing since the chunk loaded.
-    // This is the fix for vines being left floating after a harvest: the vine
-    // list used to be built once per chunk and never revisited.
     syncVineOwnership();
 
     for (auto it = activePhysicalVines.begin(); it != activePhysicalVines.end(); ) {
@@ -123,7 +110,7 @@ void WorldManager::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& v
 
     for (const auto& pair : activePhysicalVines) {
         for (const auto& av : pair.second) {
-            if (!av.active) continue;   // felled tree -> its vines are gone too
+            if (!av.active) continue;
             const VinePhysics& vine = av.physics;
             for (int i = 0; i < vine.getSegmentCount() - 1; ++i) {
                 sf::Vector2f p1 = vine.getSegmentPosition(i);
@@ -240,7 +227,7 @@ bool WorldManager::checkVineCollision(const sf::FloatRect& bounds, uint64_t& out
     for (const auto& pair : activePhysicalVines) {
         int vineIdx = 0;
         for (const auto& av : pair.second) {
-            if (!av.active) { vineIdx++; continue; }  // index must still advance
+            if (!av.active) { vineIdx++; continue; }
             const VinePhysics& vine = av.physics;
             for (int i = 0; i < vine.getSegmentCount(); ++i) {
                 sf::Vector2f pos = vine.getSegmentPosition(i);
@@ -291,10 +278,6 @@ void WorldManager::applyVineForce(uint64_t chunk, int vine, int seg, const sf::V
 int WorldManager::getVineSegmentCount(uint64_t chunk, int vine) const {
     auto it = activePhysicalVines.find(chunk);
     if (it != activePhysicalVines.end() && vine >= 0 && vine < static_cast<int>(it->second.size())) {
-        // Returning 0 for a retired vine is deliberate: PlayState already
-        // treats a zero segment count as "this vine is gone", drops the grab
-        // and puts the player into Airborne. So a player swinging on a vine
-        // whose tree gets chopped falls instead of hanging in mid-air.
         if (!it->second[vine].active) return 0;
         return it->second[vine].physics.getSegmentCount();
     }
@@ -352,17 +335,30 @@ ChunkManager* WorldManager::getChunkManager() const {
 }
 
 void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::SimulationRegistry& registry, const sf::FloatRect& viewBounds) const {
-    for (auto& pair : registry.getAllVillages()) {
-        sim::VillageData& v = pair.second;
+    for (const auto& pair : registry.getAllVillages()) {
+        const sim::VillageData& v = pair.second;
 
         float leftEdge = v.borderMinX;
         float rightEdge = v.borderMaxX;
+
+        bool hideLeft = false;
+        bool hideRight = false;
+        if (v.isExpandingBorder && v.borderMoverApe != 0) {
+            sim::ApeData* mover = registry.getApe(v.borderMoverApe);
+            if (mover && mover->isCarryingBorder) {
+                if (v.expandingSideRight) {
+                    hideRight = true;
+                } else {
+                    hideLeft = true;
+                }
+            }
+        }
 
         sf::Color kingdomColor = sf::Color(200, 50, 50);
         if (v.kingdomId % 3 == 1) kingdomColor = sf::Color(50, 100, 200);
         else if (v.kingdomId % 3 == 2) kingdomColor = sf::Color(200, 150, 20);
 
-        if (leftEdge >= viewBounds.left - 100.f && leftEdge <= viewBounds.left + viewBounds.width + 100.f) {
+        if (!hideLeft && leftEdge >= viewBounds.left - 100.f && leftEdge <= viewBounds.left + viewBounds.width + 100.f) {
             float groundY = getTerrainHeight(leftEdge);
 
             sf::RectangleShape pole(sf::Vector2f(6.f, 120.f));
@@ -386,7 +382,7 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
             target.draw(skull);
         }
 
-        if (rightEdge >= viewBounds.left - 100.f && rightEdge <= viewBounds.left + viewBounds.width + 100.f) {
+        if (!hideRight && rightEdge >= viewBounds.left - 100.f && rightEdge <= viewBounds.left + viewBounds.width + 100.f) {
             float groundY = getTerrainHeight(rightEdge);
 
             sf::RectangleShape pole(sf::Vector2f(6.f, 120.f));

@@ -62,12 +62,12 @@ public:
         if (s->axeCount > 0) {
             menu.push_back({
                 "Stone Axe on Rack (Awaiting worker)",
-                []() {}
+                nullptr
             });
         } else if (s->claimedAxes > 0) {
             menu.push_back({
                 "Stone Axe (Worker on the way to collect)",
-                []() {}
+                nullptr
             });
         } else {
             std::string label = (amber >= 2)
@@ -87,8 +87,6 @@ public:
                         std::cout << "[TOOL] Axe purchase requested\n";
                         std::cout << "[ECONOMY] Amber " << oldAmber << " -> " << a->amberCount << "\n";
                         std::cout << "[TOOL] Axe placed on rack\n";
-                    } else {
-                        std::cout << "[TOOL] Purchase failed: Need 2 amber, have " << a->amberCount << "\n";
                     }
                 }
             });

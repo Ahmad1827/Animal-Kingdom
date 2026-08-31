@@ -11,9 +11,6 @@
 
 namespace sim {
 
-static constexpr float WALL_HALF_WIDTH = 104.0f;
-static constexpr float WALL_TO_BORDER_OFFSET = WALL_HALF_WIDTH * 2.0f;
-
 EntityID JobSystem::findNearestNode(SimulationRegistry& registry, float x, float, ResourceType type, VillageData* village) {
     EntityID best = 0;
     float bestDist = 999999.f;
@@ -184,16 +181,13 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
                 if (cand && cand->alive && cand->id != playerControlledId &&
                     cand->currentJob != Job::Woodcutter && cand->currentJob != Job::Combat) {
                     v.borderMoverApe = cand->id;
-
-                    float wallX = v.expandingSideRight ? (v.borderMaxX - WALL_TO_BORDER_OFFSET) : (v.borderMinX + WALL_TO_BORDER_OFFSET);
-                    StructureData* gateStruct = registry.getStructure(v.borderStructureId);
-                    if (gateStruct) wallX = gateStruct->worldX;
+                    float currentBorderX = v.expandingSideRight ? v.borderMaxX : v.borderMinX;
 
                     cand->hasTravelDestination = true;
-                    cand->travelDestinationX = wallX;
+                    cand->travelDestinationX = currentBorderX;
                     cand->isCarryingBorder = false;
                     cand->currentJob = Job::March;
-                    std::cout << "[BORDER] Worker Ape " << cand->id << " (" << cand->name << ") marching to gate at X=" << wallX << "\n";
+                    std::cout << "[BORDER] Worker Ape " << cand->id << " (" << cand->name << ") marching to current border at X=" << currentBorderX << "\n";
                     break;
                 }
             }
@@ -206,41 +200,36 @@ void JobSystem::updateJobs(SimulationRegistry& registry, float timeOfDay, uint64
 
         VillageData* myVillage = registry.getVillage(ape.villageId);
         if (myVillage && myVillage->isExpandingBorder && myVillage->borderMoverApe == ape.id) {
-            StructureData* gateStruct = registry.getStructure(myVillage->borderStructureId);
-            float wallX = gateStruct ? gateStruct->worldX : (myVillage->expandingSideRight ? (myVillage->borderMaxX - WALL_TO_BORDER_OFFSET) : (myVillage->borderMinX + WALL_TO_BORDER_OFFSET));
+            float currentBorderX = myVillage->expandingSideRight ? myVillage->borderMaxX : myVillage->borderMinX;
 
             if (!ape.isCarryingBorder) {
-                if (std::abs(ape.worldX - wallX) <= 40.0f) {
+                if (std::abs(ape.worldX - currentBorderX) <= 40.0f) {
                     ape.isCarryingBorder = true;
                     ape.travelDestinationX = myVillage->targetBorderX;
                     ape.hasTravelDestination = true;
-                    std::cout << "[BORDER] Worker picked up palisade gate. Relocating to X=" << myVillage->targetBorderX << "\n";
+                    std::cout << "[BORDER] Worker picked up border marker. Relocating to X=" << myVillage->targetBorderX << "\n";
                 } else {
                     ape.hasTravelDestination = true;
-                    ape.travelDestinationX = wallX;
+                    ape.travelDestinationX = currentBorderX;
                 }
             } else {
                 if (std::abs(ape.worldX - myVillage->targetBorderX) <= 25.0f) {
-                    float plantedWallX = myVillage->targetBorderX;
-                    ape.worldX = plantedWallX;
+                    float plantedBorderX = myVillage->targetBorderX;
+                    ape.worldX = plantedBorderX;
                     ape.isCarryingBorder = false;
                     ape.hasTravelDestination = false;
                     ape.currentJob = Job::Idle;
 
-                    if (gateStruct) {
-                        gateStruct->worldX = plantedWallX;
-                    }
-
                     if (myVillage->expandingSideRight) {
-                        myVillage->borderMaxX = plantedWallX + WALL_TO_BORDER_OFFSET;
+                        myVillage->borderMaxX = plantedBorderX;
                     } else {
-                        myVillage->borderMinX = plantedWallX - WALL_TO_BORDER_OFFSET;
+                        myVillage->borderMinX = plantedBorderX;
                     }
                     myVillage->territoryRadius = std::max(myVillage->borderMaxX - myVillage->centerX, myVillage->centerX - myVillage->borderMinX);
 
                     myVillage->isExpandingBorder = false;
                     myVillage->borderMoverApe = 0;
-                    std::cout << "[BORDER] Palisade gate replanted at X=" << plantedWallX << "\n";
+                    std::cout << "[BORDER] Border marker planted at X=" << plantedBorderX << "\n";
                     std::cout << "[BORDER] Village border updated: [" << myVillage->borderMinX << " to " << myVillage->borderMaxX << "]\n";
                 } else {
                     ape.hasTravelDestination = true;

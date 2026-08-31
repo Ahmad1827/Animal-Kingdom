@@ -7,8 +7,8 @@
 
 namespace sim {
 
-static constexpr float WALL_HALF_WIDTH = 104.0f;
-static constexpr float WALL_TO_BORDER_OFFSET = WALL_HALF_WIDTH * 2.0f;
+static constexpr float WALL_STAKE_HALF_WIDTH = 104.0f;
+static constexpr float WALL_TO_BORDER_OFFSET = WALL_STAKE_HALF_WIDTH * 2.0f;
 
 ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId, VillageID villageId, const std::vector<std::string>& names, const std::vector<Trait>& traits, uint32_t worldSeed) {
     uint32_t apeSeed = seed;

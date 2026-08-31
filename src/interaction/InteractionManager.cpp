@@ -6,7 +6,7 @@ InteractionManager::InteractionManager()
     : currentPromptTarget(nullptr), activeTarget(nullptr), 
       isMenuOpen(false), isClosing(false), selectedMenuIndex(0), fontLoaded(false),
       preInteractionCenter(0.f, 0.f), preInteractionZoom(1.f), interactionTransitionTimer(0.f),
-      lastPlayerPos(0.f, 0.f) {
+      lastPlayerPos(0.f, 0.f), lastWinSize(1280.f, 720.f) {
     fontLoaded = menuFont.loadFromFile("font.ttf") ||
                  menuFont.loadFromFile("assets/fonts/font.ttf") ||
                  menuFont.loadFromFile("assets/fonts/PressStart2P-Regular.ttf") ||
@@ -59,7 +59,7 @@ void InteractionManager::update(float dt, const sf::Vector2f& playerPos, CameraM
     }
 
     std::shared_ptr<InteractionTarget> bestTarget = nullptr;
-    float closestDistSq = 125.0f * 125.0f;
+    float closestDistSq = 160.0f * 160.0f;
 
     for (const auto& target : targets) {
         if (!target->canInteract()) continue;
@@ -78,10 +78,62 @@ void InteractionManager::update(float dt, const sf::Vector2f& playerPos, CameraM
     currentPromptTarget = bestTarget;
 }
 
+void InteractionManager::executeEntry(int index) {
+    if (index < 0 || index >= static_cast<int>(currentMenuEntries.size())) return;
+
+    if (currentMenuEntries[index].action) {
+        currentMenuEntries[index].action();
+        if (activeTarget && activeTarget->canInteract()) {
+            currentMenuEntries = activeTarget->buildInteractionMenu();
+            if (currentMenuEntries.empty()) {
+                isClosing = true;
+            } else if (selectedMenuIndex >= static_cast<int>(currentMenuEntries.size())) {
+                selectedMenuIndex = 0;
+            }
+        } else {
+            isClosing = true;
+        }
+    }
+}
+
 void InteractionManager::handleEvent(const sf::Event& event, CameraManager& cameraManager) {
-    if (event.type == sf::Event::KeyPressed) {
-        if (isMenuOpen && !isClosing) {
-            if (event.key.code == sf::Keyboard::Escape || event.key.code == sf::Keyboard::E) {
+    if (isMenuOpen && !isClosing) {
+        const float pW = 460.f;
+        const float pH = 520.f;
+        float startY = lastWinSize.y / 2.f - pH / 2.f + 70.f;
+        float startX = lastWinSize.x / 2.f - (pW - 32.f) / 2.f;
+
+        if (event.type == sf::Event::MouseMoved) {
+            float mx = static_cast<float>(event.mouseMove.x);
+            float my = static_cast<float>(event.mouseMove.y);
+
+            for (size_t i = 0; i < currentMenuEntries.size(); ++i) {
+                sf::FloatRect rowRect(startX, startY + (i * 34.f), pW - 32.f, 28.f);
+                if (rowRect.contains(mx, my)) {
+                    if (currentMenuEntries[i].action != nullptr) {
+                        selectedMenuIndex = static_cast<int>(i);
+                    }
+                    break;
+                }
+            }
+        }
+        else if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
+            float mx = static_cast<float>(event.mouseButton.x);
+            float my = static_cast<float>(event.mouseButton.y);
+
+            for (size_t i = 0; i < currentMenuEntries.size(); ++i) {
+                sf::FloatRect rowRect(startX, startY + (i * 34.f), pW - 32.f, 28.f);
+                if (rowRect.contains(mx, my)) {
+                    if (currentMenuEntries[i].action != nullptr) {
+                        selectedMenuIndex = static_cast<int>(i);
+                        executeEntry(selectedMenuIndex);
+                        return;
+                    }
+                }
+            }
+        }
+        else if (event.type == sf::Event::KeyPressed) {
+            if (event.key.code == sf::Keyboard::Escape) {
                 isClosing = true;
             }
             else if (event.key.code == sf::Keyboard::W || event.key.code == sf::Keyboard::Up) {
@@ -94,33 +146,34 @@ void InteractionManager::handleEvent(const sf::Event& event, CameraManager& came
                     selectedMenuIndex = (selectedMenuIndex + 1) % currentMenuEntries.size();
                 }
             }
-            else if (event.key.code == sf::Keyboard::Return || event.key.code == sf::Keyboard::Space) {
-                if (!currentMenuEntries.empty() && selectedMenuIndex < static_cast<int>(currentMenuEntries.size())) {
-                    if (currentMenuEntries[selectedMenuIndex].action) {
-                        currentMenuEntries[selectedMenuIndex].action();
-                        currentMenuEntries = activeTarget->buildInteractionMenu();
-                        if (selectedMenuIndex >= static_cast<int>(currentMenuEntries.size())) {
-                            selectedMenuIndex = 0;
-                        }
-                    }
-                }
+            else if (event.key.code == sf::Keyboard::Return || event.key.code == sf::Keyboard::Space || event.key.code == sf::Keyboard::E) {
+                executeEntry(selectedMenuIndex);
             }
-        } else if (!isMenuOpen && !isClosing) {
-            if (event.key.code == sf::Keyboard::E && currentPromptTarget) {
-                activeTarget = currentPromptTarget;
-                activeTarget->onInteract();
-                currentMenuEntries = activeTarget->buildInteractionMenu();
-                
-                if (currentMenuEntries.empty()) {
-                    activeTarget = nullptr;
-                } else {
-                    selectedMenuIndex = 0;
-                    isMenuOpen = true;
-                    isClosing = false;
-                    interactionTransitionTimer = 0.f;
-                    preInteractionZoom = 1.35f; 
-                    preInteractionCenter = cameraManager.getView().getCenter();
-                }
+            else if (event.key.code >= sf::Keyboard::Num1 && event.key.code <= sf::Keyboard::Num9) {
+                int numIdx = event.key.code - sf::Keyboard::Num1;
+                executeEntry(numIdx);
+            }
+            else if (event.key.code >= sf::Keyboard::Numpad1 && event.key.code <= sf::Keyboard::Numpad9) {
+                int numIdx = event.key.code - sf::Keyboard::Numpad1;
+                executeEntry(numIdx);
+            }
+        }
+    } 
+    else if (!isMenuOpen && !isClosing) {
+        if (event.type == sf::Event::KeyPressed && (event.key.code == sf::Keyboard::E || event.key.code == sf::Keyboard::Return) && currentPromptTarget) {
+            activeTarget = currentPromptTarget;
+            activeTarget->onInteract();
+            currentMenuEntries = activeTarget->buildInteractionMenu();
+            
+            if (currentMenuEntries.empty()) {
+                activeTarget = nullptr;
+            } else {
+                selectedMenuIndex = 0;
+                isMenuOpen = true;
+                isClosing = false;
+                interactionTransitionTimer = 0.f;
+                preInteractionZoom = 1.35f; 
+                preInteractionCenter = cameraManager.getView().getCenter();
             }
         }
     }
@@ -128,6 +181,8 @@ void InteractionManager::handleEvent(const sf::Event& event, CameraManager& came
 
 void InteractionManager::draw(sf::RenderWindow& window) {
     if (!fontLoaded) return;
+
+    lastWinSize = sf::Vector2f(static_cast<float>(window.getSize().x), static_cast<float>(window.getSize().y));
 
     sf::View originalView = window.getView();
     window.setView(window.getDefaultView()); 
@@ -139,7 +194,9 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         float targetElevatedY = (worldPos.y >= 450.f) ? (worldPos.y - 120.f) : (worldPos.y - 40.f);
         promptWorldPos.y = std::min(targetElevatedY, lastPlayerPos.y - 75.f);
 
+        window.setView(originalView);
         sf::Vector2i screenPos = window.mapCoordsToPixel(promptWorldPos, originalView);
+        window.setView(window.getDefaultView());
 
         std::string rawTitle = currentPromptTarget->getInteractionTitle();
 
@@ -287,7 +344,7 @@ void InteractionManager::draw(sf::RenderWindow& window) {
             window.draw(entryText);
         }
 
-        sf::Text footer("[ ESC / E ] Return to Settlement", menuFont, 11);
+        sf::Text footer("[ ESC ] Return to Settlement", menuFont, 11);
         footer.setFillColor(sf::Color(110, 85, 60, alpha));
         footer.setStyle(sf::Text::Italic);
         sf::FloatRect footerBounds = footer.getLocalBounds();

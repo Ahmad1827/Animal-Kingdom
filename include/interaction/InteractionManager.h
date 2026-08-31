@@ -25,8 +25,10 @@ private:
     const float transitionDuration = 0.5f;
 
     sf::Vector2f lastPlayerPos;
+    sf::Vector2f lastWinSize;
 
     float getEase() const;
+    void executeEntry(int index);
 
 public:
     InteractionManager();

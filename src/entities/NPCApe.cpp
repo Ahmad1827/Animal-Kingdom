@@ -59,14 +59,14 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
         float myX = physicalApe.getPosition().x;
         float targetX = data->travelDestinationX;
         float dist = std::abs(myX - targetX);
-        float stopDistance = 30.f;
+        float stopDistance = (data->currentJob == sim::Job::Combat) ? 25.f : 30.f;
 
         if (dist > stopDistance) {
             intendedMoveX = (targetX > myX) ? 1.f : -1.f;
             physicalApe.setState(ApeState::Grounded);
         } else {
             intendedMoveX = 0.f;
-            if (data->currentJob == sim::Job::Builder || data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::Woodcutter) {
+            if (data->currentJob == sim::Job::Builder || data->currentJob == sim::Job::Forage || data->currentJob == sim::Job::Woodcutter || data->currentJob == sim::Job::Combat) {
                 physicalApe.setState(ApeState::Working);
             } else {
                 physicalApe.setState(ApeState::Grounded);

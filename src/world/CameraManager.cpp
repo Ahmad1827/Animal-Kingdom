@@ -4,21 +4,19 @@
 #include <cmath>
 
 CameraManager::CameraManager(sf::Vector2f size) {
-    view.setSize(size);
+    view.setSize(size.x * 1.35f, size.y * 1.35f);
     view.setCenter(0.f, 0.f);
     
-    // Initialize Trauma System
     trauma = 0.f;
-    maxShakeAngle = 4.f;   // Down from 10
-    maxShakeOffset = 30.f; // Down from 70
-    traumaDecay = 0.8f;   // How fast it settles back to 0
+    maxShakeAngle = 4.f;
+    maxShakeOffset = 30.f;
+    traumaDecay = 0.8f;
     time = 0.f;
     
     currentZoom = 1.35f;
     targetZoom = 1.35f;
     
-    // Tuning parameters exposed for easy tweaking
-    tuning.deadZone = {50.f, 150.f}; // Small horizontal, generous vertical deadzone
+    tuning.deadZone = {50.f, 150.f};
     tuning.lookAheadMax = 300.f;
     tuning.lookAheadSpeed = 2.0f;
     tuning.baseLerpX = 3.5f;
@@ -37,10 +35,8 @@ void CameraManager::addTrauma(float amount) {
 }
 
 void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Vector2f& targetVelocity, ApeState state) {
-    // Advance the internal clock used for the sine wave shake
     time += dt * 50.f;
 
-    // 1. Anchor System / Bounding Box (Dead Zone)
     if (targetPos.x > anchorPos.x + tuning.deadZone.x / 2.f) {
         anchorPos.x = targetPos.x - tuning.deadZone.x / 2.f;
     } else if (targetPos.x < anchorPos.x - tuning.deadZone.x / 2.f) {
@@ -53,7 +49,6 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
         anchorPos.y = targetPos.y + tuning.deadZone.y / 2.f;
     }
 
-    // 2. Dynamic Look-ahead
     float speedRatio = std::abs(targetVelocity.x) / 300.f;
     speedRatio = std::clamp(speedRatio, 0.f, 1.f);
     
@@ -63,31 +58,28 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
     }
     lookAheadOffset.x += (targetLookAheadX - lookAheadOffset.x) * dt * tuning.lookAheadSpeed;
 
-    // 3. Target Camera Position
     sf::Vector2f idealPos = anchorPos;
     idealPos.x += lookAheadOffset.x;
-    idealPos.y -= 100.f; // Keep player in lower-middle
+    idealPos.y -= 100.f;
 
-    // 4. State-Driven Interpolation Modes
     float currentLerpX = tuning.baseLerpX + (speedRatio * 1.5f);
     float currentLerpY = tuning.baseLerpY;
 
     if (state == ApeState::Airborne) {
         if (targetVelocity.y > 200.f) {
-            currentLerpY = tuning.fallLerpY; // Track falling rapidly
+            currentLerpY = tuning.fallLerpY;
         } else {
-            currentLerpY = tuning.baseLerpY * 0.4f; // Stabilize jump arcs
+            currentLerpY = tuning.baseLerpY * 0.4f;
         }
         currentLerpX = tuning.airLerpX;
     } else if (state == ApeState::ClimbingTrunk || state == ApeState::ClimbingVine) {
         currentLerpX = tuning.climbLerp;
-        currentLerpY = tuning.climbLerp; // Snappy follow when climbing
+        currentLerpY = tuning.climbLerp;
     } else if (targetVelocity.x == 0.f && targetVelocity.y == 0.f) {
         currentLerpX *= 0.5f;
-        currentLerpY *= 0.5f; // Slow stabilization when resting
+        currentLerpY *= 0.5f;
     }
 
-    // 5. Apply Movement
     sf::Vector2f currentCenter = view.getCenter();
     float tX = 1.0f - std::exp(-currentLerpX * dt);
     float tY = 1.0f - std::exp(-currentLerpY * dt);
@@ -96,19 +88,13 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
     newCenter.x = currentCenter.x + (idealPos.x - currentCenter.x) * tX;
     newCenter.y = currentCenter.y + (idealPos.y - currentCenter.y) * tY;
 
-    // FIX 1: Cut off Zeno's paradox micro-adjustments
     if (std::abs(idealPos.x - newCenter.x) < 0.5f) newCenter.x = idealPos.x;
     if (std::abs(idealPos.y - newCenter.y) < 0.5f) newCenter.y = idealPos.y;
 
-    // --- NON-LINEAR TRAUMA SHAKE SYSTEM ---
     float angle = 0.f;
     if (trauma > 0.f) {
         trauma = std::max(trauma - traumaDecay * dt, 0.0f);
-        
-        // Square trauma for a smooth decay curve (shake drops off quickly, then settles)
         float shake = trauma * trauma; 
-        
-        // Use overlapping sine waves for organic motion, avoiding random jagged offsets
         shakeOffset.x = maxShakeOffset * shake * std::sin(time);
         shakeOffset.y = maxShakeOffset * shake * std::cos(time * 0.8f);
         angle = maxShakeAngle * shake * std::sin(time * 1.2f);
@@ -120,8 +106,6 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
     view.setSize(1280.f * currentZoom, 720.f * currentZoom);
     
     sf::Vector2f finalCenter = newCenter + shakeOffset;
-    
-    // FIX 2: Floor the final camera coordinates to enforce strict pixel-perfect rendering
     finalCenter.x = std::floor(finalCenter.x);
     finalCenter.y = std::floor(finalCenter.y);
     
@@ -130,18 +114,16 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
 }
 
 void CameraManager::updateTransition(float dt, const sf::Vector2f& targetPos) {
-    // Smoothly pull the anchor position to the new heir
     float t = 1.0f - std::exp(-2.5f * dt);
     anchorPos.x += (targetPos.x - anchorPos.x) * t;
     anchorPos.y += (targetPos.y - anchorPos.y) * t;
 
-    // Suppress trauma and look-ahead during cinematic transitions
     lookAheadOffset = {0.f, 0.f};
     trauma = 0.f;
     shakeOffset = {0.f, 0.f};
 
     sf::Vector2f idealPos = anchorPos;
-    idealPos.y -= 100.f; // Keep player in lower-middle
+    idealPos.y -= 100.f;
 
     sf::Vector2f currentCenter = view.getCenter();
     sf::Vector2f newCenter;
@@ -151,7 +133,6 @@ void CameraManager::updateTransition(float dt, const sf::Vector2f& targetPos) {
     currentZoom += (targetZoom - currentZoom) * dt * 3.0f;
     view.setSize(1280.f * currentZoom, 720.f * currentZoom);
 
-    // Enforce strict pixel-perfect rendering
     newCenter.x = std::floor(newCenter.x);
     newCenter.y = std::floor(newCenter.y);
 
@@ -171,7 +152,6 @@ sf::FloatRect CameraManager::getViewBounds() const {
 
 sf::FloatRect CameraManager::getPreloadBounds(const sf::Vector2f& playerVelocity) const {
     sf::FloatRect bounds = getViewBounds();
-    // Dynamically increase margin if moving fast
     float dynamicExpandX = std::abs(playerVelocity.x) * 2.5f;
     float margin = tuning.basePreloadMargin + dynamicExpandX;
     

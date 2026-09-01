@@ -81,6 +81,7 @@ private:
 
     WaterPlane waterPlane;
     sf::RenderTexture sceneTexture;
+    sf::RenderTexture finalSceneTexture;
     bool sceneTextureReady = false;
 
     uint32_t activeSeed = 0;

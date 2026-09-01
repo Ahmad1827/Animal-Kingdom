@@ -23,7 +23,6 @@ private:
     sf::Vector2f lookAheadOffset;
     sf::Vector2f shakeOffset;
     
-    // New Trauma-based Shake System
     float trauma;
     float maxShakeAngle;
     float maxShakeOffset;

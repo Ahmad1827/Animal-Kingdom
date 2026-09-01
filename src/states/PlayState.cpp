@@ -62,8 +62,10 @@ void PlayState::init() {
     simulationManager->getRegistry().setWorldManager(worldManager.get());
     structureManager = std::make_unique<StructureManager>();
 
-    if (!villageAssetsTexture.loadFromFile("assets/villageassets3.png")) {
-        villageAssetsTexture.loadFromFile("villageassets3.png");
+    if (!sceneTextureReady) {
+        sceneTexture.create(1280, 720);
+        finalSceneTexture.create(1280, 720);
+        sceneTextureReady = true;
     }
 
     const sf::Texture& vTex = game->getAssetManager().getTexture("village_assets");
@@ -170,13 +172,30 @@ void PlayState::initDynastySimulation() {
 }
 
 void PlayState::processEvents(const sf::Event& event) {
-    if (event.type == sf::Event::Resized) {
-        sf::FloatRect visibleArea(0.f, 0.f, static_cast<float>(event.size.width), static_cast<float>(event.size.height));
-        game->getWindow().setView(sf::View(visibleArea));
-    }
+    auto getLetterboxView = [](unsigned int winW, unsigned int winH) -> sf::View {
+        float windowRatio = static_cast<float>(winW) / static_cast<float>(winH);
+        float targetRatio = 1280.f / 720.f;
+        sf::FloatRect vp(0.f, 0.f, 1.f, 1.f);
+
+        if (windowRatio > targetRatio) {
+            float vpWidth = targetRatio / windowRatio;
+            vp.left = (1.f - vpWidth) / 2.f;
+            vp.width = vpWidth;
+        } else {
+            float vpHeight = windowRatio / targetRatio;
+            vp.top = (1.f - vpHeight) / 2.f;
+            vp.height = vpHeight;
+        }
+
+        sf::View v(sf::FloatRect(0.f, 0.f, 1280.f, 720.f));
+        v.setViewport(vp);
+        return v;
+    };
+
+    sf::View letterboxView = getLetterboxView(game->getWindow().getSize().x, game->getWindow().getSize().y);
 
     if (event.type == sf::Event::MouseMoved) {
-        sf::Vector2f mCoords = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y), game->getWindow().getDefaultView());
+        sf::Vector2f mCoords = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y), letterboxView);
         dynastyUI.handleMouseMove(mCoords);
     }
 
@@ -242,9 +261,10 @@ void PlayState::processEvents(const sf::Event& event) {
     }
 
     if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left && mapMode == MapMode::Hidden && !dynastyUI.isOpen() && !isDialogueActive) {
-        sf::Vector2f worldClick = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraManager->getView());
-        sim::SimulationRegistry& reg = simulationManager->getRegistry();
+        sf::Vector2f vMouse = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), letterboxView);
+        sf::Vector2f worldClick = sceneTexture.mapPixelToCoords(sf::Vector2i(static_cast<int>(vMouse.x), static_cast<int>(vMouse.y)), cameraManager->getView());
         
+        sim::SimulationRegistry& reg = simulationManager->getRegistry();
         sim::EntityID clickedApeId = 0;
         for (auto& pair : reg.getAllApes()) {
             sim::ApeData& ape = pair.second;
@@ -354,7 +374,7 @@ void PlayState::processEvents(const sf::Event& event) {
             }
         }
         
-        sf::Vector2f winSize(game->getWindow().getSize().x, game->getWindow().getSize().y);
+        sf::Vector2f winSize(1280.f, 720.f);
         sf::FloatRect vpPixels(
             currentViewport.left * winSize.x, currentViewport.top * winSize.y,
             currentViewport.width * winSize.x, currentViewport.height * winSize.y
@@ -366,31 +386,34 @@ void PlayState::processEvents(const sf::Event& event) {
         else if (selectedKingdomId != 0) { profileRect = {profilePanelPos.x, profilePanelPos.y, 380.f, 550.f}; profileOpen = true; }
         else if (selectedVillageId != 0) { profileRect = {profilePanelPos.x, profilePanelPos.y, 340.f, 500.f}; profileOpen = true; }
 
+        sf::Vector2f vMouse = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), letterboxView);
+
         if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
-            if (profileOpen && profileRect.contains(event.mouseButton.x, event.mouseButton.y)) {
+            if (profileOpen && profileRect.contains(vMouse.x, vMouse.y)) {
                 isDraggingProfile = true;
-                lastMousePos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
+                lastMousePos = sf::Vector2i(static_cast<int>(vMouse.x), static_cast<int>(vMouse.y));
                 dragStartMousePos = lastMousePos;
                 return;
             }
-            if (vpPixels.contains(event.mouseButton.x, event.mouseButton.y)) {
+            if (vpPixels.contains(vMouse.x, vMouse.y)) {
                 isDraggingMap = true;
                 isMapDetached = true;
-                lastMousePos = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
+                lastMousePos = sf::Vector2i(static_cast<int>(vMouse.x), static_cast<int>(vMouse.y));
                 dragStartMousePos = lastMousePos;
                 return;
             }
         }
         if (event.type == sf::Event::MouseMoved) {
+            sf::Vector2f vMove = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y), letterboxView);
             if (isDraggingProfile) {
-                sf::Vector2i newPos(event.mouseMove.x, event.mouseMove.y);
+                sf::Vector2i newPos(static_cast<int>(vMove.x), static_cast<int>(vMove.y));
                 profilePanelPos.x += (newPos.x - lastMousePos.x);
                 profilePanelPos.y += (newPos.y - lastMousePos.y);
                 lastMousePos = newPos;
                 return;
             }
             if (isDraggingMap) {
-                sf::Vector2i newPos(event.mouseMove.x, event.mouseMove.y);
+                sf::Vector2i newPos(static_cast<int>(vMove.x), static_cast<int>(vMove.y));
                 sf::Vector2f delta = game->getWindow().mapPixelToCoords(lastMousePos, mapView) - game->getWindow().mapPixelToCoords(newPos, mapView);
                 mapCenter += delta;
                 lastMousePos = newPos;
@@ -404,16 +427,17 @@ void PlayState::processEvents(const sf::Event& event) {
             }
             if (isDraggingMap) {
                 isDraggingMap = false;
-                int dx = event.mouseButton.x - dragStartMousePos.x;
-                int dy = event.mouseButton.y - dragStartMousePos.y;
+                int dx = static_cast<int>(vMouse.x) - dragStartMousePos.x;
+                int dy = static_cast<int>(vMouse.y) - dragStartMousePos.y;
                 if (dx * dx + dy * dy < 25) {
-                    handleMapClick(game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), mapView));
+                    handleMapClick(game->getWindow().mapPixelToCoords(sf::Vector2i(static_cast<int>(vMouse.x), static_cast<int>(vMouse.y)), mapView));
                 }
                 return;
             }
         }
         if (event.type == sf::Event::MouseWheelScrolled) {
-            if (vpPixels.contains(event.mouseWheelScroll.x, event.mouseWheelScroll.y)) {
+            sf::Vector2f vWheel = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseWheelScroll.x, event.mouseWheelScroll.y), letterboxView);
+            if (vpPixels.contains(vWheel.x, vWheel.y)) {
                 targetMapZoom -= event.mouseWheelScroll.delta * 1.5f;
                 targetMapZoom = std::clamp(targetMapZoom, 2.0f, 40.0f);
                 isMapDetached = true;
@@ -508,7 +532,6 @@ void PlayState::processEvents(const sf::Event& event) {
         }
     }
 }
-
 
 void PlayState::update(float dt) {
     static float targetRefreshTimer = 0.f;
@@ -1468,10 +1491,46 @@ void PlayState::draw(sf::RenderWindow& window) {
     sf::Clock renderClock;
 
     if (!sceneTextureReady ||
-        sceneTexture.getSize().x != window.getSize().x ||
-        sceneTexture.getSize().y != window.getSize().y) {
-        sceneTexture.create(window.getSize().x, window.getSize().y);
+        sceneTexture.getSize().x != 1280 ||
+        sceneTexture.getSize().y != 720) {
+        sceneTexture.create(1280, 720);
+        finalSceneTexture.create(1280, 720);
         sceneTextureReady = true;
+    }
+
+    auto getLetterboxView = [](unsigned int winW, unsigned int winH) -> sf::View {
+        float windowRatio = static_cast<float>(winW) / static_cast<float>(winH);
+        float targetRatio = 1280.f / 720.f;
+        sf::FloatRect vp(0.f, 0.f, 1.f, 1.f);
+
+        if (windowRatio > targetRatio) {
+            float vpWidth = targetRatio / windowRatio;
+            vp.left = (1.f - vpWidth) / 2.f;
+            vp.width = vpWidth;
+        } else {
+            float vpHeight = windowRatio / targetRatio;
+            vp.top = (1.f - vpHeight) / 2.f;
+            vp.height = vpHeight;
+        }
+
+        sf::View v(sf::FloatRect(0.f, 0.f, 1280.f, 720.f));
+        v.setViewport(vp);
+        return v;
+    };
+
+    sf::View letterboxView = getLetterboxView(window.getSize().x, window.getSize().y);
+
+    sim::SimulationRegistry& reg = simulationManager->getRegistry();
+    sim::ApeData* pDataHUD = reg.getApe(simulationManager->getControlledApe());
+    sim::VillageData* pVillage = pDataHUD ? reg.getVillage(pDataHUD->villageId) : nullptr;
+
+    bool isCinematicWait = false;
+    if (pDataHUD && pDataHUD->isWaitingForAudience) {
+        sim::ApeData* rep = simulationManager->getRegistry().getApe(pDataHUD->summonedRepId);
+        if (rep) {
+            float dist = std::abs(rep->worldX - pDataHUD->meetingX);
+            isCinematicWait = (dist > 150.0f);
+        }
     }
 
     sf::RenderTarget& rt = sceneTexture;
@@ -1579,10 +1638,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         structureManager->drawForeground(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
 
-    sim::SimulationRegistry& reg = simulationManager->getRegistry();
-    sim::ApeData* pDataHUD = reg.getApe(simulationManager->getControlledApe());
-    sim::VillageData* pVillage = pDataHUD ? reg.getVillage(pDataHUD->villageId) : nullptr;
-
     if (pVillage && pVillage->isGatheringActive) {
         for (sim::EntityID mId : pVillage->members) {
             sim::ApeData* ape = reg.getApe(mId);
@@ -1648,12 +1703,31 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     sceneTexture.display();
 
-    window.setView(window.getDefaultView());
-    sf::Sprite sceneSprite(sceneTexture.getTexture());
-    window.draw(sceneSprite);
+    finalSceneTexture.clear(sf::Color(0, 0, 0, 255));
+    finalSceneTexture.setView(finalSceneTexture.getDefaultView());
+    sf::Sprite baseWorldSprite(sceneTexture.getTexture());
+    finalSceneTexture.draw(baseWorldSprite);
 
     sf::Color waterTint = dayNightCycle ? dayNightCycle->getSkyColor() : sf::Color::White;
-    waterPlane.draw(window, sceneTexture.getTexture(), cameraManager->getView(), waterTint);
+    waterPlane.draw(finalSceneTexture, sceneTexture.getTexture(), cameraManager->getView(), waterTint);
+
+    if (lightingManager) lightingManager->drawAmbient(finalSceneTexture);
+
+    finalSceneTexture.display();
+
+    window.clear(sf::Color(10, 10, 14));
+    window.setView(letterboxView);
+
+    sf::Sprite finalSprite(finalSceneTexture.getTexture());
+    window.draw(finalSprite);
+
+    if (!isCinematicWait) {
+        sf::View worldView = cameraManager->getView();
+        worldView.setViewport(letterboxView.getViewport());
+        window.setView(worldView);
+        interactionManager.draw(window);
+        window.setView(letterboxView);
+    }
 
     if (pDataHUD && !dynastyUI.isOpen()) {
         drawAmberHUD(window, pDataHUD);
@@ -1665,48 +1739,39 @@ void PlayState::draw(sf::RenderWindow& window) {
         else if (cinematicTextTimer < 1.0f) alpha = cinematicTextTimer * 255.f;     
 
         sf::Text transitionText(cinematicText, cinematicFont, 36);
-        
         sf::FloatRect textRect = transitionText.getLocalBounds();
         transitionText.setOrigin(textRect.left + textRect.width / 2.0f, textRect.top + textRect.height / 2.0f);
-        transitionText.setPosition(window.getSize().x / 2.0f, window.getSize().y / 4.0f);
-        
+        transitionText.setPosition(640.f, 180.f);
         transitionText.setFillColor(sf::Color(255, 255, 255, static_cast<sf::Uint8>(alpha)));
         transitionText.setOutlineColor(sf::Color(0, 0, 0, static_cast<sf::Uint8>(alpha)));
         transitionText.setOutlineThickness(2.f);
-
         window.draw(transitionText);
     }
     
-    bool isCinematicWait = false;
-    
     if (pDataHUD && pDataHUD->isWaitingForAudience) {
         sim::ApeData* rep = simulationManager->getRegistry().getApe(pDataHUD->summonedRepId);
-        if (rep) {
+        if (rep && isCinematicWait) {
             float dist = std::abs(rep->worldX - pDataHUD->meetingX);
-            isCinematicWait = (dist > 150.0f); 
-            
-            if (isCinematicWait) {
-                int secondsLeft = std::max(0, static_cast<int>(dist / 180.0f));
+            int secondsLeft = std::max(0, static_cast<int>(dist / 180.0f));
 
-                sf::Text waitText("Awaiting Diplomatic Representative...", cinematicFont, 24);
-                sf::FloatRect waitRect = waitText.getLocalBounds();
-                waitText.setOrigin(waitRect.left + waitRect.width / 2.0f, waitRect.top + waitRect.height / 2.0f);
-                waitText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f);
-                waitText.setFillColor(sf::Color(255, 215, 100, 255)); 
-                waitText.setOutlineColor(sf::Color(0, 0, 0, 255)); 
-                waitText.setOutlineThickness(2.0f);
-                window.draw(waitText);
+            sf::Text waitText("Awaiting Diplomatic Representative...", cinematicFont, 24);
+            sf::FloatRect waitRect = waitText.getLocalBounds();
+            waitText.setOrigin(waitRect.left + waitRect.width / 2.0f, waitRect.top + waitRect.height / 2.0f);
+            waitText.setPosition(640.f, 86.f);
+            waitText.setFillColor(sf::Color(255, 215, 100, 255)); 
+            waitText.setOutlineColor(sf::Color(0, 0, 0, 255)); 
+            waitText.setOutlineThickness(2.0f);
+            window.draw(waitText);
 
-                std::string timeString = "Arrival in: " + std::to_string(secondsLeft) + " seconds";
-                sf::Text timeText(timeString, cinematicFont, 18);
-                sf::FloatRect timeRect = timeText.getLocalBounds();
-                timeText.setOrigin(timeRect.left + timeRect.width / 2.0f, timeRect.top + timeRect.height / 2.0f);
-                timeText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 32.f);
-                timeText.setFillColor(sf::Color(220, 230, 240, 255)); 
-                timeText.setOutlineColor(sf::Color(0, 0, 0, 255)); 
-                timeText.setOutlineThickness(2.0f);
-                window.draw(timeText);
-            }
+            std::string timeString = "Arrival in: " + std::to_string(secondsLeft) + " seconds";
+            sf::Text timeText(timeString, cinematicFont, 18);
+            sf::FloatRect timeRect = timeText.getLocalBounds();
+            timeText.setOrigin(timeRect.left + timeRect.width / 2.0f, timeRect.top + timeRect.height / 2.0f);
+            timeText.setPosition(640.f, 118.f);
+            timeText.setFillColor(sf::Color(220, 230, 240, 255)); 
+            timeText.setOutlineColor(sf::Color(0, 0, 0, 255)); 
+            timeText.setOutlineThickness(2.0f);
+            window.draw(timeText);
         }
     }
 
@@ -1721,7 +1786,7 @@ void PlayState::draw(sf::RenderWindow& window) {
                 returnText.setOutlineThickness(1.5f);
                 sf::FloatRect rBounds = returnText.getLocalBounds();
                 returnText.setOrigin(rBounds.left + rBounds.width / 2.f, rBounds.top + rBounds.height / 2.f);
-                returnText.setPosition(window.getSize().x / 2.f, window.getSize().y - 50.f);
+                returnText.setPosition(640.f, 670.f);
                 window.draw(returnText);
             }
         } else {
@@ -1731,7 +1796,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             speakerText.setOutlineThickness(2.f);
             sf::FloatRect sRect = speakerText.getLocalBounds();
             speakerText.setOrigin(sRect.left + sRect.width / 2.0f, sRect.top + sRect.height / 2.0f);
-            speakerText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f);
+            speakerText.setPosition(640.f, 86.f);
             window.draw(speakerText);
 
             sf::Text bodyText(dialogueText, cinematicFont, 20);
@@ -1740,10 +1805,10 @@ void PlayState::draw(sf::RenderWindow& window) {
             bodyText.setOutlineThickness(2.f);
             sf::FloatRect bRect = bodyText.getLocalBounds();
             bodyText.setOrigin(bRect.left + bRect.width / 2.0f, bRect.top + bRect.height / 2.0f);
-            bodyText.setPosition(window.getSize().x / 2.0f, window.getSize().y * 0.12f + 40.f);
+            bodyText.setPosition(640.f, 126.f);
             window.draw(bodyText);
 
-            float optionsStartY = window.getSize().y * 0.12f + 110.f;
+            float optionsStartY = 196.f;
             for (size_t i = 0; i < dialogueOptions.size(); ++i) {
                 sf::Text optText("", cinematicFont, 18);
                 if (static_cast<int>(i) == dialogueSelectedIndex) {
@@ -1757,21 +1822,11 @@ void PlayState::draw(sf::RenderWindow& window) {
                 optText.setOutlineThickness(1.5f);
                 sf::FloatRect oRect = optText.getLocalBounds();
                 optText.setOrigin(oRect.left + oRect.width / 2.0f, oRect.top + oRect.height / 2.0f);
-                optText.setPosition(window.getSize().x / 2.0f, optionsStartY + (i * 30.f));
+                optText.setPosition(640.f, optionsStartY + (i * 30.f));
                 window.draw(optText);
             }
         } 
     }
-
-    if (lightingManager) lightingManager->drawAmbient(window);
-
-    window.setView(cameraManager->getView());
-
-    if (!isCinematicWait) {
-        interactionManager.draw(window);
-    }
-
-    window.setView(window.getDefaultView());
 
     if (pVillage && !dynastyUI.isOpen() && !isDialogueActive) {
         float distToThrone = std::abs(pDataHUD->worldX - pVillage->throneX);
@@ -1782,7 +1837,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             prompt.setOutlineThickness(1.5f);
             sf::FloatRect pb = prompt.getLocalBounds();
             prompt.setOrigin(pb.left + pb.width / 2.f, pb.top + pb.height / 2.f);
-            prompt.setPosition(window.getSize().x / 2.f, window.getSize().y * 0.82f);
+            prompt.setPosition(640.f, 590.f);
             window.draw(prompt);
         } else if (isSittingOnThrone && !isInspectingCharacter) {
             std::string sitPromptStr = pVillage->isGatheringActive ? 
@@ -1795,7 +1850,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             prompt.setOutlineThickness(1.5f);
             sf::FloatRect pb = prompt.getLocalBounds();
             prompt.setOrigin(pb.left + pb.width / 2.f, pb.top + pb.height / 2.f);
-            prompt.setPosition(window.getSize().x / 2.f, window.getSize().y * 0.82f);
+            prompt.setPosition(640.f, 590.f);
             window.draw(prompt);
         }
     }
@@ -1845,9 +1900,9 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     if (debugOverlay) debugOverlay->draw(window);
 
-    window.setView(window.getDefaultView());
+    window.setView(letterboxView);
     sf::Vector2i mPixel = sf::Mouse::getPosition(window);
-    sf::Vector2f mPos = window.mapPixelToCoords(mPixel, window.getDefaultView());
+    sf::Vector2f mPos = window.mapPixelToCoords(mPixel, letterboxView);
 
     sf::ConvexShape ckCursor(7);
     ckCursor.setPoint(0, sf::Vector2f(0.f, 0.f));

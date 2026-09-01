@@ -16,7 +16,9 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
         return;
     }
 
-    bool isDay = (timeOfDay >= 6.0f && timeOfDay <= 19.0f);
+    float hour = (timeOfDay <= 1.0f) ? (timeOfDay * 24.0f) : timeOfDay;
+    bool isDay = (hour >= 5.5f && hour <= 19.5f);
+
     float minX = village.borderMinX;
     float maxX = village.borderMaxX;
     if (maxX <= minX || (maxX - minX < 800.f)) {
@@ -27,18 +29,18 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
     if (ape.councilRole == CouncilRole::WarChief) {
         ape.equippedTool = ToolType::WoodenSpear;
         if (isDay) {
-            if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 50.f) {
+            if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 60.f) {
                 if (ape.worldX < village.centerX) {
-                    ape.travelDestinationX = maxX - 100.f;
+                    ape.travelDestinationX = maxX - 120.f;
                 } else {
-                    ape.travelDestinationX = minX + 100.f;
+                    ape.travelDestinationX = minX + 120.f;
                 }
                 ape.hasTravelDestination = true;
                 ape.currentJob = Job::Patrol;
             }
         } else {
-            if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 50.f) {
-                ape.travelDestinationX = village.centerX + static_cast<float>((static_cast<int>(ape.id) % 2 == 0 ? 300.f : -300.f));
+            if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 60.f) {
+                ape.travelDestinationX = village.centerX + static_cast<float>((static_cast<int>(ape.id) % 2 == 0 ? 250.f : -250.f));
                 ape.hasTravelDestination = true;
                 ape.currentJob = Job::Guard;
             }

@@ -59,10 +59,10 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
         float myX = physicalApe.getPosition().x;
         float targetX = data->travelDestinationX;
         float dist = std::abs(myX - targetX);
-        float stopDistance = (data->currentJob == sim::Job::Builder || data->currentJob == sim::Job::Forage) ? 35.f : 20.f;
+        float stopDistance = 30.f;
 
         if (dist > stopDistance) {
-            intendedMoveX = (myX < targetX) ? 1.f : -1.f;
+            intendedMoveX = (targetX > myX) ? 1.f : -1.f;
             physicalApe.setState(ApeState::Grounded);
         } else {
             intendedMoveX = 0.f;
@@ -75,19 +75,8 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
         return;
     }
 
-    sim::VillageData* v = registry.getVillage(data->villageId);
-    if (!v) return;
-
-    if (data->currentJob == sim::Job::Sleep) {
-        intendedMoveX = 0.f;
-        physicalApe.setState(ApeState::Grounded);
-        return;
-    }
-
-    if (data->currentJob == sim::Job::Idle || data->currentJob == sim::Job::Socialize) {
-        intendedMoveX = 0.f;
-        physicalApe.setState(ApeState::Grounded);
-    }
+    intendedMoveX = 0.f;
+    physicalApe.setState(ApeState::Grounded);
 }
 
 void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
@@ -156,7 +145,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
 
         if (distToDest > 45.f) {
             physicalApe.setState(ApeState::Grounded);
-            intendedMoveX = (myX < destX) ? 1.f : -1.f;
+            intendedMoveX = (destX > myX) ? 1.f : -1.f;
             workTimer = 0.f;
         } else {
             intendedMoveX = 0.f;
@@ -204,7 +193,7 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
     }
 
     if (physicalApe.getState() == ApeState::Grounded || physicalApe.getState() == ApeState::Airborne || physicalApe.getState() == ApeState::Working) {
-        float speed = (data->councilRole == sim::CouncilRole::WarChief) ? 170.f : 120.f;
+        float speed = (data->councilRole == sim::CouncilRole::WarChief) ? 180.f : 120.f;
         
         if (intendedMoveX != 0.f && physicalApe.getState() != ApeState::Working) {
             physicalApe.setVelocity(intendedMoveX * speed, physicalApe.getVelocity().y);

@@ -6,9 +6,9 @@
 NPCManager::NPCManager(sf::Texture& texture) : apeTexture(texture) {}
 
 void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, sim::SimulationManager& simManager, WorldManager* worldManager, float timeOfDay) {
-    auto& allApes = simManager.getRegistry().getAllApes();
-    sim::EntityID controlledId = simManager.getControlledApe();
     sim::SimulationRegistry& registry = simManager.getRegistry();
+    sim::EntityID controlledId = simManager.getControlledApe();
+    auto& allApes = registry.getAllApes();
 
     for (auto& pair : allApes) {
         sim::ApeData& data = pair.second;

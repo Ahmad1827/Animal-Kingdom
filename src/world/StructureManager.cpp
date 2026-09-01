@@ -66,7 +66,8 @@ static void drawEmptyPlot(sf::RenderTarget& target, const sim::StructureData& s,
 void StructureManager::drawMeetingGround(sf::RenderTarget& target, float worldX, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
         drawSpriteAnchored(target, rectMeetingRootLog, worldX - 320.f, groundY, 0.65f);
-        drawSpriteAnchored(target, rectMeetingStone, worldX, groundY, 0.65f);
+        drawSpriteAnchored(target, rectBorderMonument, worldX, groundY, 0.65f);
+        drawSpriteAnchored(target, rectMeetingStone, worldX + 160.f, groundY, 0.65f);
         drawSpriteAnchored(target, rectMeetingHollowLog, worldX + 320.f, groundY, 0.65f);
     }
 }
@@ -135,6 +136,9 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
                 case sim::StructureType::VillageCenter:
                     drawVillageCenter(target, s, *v, groundY);
                     break;
+                case sim::StructureType::Throne:
+                    drawThrone(target, s, *v, groundY);
+                    break;
                 case sim::StructureType::Nest:
                     drawNest(target, s, *v, groundY);
                     break;
@@ -158,6 +162,7 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
                     drawStockpileProps(target, s, *v, groundY);
                     break;
                 case sim::StructureType::SimpleBarrier:
+                case sim::StructureType::Barricade:
                     drawSimpleBarrier(target, s, *v, groundY);
                     break;
                 default:
@@ -308,6 +313,29 @@ void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::St
     target.draw(skull);
 }
 
+void StructureManager::drawThrone(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        drawSpriteAnchored(target, rectBorderMonument, s.worldX, groundY, 0.70f);
+        return;
+    }
+
+    sf::RectangleShape baseThrone(sf::Vector2f(90.f, 20.f));
+    baseThrone.setOrigin(45.f, 20.f);
+    baseThrone.setPosition(s.worldX, groundY);
+    baseThrone.setFillColor(sf::Color(80, 55, 30));
+    baseThrone.setOutlineColor(sf::Color(20, 10, 5));
+    baseThrone.setOutlineThickness(2.f);
+    target.draw(baseThrone);
+
+    sf::RectangleShape backThrone(sf::Vector2f(70.f, 110.f));
+    backThrone.setOrigin(35.f, 110.f);
+    backThrone.setPosition(s.worldX, groundY - 20.f);
+    backThrone.setFillColor(sf::Color(100, 70, 40));
+    backThrone.setOutlineColor(sf::Color(20, 10, 5));
+    backThrone.setOutlineThickness(2.f);
+    target.draw(backThrone);
+}
+
 void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
         drawSpriteAnchored(target, rectToolRack, s.worldX, groundY, 0.70f);
@@ -395,7 +423,11 @@ void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::Structu
 
 void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.70f);
+        if (s.type == sim::StructureType::WoodPile) {
+            drawSpriteAnchored(target, rectMeetingHollowLog, s.worldX, groundY, 0.85f);
+        } else {
+            drawSpriteAnchored(target, rectMeetingStone, s.worldX, groundY, 0.85f);
+        }
         return;
     }
 
@@ -559,7 +591,7 @@ void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::Struc
 
 void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectLookpost, s.worldX, groundY, 0.80f);
+        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 0.75f);
         return;
     }
 

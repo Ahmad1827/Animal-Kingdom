@@ -10,26 +10,24 @@ class StructureManager {
 private:
     const sf::Texture* villageTexture = nullptr;
 
-    const sf::IntRect rectCenterBuilding   = sf::IntRect(8,    1406, 771, 683);
-    const sf::IntRect rectBorderMonument   = sf::IntRect(1070, 1423, 224, 666);
-    const sf::IntRect rectLookpost         = sf::IntRect(1832, 1430, 275, 659);
-    const sf::IntRect rectLookpostBamboo   = sf::IntRect(1039, 303,  285, 388);
-    const sf::IntRect rectToolRack         = sf::IntRect(227,  411,  334, 280);
-    const sf::IntRect rectFirePit          = sf::IntRect(278,  1206, 232, 184);
-    const sf::IntRect rectVillageHut       = sf::IntRect(1806, 2569, 327, 219);
-    const sf::IntRect rectMeetingRootLog   = sf::IntRect(233,  2631, 321, 157);
-    const sf::IntRect rectMeetingStone     = sf::IntRect(1080, 2634, 204, 154);
-    const sf::IntRect rectMeetingHollowLog = sf::IntRect(251,  3388, 285, 99);
-    const sf::IntRect rectPalisadeMiddle   = sf::IntRect(306,  3956, 175, 230);
-    const sf::IntRect rectPalisadeLeft     = sf::IntRect(1014, 3955, 335, 231);
-    const sf::IntRect rectPalisadeRight    = sf::IntRect(1883, 3956, 173, 230);
-    const sf::IntRect rectGateProfile      = sf::IntRect(2706, 3947, 104, 239);
-    const sf::IntRect rectGateFront        = sf::IntRect(3358, 3930, 376, 256);
-    const sf::IntRect rectBambooNode       = sf::IntRect(4223, 3957, 222, 229);
-    const sf::IntRect rectFxFire           = sf::IntRect(359,  4795, 70,  90);
-    const sf::IntRect rectFxSmoke          = sf::IntRect(1148, 4794, 68,  91);
-    const sf::IntRect rectFxSoul           = sf::IntRect(1937, 4793, 66,  92);
-    const sf::IntRect rectFxLeaf           = sf::IntRect(2720, 4800, 76,  85);
+    const sf::IntRect rectCenterBuilding   = sf::IntRect(59,   303,  770, 683);
+    const sf::IntRect rectBorderMonument   = sf::IntRect(907,  319,  220, 666);
+    const sf::IntRect rectLookpost         = sf::IntRect(1237, 325,  276, 660);
+    const sf::IntRect rectLookpostBamboo   = sf::IntRect(2419, 221,  285, 389);
+    const sf::IntRect rectToolRack         = sf::IntRect(1647, 330,  334, 280);
+    const sf::IntRect rectFirePit          = sf::IntRect(2085, 433,  233, 172);
+    const sf::IntRect rectVillageHut       = sf::IntRect(2426, 766,  327, 219);
+    const sf::IntRect rectMeetingRootLog   = sf::IntRect(1586, 832,  252, 153);
+    const sf::IntRect rectMeetingStone     = sf::IntRect(1860, 830,  209, 155);
+    const sf::IntRect rectMeetingHollowLog = sf::IntRect(2090, 886,  285, 99);
+    const sf::IntRect rectGateProfile      = sf::IntRect(961,  1215, 101, 239);
+    const sf::IntRect rectGateFront        = sf::IntRect(1142, 1199, 375, 255);
+    const sf::IntRect rectPalisadeMiddle   = sf::IntRect(42,   1225, 173, 229);
+    const sf::IntRect rectPalisadeLeft     = sf::IntRect(257,  1224, 332, 230);
+    const sf::IntRect rectPalisadeRight    = sf::IntRect(653,  1225, 173, 229);
+    const sf::IntRect rectBambooNode       = sf::IntRect(1973, 1225, 221, 233);
+    const sf::IntRect rectFxFire           = sf::IntRect(2285, 1382, 85,  76);
+    const sf::IntRect rectFxSmoke          = sf::IntRect(2418, 1365, 74,  93);
 
     void drawSpriteAnchored(sf::RenderTarget& target, const sf::IntRect& rect, float x, float y, float scale, sf::Color color = sf::Color::White);
 
@@ -44,6 +42,7 @@ public:
 
     void drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY);
     void drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);
+    void drawThrone(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);
     void drawToolRack(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);
     void drawStockpileProps(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);
     void drawSimpleBarrier(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);

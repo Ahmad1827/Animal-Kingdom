@@ -62,8 +62,8 @@ void PlayState::init() {
     simulationManager->getRegistry().setWorldManager(worldManager.get());
     structureManager = std::make_unique<StructureManager>();
 
-    if (!villageAssetsTexture.loadFromFile("assets/villageassets1.png")) {
-        villageAssetsTexture.loadFromFile("villageassets1.png");
+    if (!villageAssetsTexture.loadFromFile("assets/villageassets3.png")) {
+        villageAssetsTexture.loadFromFile("villageassets3.png");
     }
 
     const sf::Texture& vTex = game->getAssetManager().getTexture("village_assets");

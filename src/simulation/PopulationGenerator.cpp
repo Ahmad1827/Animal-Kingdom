@@ -162,6 +162,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     pVillage.centerY = 500.0f;
     pVillage.throneX = pVillage.centerX;
     pVillage.tier = SettlementTier::FirePit;
+    pVillage.isGatheringActive = false;
     pVillage.amber = 12;
     pVillage.food = 65;
     pVillage.wood = 35;
@@ -310,6 +311,7 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         village.centerY = 500.0f;
         village.throneX = village.centerX;
         village.tier = SettlementTier::FirePit;
+        village.isGatheringActive = false;
         village.amber = 5;
         village.food = 40;
         village.wood = 20;

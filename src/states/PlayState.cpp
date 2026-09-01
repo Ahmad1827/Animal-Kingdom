@@ -233,18 +233,22 @@ void PlayState::processEvents(const sf::Event& event) {
                         if (event.key.code == sf::Keyboard::Num1) {
                             village->warChiefId = targetApe->id;
                             targetApe->councilRole = sim::CouncilRole::WarChief;
+                            targetApe->hasTravelDestination = false;
                             return;
                         } else if (event.key.code == sf::Keyboard::Num2) {
                             village->chiefBuilderId = targetApe->id;
                             targetApe->councilRole = sim::CouncilRole::ChiefBuilder;
+                            targetApe->hasTravelDestination = false;
                             return;
                         } else if (event.key.code == sf::Keyboard::Num3) {
                             village->leadForagerId = targetApe->id;
                             targetApe->councilRole = sim::CouncilRole::LeadForager;
+                            targetApe->hasTravelDestination = false;
                             return;
                         } else if (event.key.code == sf::Keyboard::Num4) {
                             village->shamanId = targetApe->id;
                             targetApe->councilRole = sim::CouncilRole::Shaman;
+                            targetApe->hasTravelDestination = false;
                             return;
                         } else if (event.key.code == sf::Keyboard::Num0) {
                             if (village->warChiefId == targetApe->id) village->warChiefId = 0;
@@ -252,6 +256,7 @@ void PlayState::processEvents(const sf::Event& event) {
                             if (village->leadForagerId == targetApe->id) village->leadForagerId = 0;
                             if (village->shamanId == targetApe->id) village->shamanId = 0;
                             targetApe->councilRole = sim::CouncilRole::None;
+                            targetApe->hasTravelDestination = false;
                             return;
                         }
                     }
@@ -300,6 +305,8 @@ void PlayState::processEvents(const sf::Event& event) {
                                 playerWrapper->setPosition(village->throneX, playerWrapper->getPosition().y);
                                 playerWrapper->setVelocity(0.f, 0.f);
                             }
+                        } else {
+                            village->isGatheringActive = false;
                         }
                         return;
                     }
@@ -310,7 +317,7 @@ void PlayState::processEvents(const sf::Event& event) {
                     if (!village->isGatheringActive) {
                         for (sim::EntityID mId : village->members) {
                             sim::ApeData* ape = reg.getApe(mId);
-                            if (ape && ape->alive && ape->isMainApe && ape->id != village->leaderId) {
+                            if (ape && ape->alive && ape->id != village->leaderId) {
                                 ape->hasTravelDestination = false;
                                 ape->currentJob = sim::Job::Idle;
                             }
@@ -323,6 +330,13 @@ void PlayState::processEvents(const sf::Event& event) {
                                           event.key.code == sf::Keyboard::Left || event.key.code == sf::Keyboard::Right ||
                                           event.key.code == sf::Keyboard::Space)) {
                     isSittingOnThrone = false;
+                    village->isGatheringActive = false;
+                    for (sim::EntityID mId : village->members) {
+                        sim::ApeData* ape = reg.getApe(mId);
+                        if (ape && ape->alive && ape->id != village->leaderId) {
+                            ape->hasTravelDestination = false;
+                        }
+                    }
                 }
             }
         }

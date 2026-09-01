@@ -73,19 +73,40 @@ void StructureManager::drawMeetingGround(sf::RenderTarget& target, float worldX,
 }
 
 void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
-    float footprintW = 4800.f;
-    float startX = village.centerX - footprintW / 2.f;
+    float minX = village.borderMinX;
+    float maxX = village.borderMaxX;
+    if (maxX <= minX) {
+        minX = village.centerX - 2400.f;
+        maxX = village.centerX + 2400.f;
+    }
+
+    float footprintW = (maxX - minX) + 200.f;
+    float startX = minX - 100.f;
 
     sf::RectangleShape dirtBed(sf::Vector2f(footprintW, 36.f));
     dirtBed.setPosition(startX, groundY - 4.f);
     dirtBed.setFillColor(sf::Color(32, 22, 14, 235));
     target.draw(dirtBed);
 
-    sf::RectangleShape innerMat(sf::Vector2f(3000.f, 12.f));
-    innerMat.setOrigin(1500.f, 0.f);
+    sf::RectangleShape innerMat(sf::Vector2f(footprintW * 0.7f, 12.f));
+    innerMat.setOrigin(footprintW * 0.35f, 0.f);
     innerMat.setPosition(village.centerX, groundY - 3.f);
     innerMat.setFillColor(sf::Color(118, 88, 48, 220));
     target.draw(innerMat);
+
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        sf::Color fenceBgColor = sf::Color::White;
+        float fenceScale = 0.85f;
+        float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.94f;
+
+        drawSpriteAnchored(target, rectPalisadeLeft, minX + 25.f, groundY, fenceScale, fenceBgColor);
+
+        for (float fx = minX + 130.f; fx < maxX - 130.f; fx += stepW) {
+            drawSpriteAnchored(target, rectPalisadeMiddle, fx, groundY, fenceScale, fenceBgColor);
+        }
+
+        drawSpriteAnchored(target, rectPalisadeRight, maxX - 25.f, groundY, fenceScale, fenceBgColor);
+    }
 }
 
 void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {

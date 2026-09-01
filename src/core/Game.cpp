@@ -39,7 +39,7 @@ void Game::run() {
         }
 
         stateMachine.update(dt.asSeconds());
-
+        window.setMouseCursorVisible(false);
         window.clear(sf::Color(20, 20, 25));
         stateMachine.draw(window);
         window.display();

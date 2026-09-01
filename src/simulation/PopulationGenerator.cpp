@@ -10,7 +10,7 @@ namespace sim {
 static constexpr float WALL_STAKE_HALF_WIDTH = 104.0f;
 static constexpr float WALL_TO_BORDER_OFFSET = WALL_STAKE_HALF_WIDTH * 2.0f;
 
-ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId, VillageID villageId, const std::vector<std::string>& names, const std::vector<Trait>& traits, uint32_t worldSeed) {
+ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId, VillageID villageId, const std::vector<std::string>&, const std::vector<Trait>& traits, uint32_t worldSeed) {
     uint32_t apeSeed = seed;
     ApeData ape;
     ape.id = IDGenerator::generateEntityID();
@@ -18,7 +18,7 @@ ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId,
     ape.villageId = villageId;
     ape.isMainApe = (dynastyId != 0);
     ape.councilRole = CouncilRole::None;
-    ape.name = names[SeedManager::getRandomInt(apeSeed, 0, names.size() - 1)];
+    ape.name = NameGenerator::generateHistoricalParodyName(seed);
     ape.age = SeedManager::getRandomFloat(apeSeed, 14.0f, 42.0f);
     ape.gender = (SeedManager::getRandomInt(apeSeed, 0, 1) == 0) ? Gender::Male : Gender::Female;
     ape.health = 100.0f;

@@ -170,6 +170,11 @@ void PlayState::initDynastySimulation() {
 }
 
 void PlayState::processEvents(const sf::Event& event) {
+    if (event.type == sf::Event::Resized) {
+        sf::FloatRect visibleArea(0.f, 0.f, static_cast<float>(event.size.width), static_cast<float>(event.size.height));
+        game->getWindow().setView(sf::View(visibleArea));
+    }
+
     if (event.type == sf::Event::MouseMoved) {
         sf::Vector2f mCoords = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y), game->getWindow().getDefaultView());
         dynastyUI.handleMouseMove(mCoords);
@@ -205,7 +210,7 @@ void PlayState::processEvents(const sf::Event& event) {
                 sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
                 if (targetApe && player) {
                     sim::VillageData* village = reg.getVillage(player->villageId);
-                    if (village && targetApe->id != village->leaderId) {
+                    if (village && targetApe->id != village->leaderId && targetApe->villageId == village->id) {
                         if (event.key.code == sf::Keyboard::Num1) {
                             village->warChiefId = targetApe->id;
                             targetApe->councilRole = sim::CouncilRole::WarChief;
@@ -239,20 +244,21 @@ void PlayState::processEvents(const sf::Event& event) {
     if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left && mapMode == MapMode::Hidden && !dynastyUI.isOpen() && !isDialogueActive) {
         sf::Vector2f worldClick = game->getWindow().mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), cameraManager->getView());
         sim::SimulationRegistry& reg = simulationManager->getRegistry();
-        sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
-        if (player) {
-            sim::VillageData* village = reg.getVillage(player->villageId);
-            if (village) {
-                for (sim::EntityID mId : village->members) {
-                    sim::ApeData* ape = reg.getApe(mId);
-                    if (!ape || !ape->alive) continue;
-                    if (std::abs(worldClick.x - ape->worldX) < 45.f && std::abs(worldClick.y - ape->worldY) < 70.f) {
-                        inspectedApeId = ape->id;
-                        isInspectingCharacter = true;
-                        return;
-                    }
-                }
+        
+        sim::EntityID clickedApeId = 0;
+        for (auto& pair : reg.getAllApes()) {
+            sim::ApeData& ape = pair.second;
+            if (!ape.alive) continue;
+            if (std::abs(worldClick.x - ape.worldX) < 50.f && std::abs(worldClick.y - (ape.worldY - 35.f)) < 65.f) {
+                clickedApeId = ape.id;
+                break;
             }
+        }
+
+        if (clickedApeId != 0) {
+            inspectedApeId = clickedApeId;
+            isInspectingCharacter = true;
+            return;
         }
     }
 
@@ -356,7 +362,7 @@ void PlayState::processEvents(const sf::Event& event) {
 
         sf::FloatRect profileRect(0, 0, 0, 0);
         bool profileOpen = false;
-        if (isInspectingCharacter) { profileRect = {profilePanelPos.x, profilePanelPos.y, 320.f, 500.f}; profileOpen = true; }
+        if (isInspectingCharacter) { profileRect = {profilePanelPos.x, profilePanelPos.y, 390.f, 580.f}; profileOpen = true; }
         else if (selectedKingdomId != 0) { profileRect = {profilePanelPos.x, profilePanelPos.y, 380.f, 550.f}; profileOpen = true; }
         else if (selectedVillageId != 0) { profileRect = {profilePanelPos.x, profilePanelPos.y, 340.f, 500.f}; profileOpen = true; }
 
@@ -394,20 +400,6 @@ void PlayState::processEvents(const sf::Event& event) {
         if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
             if (isDraggingProfile) {
                 isDraggingProfile = false;
-                int dx = event.mouseButton.x - dragStartMousePos.x;
-                int dy = event.mouseButton.y - dragStartMousePos.y;
-                if (dx * dx + dy * dy < 25) {
-                    float btnTop = profilePanelPos.y + profileRect.height - 80.f;
-                    float btnBottom = profilePanelPos.y + profileRect.height - 40.f;
-                    float btnLeft = profilePanelPos.x + profileRect.width / 2.f - 100.f;
-                    float btnRight = profilePanelPos.x + profileRect.width / 2.f + 100.f;
-                    
-                    if (event.mouseButton.x >= btnLeft && event.mouseButton.x <= btnRight &&
-                        event.mouseButton.y >= btnTop && event.mouseButton.y <= btnBottom) {
-                        if (isInspectingCharacter) isInspectingCharacter = false;
-                        else isInspectingCharacter = true;
-                    }
-                }
                 return;
             }
             if (isDraggingMap) {
@@ -1528,7 +1520,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         }
 
         worldManager->drawTerritoryMarkers(rt, simulationManager->getRegistry(), cameraManager->getViewBounds());
-
         worldManager->drawGeometry(rt, cameraManager->getViewBounds(), profiler);
 
         struct Polity { sim::EntityID id; bool isKingdom; float minX; float maxX; float centerX; };
@@ -1853,6 +1844,30 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (debugOverlay) debugOverlay->draw(window);
+
+    window.setView(window.getDefaultView());
+    sf::Vector2i mPixel = sf::Mouse::getPosition(window);
+    sf::Vector2f mPos = window.mapPixelToCoords(mPixel, window.getDefaultView());
+
+    sf::ConvexShape ckCursor(7);
+    ckCursor.setPoint(0, sf::Vector2f(0.f, 0.f));
+    ckCursor.setPoint(1, sf::Vector2f(0.f, 22.f));
+    ckCursor.setPoint(2, sf::Vector2f(6.f, 17.f));
+    ckCursor.setPoint(3, sf::Vector2f(12.f, 25.f));
+    ckCursor.setPoint(4, sf::Vector2f(16.f, 22.f));
+    ckCursor.setPoint(5, sf::Vector2f(9.f, 14.f));
+    ckCursor.setPoint(6, sf::Vector2f(17.f, 14.f));
+    ckCursor.setPosition(mPos);
+    ckCursor.setFillColor(sf::Color(230, 185, 65));
+    ckCursor.setOutlineColor(sf::Color(35, 20, 10));
+    ckCursor.setOutlineThickness(1.5f);
+    window.draw(ckCursor);
+
+    sf::CircleShape jewel(2.5f);
+    jewel.setOrigin(2.5f, 2.5f);
+    jewel.setPosition(mPos.x + 6.f, mPos.y + 10.f);
+    jewel.setFillColor(sf::Color(220, 30, 30));
+    window.draw(jewel);
     
     profiler.renderTime = renderClock.getElapsedTime().asSeconds();
 }
@@ -2730,103 +2745,241 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
     if (!ape) return;
 
     sim::ApeData* player = simulationManager->getRegistry().getApe(simulationManager->getControlledApe());
-    sim::VillageData* village = player ? simulationManager->getRegistry().getVillage(player->villageId) : nullptr;
+    sim::VillageData* playerVillage = player ? simulationManager->getRegistry().getVillage(player->villageId) : nullptr;
+    sim::VillageData* apeVillage = simulationManager->getRegistry().getVillage(ape->villageId);
+    sim::KingdomData* apeKingdom = (ape->currentKingdom != 0) ? simulationManager->getRegistry().getKingdom(ape->currentKingdom) : nullptr;
 
-    float panelW = 340.f;
-    float panelH = 500.f;
-    float startX = profilePanelPos.x; 
+    float panelW = 390.f;
+    float panelH = 580.f;
+    float startX = profilePanelPos.x;
     float startY = profilePanelPos.y;
 
-    sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
-    panel.setPosition(startX, startY);
-    panel.setFillColor(sf::Color(35, 25, 20, 245));
-    panel.setOutlineColor(sf::Color(180, 140, 70, 220));
-    panel.setOutlineThickness(2.f);
-    window.draw(panel);
+    sf::RectangleShape shadow(sf::Vector2f(panelW + 8.f, panelH + 8.f));
+    shadow.setPosition(startX + 4.f, startY + 4.f);
+    shadow.setFillColor(sf::Color(0, 0, 0, 160));
+    window.draw(shadow);
 
-    auto drawText = [&](const std::string& text, float x, float y, int size, sf::Color col, bool center) {
-        sf::Text t(text, cinematicFont, size);
-        t.setFillColor(col);
-        t.setOutlineColor(sf::Color::Black);
-        t.setOutlineThickness(1.5f);
-        if (center) {
-            sf::FloatRect bounds = t.getLocalBounds();
-            t.setOrigin(bounds.left + bounds.width / 2.f, 0.f);
-            t.setPosition(x + panelW / 2.f, y);
-        } else {
-            t.setPosition(x, y);
-        }
-        window.draw(t);
+    sf::RectangleShape outerFrame(sf::Vector2f(panelW, panelH));
+    outerFrame.setPosition(startX, startY);
+    outerFrame.setFillColor(sf::Color(22, 16, 12, 250));
+    outerFrame.setOutlineColor(sf::Color(190, 145, 60));
+    outerFrame.setOutlineThickness(3.f);
+    window.draw(outerFrame);
+
+    sf::RectangleShape innerBorder(sf::Vector2f(panelW - 14.f, panelH - 14.f));
+    innerBorder.setPosition(startX + 7.f, startY + 7.f);
+    innerBorder.setFillColor(sf::Color(32, 24, 18, 240));
+    innerBorder.setOutlineColor(sf::Color(100, 75, 35));
+    innerBorder.setOutlineThickness(1.f);
+    window.draw(innerBorder);
+
+    auto drawCornerBracket = [&](float cx, float cy) {
+        sf::RectangleShape h(sf::Vector2f(16.f, 3.f));
+        h.setOrigin(8.f, 1.5f);
+        h.setPosition(cx, cy);
+        h.setFillColor(sf::Color(240, 200, 90));
+        window.draw(h);
+
+        sf::RectangleShape v(sf::Vector2f(3.f, 16.f));
+        v.setOrigin(1.5f, 8.f);
+        v.setPosition(cx, cy);
+        v.setFillColor(sf::Color(240, 200, 90));
+        window.draw(v);
+    };
+    drawCornerBracket(startX + 8.f, startY + 8.f);
+    drawCornerBracket(startX + panelW - 8.f, startY + 8.f);
+    drawCornerBracket(startX + 8.f, startY + panelH - 8.f);
+    drawCornerBracket(startX + panelW - 8.f, startY + panelH - 8.f);
+
+    sf::RectangleShape headerPlate(sf::Vector2f(panelW - 20.f, 52.f));
+    headerPlate.setPosition(startX + 10.f, startY + 12.f);
+    headerPlate.setFillColor(sf::Color(55, 38, 24));
+    headerPlate.setOutlineColor(sf::Color(160, 120, 50));
+    headerPlate.setOutlineThickness(1.f);
+    window.draw(headerPlate);
+
+    sf::Text nameText(ape->name, cinematicFont, 20);
+    nameText.setFillColor(sf::Color(255, 225, 120));
+    nameText.setStyle(sf::Text::Bold);
+    sf::FloatRect nb = nameText.getLocalBounds();
+    nameText.setOrigin(nb.left + nb.width / 2.f, nb.top + nb.height / 2.f);
+    nameText.setPosition(startX + panelW / 2.f, startY + 38.f);
+    window.draw(nameText);
+
+    std::string realmName = apeKingdom ? ("Kingdom of " + apeKingdom->name) : (apeVillage ? ("Clan of " + apeVillage->name) : "Wanderer");
+    sf::Text realmText(realmName, cinematicFont, 14);
+    realmText.setFillColor(sf::Color(190, 175, 150));
+    sf::FloatRect rb = realmText.getLocalBounds();
+    realmText.setOrigin(rb.left + rb.width / 2.f, 0.f);
+    realmText.setPosition(startX + panelW / 2.f, startY + 70.f);
+    window.draw(realmText);
+
+    std::string currentRoleStr = "None";
+    if (apeVillage) {
+        if (apeVillage->warChiefId == ape->id) currentRoleStr = "War Chief";
+        else if (apeVillage->chiefBuilderId == ape->id) currentRoleStr = "Chief Builder";
+        else if (apeVillage->leadForagerId == ape->id) currentRoleStr = "Lead Forager";
+        else if (apeVillage->shamanId == ape->id) currentRoleStr = "Shaman";
+        else if (apeVillage->leaderId == ape->id) currentRoleStr = "Clan Patriarch";
+    }
+
+    sf::Text roleText("Office: " + currentRoleStr + "   |   Age: " + std::to_string(static_cast<int>(ape->age)), cinematicFont, 13);
+    roleText.setFillColor(sf::Color(230, 190, 90));
+    sf::FloatRect rtb = roleText.getLocalBounds();
+    roleText.setOrigin(rtb.left + rtb.width / 2.f, 0.f);
+    roleText.setPosition(startX + panelW / 2.f, startY + 92.f);
+    window.draw(roleText);
+
+    float statBoxW = 80.f;
+    float statBoxH = 50.f;
+    float statSpacing = 10.f;
+    float statStartX = startX + 20.f;
+    float statY = startY + 120.f;
+
+    struct StatBadge { std::string label; int val; sf::Color col; };
+    std::vector<StatBadge> stats = {
+        {"MAR", static_cast<int>(ape->skills.combat * 10.f), sf::Color(190, 60, 60)},
+        {"DIP", static_cast<int>(ape->skills.leadership * 10.f), sf::Color(210, 170, 50)},
+        {"ADM", static_cast<int>(ape->skills.building * 10.f), sf::Color(70, 150, 70)},
+        {"FOR", static_cast<int>(ape->skills.gathering * 10.f), sf::Color(60, 150, 190)}
     };
 
-    float curY = startY + 20.f;
-    drawText(ape->name, startX, curY, 26, sf::Color(255, 215, 100), true);
-    curY += 32.f;
+    for (size_t i = 0; i < stats.size(); ++i) {
+        float bx = statStartX + i * (statBoxW + statSpacing);
+        sf::RectangleShape box(sf::Vector2f(statBoxW, statBoxH));
+        box.setPosition(bx, statY);
+        box.setFillColor(sf::Color(20, 15, 12, 230));
+        box.setOutlineColor(stats[i].col);
+        box.setOutlineThickness(1.5f);
+        window.draw(box);
 
-    std::string roleStr = "None";
-    if (village) {
-        if (village->warChiefId == ape->id) roleStr = "War Chief";
-        else if (village->chiefBuilderId == ape->id) roleStr = "Chief Builder";
-        else if (village->leadForagerId == ape->id) roleStr = "Lead Forager";
-        else if (village->shamanId == ape->id) roleStr = "Shaman";
+        sf::Text sLbl(stats[i].label, cinematicFont, 11);
+        sLbl.setFillColor(sf::Color(180, 180, 180));
+        sf::FloatRect lb = sLbl.getLocalBounds();
+        sLbl.setOrigin(lb.left + lb.width / 2.f, 0.f);
+        sLbl.setPosition(bx + statBoxW / 2.f, statY + 5.f);
+        window.draw(sLbl);
+
+        sf::Text sVal(std::to_string(stats[i].val), cinematicFont, 17);
+        sVal.setFillColor(sf::Color::White);
+        sVal.setStyle(sf::Text::Bold);
+        sf::FloatRect vb = sVal.getLocalBounds();
+        sVal.setOrigin(vb.left + vb.width / 2.f, 0.f);
+        sVal.setPosition(bx + statBoxW / 2.f, statY + 22.f);
+        window.draw(sVal);
     }
 
-    drawText("Role: " + roleStr, startX, curY, 18, sf::Color(240, 190, 80), true);
-    curY += 28.f;
+    float traitsY = startY + 185.f;
+    sf::Text traitsHeader("CHARACTER TRAITS", cinematicFont, 12);
+    traitsHeader.setFillColor(sf::Color(190, 145, 60));
+    traitsHeader.setPosition(startX + 20.f, traitsY);
+    window.draw(traitsHeader);
 
-    drawText("Age: " + std::to_string(static_cast<int>(ape->age)) + "   Health: " + std::to_string(static_cast<int>(ape->health)) + "%", startX, curY, 15, sf::Color(180, 180, 180), true);
-    curY += 30.f;
+    float tBadgeX = startX + 20.f;
+    float tBadgeY = traitsY + 22.f;
 
-    sf::RectangleShape div(sf::Vector2f(panelW - 40.f, 2.f));
-    div.setPosition(startX + 20.f, curY);
-    div.setFillColor(sf::Color(120, 90, 50, 200));
-    window.draw(div);
-    curY += 15.f;
-
-    std::string traitsStr = "Traits:\n";
-    for (auto t : ape->traits) {
+    auto traitToStr = [](sim::Trait t) -> std::string {
         switch(t) {
-            case sim::Trait::Brave: traitsStr += "- Brave\n"; break;
-            case sim::Trait::Coward: traitsStr += "- Coward\n"; break;
-            case sim::Trait::Greedy: traitsStr += "- Greedy\n"; break;
-            case sim::Trait::Honorable: traitsStr += "- Honorable\n"; break;
-            case sim::Trait::Cruel: traitsStr += "- Cruel\n"; break;
-            case sim::Trait::Charismatic: traitsStr += "- Charismatic\n"; break;
-            case sim::Trait::Lazy: traitsStr += "- Lazy\n"; break;
-            case sim::Trait::Strategic: traitsStr += "- Strategic\n"; break;
-            case sim::Trait::Impulsive: traitsStr += "- Impulsive\n"; break;
-            case sim::Trait::Curious: traitsStr += "- Curious\n"; break;
-            case sim::Trait::Energetic: traitsStr += "- Energetic\n"; break;
-            case sim::Trait::Clever: traitsStr += "- Clever\n"; break;
-            case sim::Trait::Hardworking: traitsStr += "- Hardworking\n"; break;
-            case sim::Trait::Patient: traitsStr += "- Patient\n"; break;
-            case sim::Trait::Aggressive: traitsStr += "- Aggressive\n"; break;
-            case sim::Trait::Perceptive: traitsStr += "- Perceptive\n"; break;
+            case sim::Trait::Brave: return "Brave";
+            case sim::Trait::Coward: return "Coward";
+            case sim::Trait::Greedy: return "Greedy";
+            case sim::Trait::Honorable: return "Honorable";
+            case sim::Trait::Cruel: return "Cruel";
+            case sim::Trait::Charismatic: return "Charismatic";
+            case sim::Trait::Lazy: return "Lazy";
+            case sim::Trait::Strategic: return "Strategic";
+            case sim::Trait::Impulsive: return "Impulsive";
+            case sim::Trait::Curious: return "Curious";
+            case sim::Trait::Energetic: return "Energetic";
+            case sim::Trait::Clever: return "Clever";
+            case sim::Trait::Hardworking: return "Hardworking";
+            case sim::Trait::Patient: return "Patient";
+            case sim::Trait::Aggressive: return "Aggressive";
+            case sim::Trait::Perceptive: return "Perceptive";
+            default: return "Trait";
+        }
+    };
+
+    for (auto t : ape->traits) {
+        std::string tName = traitToStr(t);
+        sf::Text tTxt(tName, cinematicFont, 12);
+        sf::FloatRect tb = tTxt.getLocalBounds();
+
+        sf::RectangleShape badge(sf::Vector2f(tb.width + 16.f, 22.f));
+        badge.setPosition(tBadgeX, tBadgeY);
+        badge.setFillColor(sf::Color(45, 35, 25));
+        badge.setOutlineColor(sf::Color(140, 105, 50));
+        badge.setOutlineThickness(1.f);
+        window.draw(badge);
+
+        tTxt.setFillColor(sf::Color(240, 220, 170));
+        tTxt.setPosition(tBadgeX + 8.f, tBadgeY + 2.f);
+        window.draw(tTxt);
+
+        tBadgeX += tb.width + 24.f;
+        if (tBadgeX > startX + panelW - 90.f) {
+            tBadgeX = startX + 20.f;
+            tBadgeY += 26.f;
         }
     }
-    if (ape->traits.empty()) traitsStr += "- None\n";
-    drawText(traitsStr, startX + 25.f, curY, 14, sf::Color(200, 200, 200), false);
-    curY += 90.f;
 
-    if (village && ape->isMainApe && ape->id != village->leaderId) {
-        sf::RectangleShape assignBox(sf::Vector2f(panelW - 40.f, 160.f));
-        assignBox.setPosition(startX + 20.f, curY);
-        assignBox.setFillColor(sf::Color(45, 32, 24, 230));
-        assignBox.setOutlineColor(sf::Color(140, 100, 50));
+    float opY = tBadgeY + 36.f;
+    sf::RectangleShape opFrame(sf::Vector2f(panelW - 40.f, 40.f));
+    opFrame.setPosition(startX + 20.f, opY);
+    opFrame.setFillColor(sf::Color(25, 18, 14));
+    opFrame.setOutlineColor(sf::Color(90, 65, 35));
+    opFrame.setOutlineThickness(1.f);
+    window.draw(opFrame);
+
+    std::string relText = "Relationship: Neutral";
+    sf::Color relCol = sf::Color(200, 200, 200);
+    if (player && ape->villageId == player->villageId) {
+        relText = "Clan Kinship (+45 Opinion)";
+        relCol = sf::Color(100, 230, 100);
+    } else if (apeKingdom && player && player->currentKingdom == apeKingdom->id) {
+        relText = "Fellow Realm Subject (+20 Opinion)";
+        relCol = sf::Color(140, 210, 255);
+    }
+
+    sf::Text opTxt(relText, cinematicFont, 13);
+    opTxt.setFillColor(relCol);
+    sf::FloatRect ob = opTxt.getLocalBounds();
+    opTxt.setOrigin(ob.left + ob.width / 2.f, ob.top + ob.height / 2.f);
+    opTxt.setPosition(startX + panelW / 2.f, opY + 20.f);
+    window.draw(opTxt);
+
+    if (playerVillage && ape->villageId == playerVillage->id && ape->id != playerVillage->leaderId) {
+        float assignBoxY = opY + 50.f;
+        sf::RectangleShape assignBox(sf::Vector2f(panelW - 40.f, 150.f));
+        assignBox.setPosition(startX + 20.f, assignBoxY);
+        assignBox.setFillColor(sf::Color(40, 28, 20, 230));
+        assignBox.setOutlineColor(sf::Color(160, 120, 50));
         assignBox.setOutlineThickness(1.f);
         window.draw(assignBox);
 
-        drawText("COUNCIL ROLE ASSIGNMENT", startX + 30.f, curY + 10.f, 13, sf::Color(255, 215, 100), false);
-        
+        sf::Text assignTitle("COUNCIL APPOINTMENT", cinematicFont, 12);
+        assignTitle.setFillColor(sf::Color(255, 215, 100));
+        assignTitle.setStyle(sf::Text::Bold);
+        assignTitle.setPosition(startX + 30.f, assignBoxY + 8.f);
+        window.draw(assignTitle);
+
         std::string roleKeys = "[1] Appoint War Chief\n"
                                "[2] Appoint Chief Builder\n"
                                "[3] Appoint Lead Forager\n"
                                "[4] Appoint Shaman\n"
-                               "[0] Strip Current Role";
-        drawText(roleKeys, startX + 30.f, curY + 35.f, 13, sf::Color(220, 220, 220), false);
+                               "[0] Revoke Role";
+        sf::Text roleKeysTxt(roleKeys, cinematicFont, 13);
+        roleKeysTxt.setFillColor(sf::Color(220, 220, 200));
+        roleKeysTxt.setPosition(startX + 30.f, assignBoxY + 30.f);
+        window.draw(roleKeysTxt);
     }
 
-    drawText("[ESC] Close Profile", startX, startY + panelH - 30.f, 14, sf::Color(255, 255, 150), true);
+    sf::Text closePrompt("[ESC] Dismiss Character View", cinematicFont, 12);
+    closePrompt.setFillColor(sf::Color(160, 140, 110));
+    sf::FloatRect cb = closePrompt.getLocalBounds();
+    closePrompt.setOrigin(cb.left + cb.width / 2.f, 0.f);
+    closePrompt.setPosition(startX + panelW / 2.f, startY + panelH - 24.f);
+    window.draw(closePrompt);
 }
 
 void PlayState::drawWorldMap(sf::RenderWindow& window) {

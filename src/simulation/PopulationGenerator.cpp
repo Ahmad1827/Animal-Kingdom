@@ -4,6 +4,7 @@
 #include "world/SettlementLayout.h"
 #include <cmath>
 #include <algorithm>
+#include "simulation/NameGenerator.h"
 
 namespace sim {
 
@@ -18,7 +19,7 @@ ApeData PopulationGenerator::createRandomApe(uint32_t seed, DynastyID dynastyId,
     ape.villageId = villageId;
     ape.isMainApe = (dynastyId != 0);
     ape.councilRole = CouncilRole::None;
-    ape.name = NameGenerator::generateHistoricalParodyName(seed);
+    ape.name = sim::NameGenerator::generateUniqueHistoricalName(seed);
     ape.age = SeedManager::getRandomFloat(apeSeed, 14.0f, 42.0f);
     ape.gender = (SeedManager::getRandomInt(apeSeed, 0, 1) == 0) ? Gender::Male : Gender::Female;
     ape.health = 100.0f;

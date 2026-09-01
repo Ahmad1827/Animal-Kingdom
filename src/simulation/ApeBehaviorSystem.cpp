@@ -17,7 +17,7 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
     }
 
     float hour = (timeOfDay <= 1.0f) ? (timeOfDay * 24.0f) : timeOfDay;
-    bool isDay = (hour >= 5.5f && hour <= 19.5f);
+    bool isDay = (hour >= 5.5f && hour <= 20.0f);
 
     float minX = village.borderMinX;
     float maxX = village.borderMaxX;
@@ -28,49 +28,85 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
 
     float toolRackX = village.centerX - 700.0f;
     float sparringGroundX = village.centerX + 500.0f;
+    float royalThroneX = village.throneX + 65.0f;
 
     if (ape.councilRole == CouncilRole::WarChief) {
         ape.equippedTool = ToolType::WoodenSpear;
 
         if (isDay) {
-            if (hour >= 5.5f && hour < 9.0f) {
-                if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 60.f) {
-                    ape.travelDestinationX = (ape.worldX < village.centerX) ? (maxX - 120.f) : (minX + 120.f);
+            if (hour >= 5.5f && hour < 8.5f) {
+                if (std::abs(ape.worldX - toolRackX) > 25.f) {
+                    ape.travelDestinationX = toolRackX;
                     ape.hasTravelDestination = true;
-                    ape.currentJob = Job::Patrol;
+                    ape.currentJob = Job::Builder;
+                } else {
+                    ape.hasTravelDestination = false;
+                    ape.currentJob = Job::Builder;
                 }
                 return;
             }
 
-            if (hour >= 9.0f && hour < 10.5f) {
-                ape.travelDestinationX = toolRackX;
-                ape.hasTravelDestination = true;
-                ape.currentJob = Job::Builder;
+            if (hour >= 8.5f && hour < 10.0f) {
+                if (std::abs(ape.worldX - village.centerX) > 30.f) {
+                    ape.travelDestinationX = village.centerX;
+                    ape.hasTravelDestination = true;
+                    ape.currentJob = Job::Patrol;
+                } else {
+                    ape.hasTravelDestination = false;
+                    ape.currentJob = Job::Socialize;
+                }
+
+                int recruited = 0;
+                for (EntityID memberId : village.members) {
+                    if (memberId == ape.id || memberId == village.leaderId) continue;
+                    ApeData* trainee = registry.getApe(memberId);
+                    if (!trainee || !trainee->alive || trainee->councilRole != CouncilRole::None) continue;
+
+                    float followX = ape.worldX + ((recruited % 2 == 0) ? -45.0f : 45.0f) * (recruited + 1);
+                    if (std::abs(trainee->worldX - followX) > 30.f) {
+                        trainee->travelDestinationX = followX;
+                        trainee->hasTravelDestination = true;
+                    } else {
+                        trainee->hasTravelDestination = false;
+                    }
+                    trainee->equippedTool = ToolType::WoodenSpear;
+                    trainee->currentJob = Job::March;
+
+                    recruited++;
+                    if (recruited >= 3) break;
+                }
                 return;
             }
 
-            if (hour >= 10.5f && hour < 13.0f) {
-                float marchLeft = village.centerX - 350.0f;
-                float marchRight = village.centerX + 350.0f;
-
-                if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 40.f) {
-                    ape.travelDestinationX = (ape.worldX < village.centerX) ? marchRight : marchLeft;
+            if (hour >= 10.0f && hour < 16.5f) {
+                if (std::abs(ape.worldX - sparringGroundX) > 25.f) {
+                    ape.travelDestinationX = sparringGroundX;
                     ape.hasTravelDestination = true;
-                    ape.currentJob = Job::Patrol;
+                    ape.currentJob = Job::Combat;
+                } else {
+                    ape.hasTravelDestination = false;
+                    ape.currentJob = Job::Combat;
+                    ape.skills.combat = std::min(10.0f, ape.skills.combat + dt * 0.04f);
+                    ape.skills.leadership = std::min(10.0f, ape.skills.leadership + dt * 0.03f);
                 }
 
-                float marchDir = (ape.travelDestinationX > ape.worldX) ? -1.0f : 1.0f;
                 int traineeSlot = 0;
                 for (EntityID memberId : village.members) {
                     if (memberId == ape.id || memberId == village.leaderId) continue;
                     ApeData* trainee = registry.getApe(memberId);
                     if (!trainee || !trainee->alive || trainee->councilRole != CouncilRole::None) continue;
 
-                    float followDistance = 45.0f + static_cast<float>(traineeSlot * 40.0f);
-                    trainee->travelDestinationX = ape.worldX + (marchDir * followDistance);
-                    trainee->hasTravelDestination = true;
+                    float slotTargetX = sparringGroundX + 60.0f + static_cast<float>(traineeSlot * 50.0f);
+                    if (std::abs(trainee->worldX - slotTargetX) > 25.f) {
+                        trainee->travelDestinationX = slotTargetX;
+                        trainee->hasTravelDestination = true;
+                    } else {
+                        trainee->hasTravelDestination = false;
+                        trainee->skills.combat = std::min(10.0f, trainee->skills.combat + dt * (0.06f + ape.skills.leadership * 0.02f));
+                    }
+
                     trainee->equippedTool = ToolType::WoodenSpear;
-                    trainee->currentJob = Job::March;
+                    trainee->currentJob = Job::Combat;
 
                     traineeSlot++;
                     if (traineeSlot >= 3) break;
@@ -78,50 +114,25 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
                 return;
             }
 
-            if (hour >= 13.0f && hour < 16.0f) {
-                ape.travelDestinationX = sparringGroundX;
-                ape.hasTravelDestination = true;
-                ape.currentJob = Job::Combat;
-
-                if (std::abs(ape.worldX - sparringGroundX) < 50.f) {
-                    ape.skills.combat = std::min(10.0f, ape.skills.combat + dt * 0.04f);
-                    ape.skills.leadership = std::min(10.0f, ape.skills.leadership + dt * 0.03f);
-
-                    int traineeSlot = 0;
-                    for (EntityID memberId : village.members) {
-                        if (memberId == ape.id || memberId == village.leaderId) continue;
-                        ApeData* trainee = registry.getApe(memberId);
-                        if (!trainee || !trainee->alive || trainee->councilRole != CouncilRole::None) continue;
-
-                        float slotTargetX = sparringGroundX + (traineeSlot == 0 ? 55.0f : (90.0f + static_cast<float>(traineeSlot * 45.0f)));
-                        trainee->travelDestinationX = slotTargetX;
-                        trainee->hasTravelDestination = true;
-                        trainee->equippedTool = ToolType::WoodenSpear;
-                        trainee->currentJob = Job::Combat;
-
-                        if (std::abs(trainee->worldX - slotTargetX) < 50.f) {
-                            trainee->skills.combat = std::min(10.0f, trainee->skills.combat + dt * (0.06f + ape.skills.leadership * 0.02f));
-                        }
-
-                        traineeSlot++;
-                        if (traineeSlot >= 3) break;
-                    }
+            if (hour >= 16.5f && hour <= 20.0f) {
+                if (std::abs(ape.worldX - royalThroneX) > 20.f) {
+                    ape.travelDestinationX = royalThroneX;
+                    ape.hasTravelDestination = true;
+                } else {
+                    ape.hasTravelDestination = false;
                 }
-                return;
-            }
-
-            if (hour >= 16.0f && hour <= 19.5f) {
-                ape.travelDestinationX = village.throneX + 75.0f;
-                ape.hasTravelDestination = true;
                 ape.currentJob = Job::Guard;
                 return;
             }
         } else {
-            if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 60.f) {
-                ape.travelDestinationX = village.centerX + static_cast<float>((static_cast<int>(ape.id) % 2 == 0 ? 250.f : -250.f));
+            float nightPostX = village.centerX + static_cast<float>((static_cast<int>(ape.id) % 2 == 0 ? 200.f : -200.f));
+            if (std::abs(ape.worldX - nightPostX) > 25.f) {
+                ape.travelDestinationX = nightPostX;
                 ape.hasTravelDestination = true;
-                ape.currentJob = Job::Guard;
+            } else {
+                ape.hasTravelDestination = false;
             }
+            ape.currentJob = Job::Guard;
         }
         return;
     }
@@ -157,15 +168,19 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
             }
         } else {
             if (isDay) {
-                if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 50.f) {
+                if (!ape.hasTravelDestination) {
                     float plotOffset = static_cast<float>(((static_cast<int>(ape.id) % 3) - 1) * 350.f);
                     ape.travelDestinationX = village.centerX + plotOffset;
                     ape.hasTravelDestination = true;
                     ape.currentJob = Job::Idle;
                 }
             } else {
-                ape.travelDestinationX = village.centerX;
-                ape.hasTravelDestination = true;
+                if (std::abs(ape.worldX - village.centerX) > 25.f) {
+                    ape.travelDestinationX = village.centerX;
+                    ape.hasTravelDestination = true;
+                } else {
+                    ape.hasTravelDestination = false;
+                }
                 ape.currentJob = Job::Sleep;
             }
         }
@@ -187,12 +202,8 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
                     ape.amberCount = 0;
                 }
             } else {
-                if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 50.f) {
-                    if (ape.worldX < village.centerX) {
-                        ape.travelDestinationX = maxX + 450.f;
-                    } else {
-                        ape.travelDestinationX = minX - 450.f;
-                    }
+                if (!ape.hasTravelDestination) {
+                    ape.travelDestinationX = (ape.worldX < village.centerX) ? (maxX + 450.f) : (minX - 450.f);
                     ape.hasTravelDestination = true;
                     ape.currentJob = Job::Forage;
                 }
@@ -201,11 +212,17 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
                     ape.amberCount = std::min(ape.maxAmber, ape.amberCount + 1);
                     ape.carriedAmount = std::min(20, ape.carriedAmount + 2);
                     ape.carriedType = ResourceType::Food;
+                    ape.hasTravelDestination = false;
                 }
             }
         } else {
-            ape.travelDestinationX = village.centerX + static_cast<float>((static_cast<int>(ape.id) % 5) * 40 - 80);
-            ape.hasTravelDestination = true;
+            float sleepX = village.centerX + static_cast<float>((static_cast<int>(ape.id) % 5) * 40 - 80);
+            if (std::abs(ape.worldX - sleepX) > 25.f) {
+                ape.travelDestinationX = sleepX;
+                ape.hasTravelDestination = true;
+            } else {
+                ape.hasTravelDestination = false;
+            }
             ape.currentJob = Job::Sleep;
         }
         return;
@@ -214,7 +231,7 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
     if (ape.councilRole == CouncilRole::Shaman) {
         ape.equippedTool = ToolType::Torch;
         float meetingGroundX = village.centerX;
-        if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 40.f) {
+        if (!ape.hasTravelDestination) {
             float wanderSpot = meetingGroundX + static_cast<float>((static_cast<int>(ape.id * 31) % 300) - 150);
             ape.travelDestinationX = wanderSpot;
             ape.hasTravelDestination = true;
@@ -223,7 +240,7 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
         return;
     }
 
-    if (ape.councilRole == CouncilRole::None && isDay && hour >= 10.5f && hour < 16.0f) {
+    if (ape.councilRole == CouncilRole::None && isDay && hour >= 8.5f && hour < 16.5f) {
         if (ape.currentJob == Job::Combat || ape.currentJob == Job::March) {
             return;
         }
@@ -231,7 +248,7 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
 
     if (ape.currentJob == Job::Guard) {
         ape.equippedTool = ToolType::WoodenSpear;
-        if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 50.f) {
+        if (!ape.hasTravelDestination) {
             float guardSpot = (static_cast<int>(ape.id) % 2 == 0) ? (minX + 80.f) : (maxX - 80.f);
             ape.travelDestinationX = guardSpot;
             ape.hasTravelDestination = true;
@@ -239,7 +256,7 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
         return;
     }
 
-    if (!ape.hasTravelDestination || std::abs(ape.worldX - ape.travelDestinationX) < 40.f) {
+    if (!ape.hasTravelDestination) {
         if (isDay) {
             float span = std::max(400.f, maxX - minX - 300.f);
             float roamX = minX + 150.f + static_cast<float>(static_cast<int>(ape.id * 73) % static_cast<int>(span));
@@ -248,8 +265,13 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
             ape.currentJob = Job::Wander;
             ape.equippedTool = ToolType::None;
         } else {
-            ape.travelDestinationX = village.centerX + static_cast<float>((static_cast<int>(ape.id) % 7) * 40 - 120);
-            ape.hasTravelDestination = true;
+            float sleepX = village.centerX + static_cast<float>((static_cast<int>(ape.id) % 7) * 40 - 120);
+            if (std::abs(ape.worldX - sleepX) > 25.f) {
+                ape.travelDestinationX = sleepX;
+                ape.hasTravelDestination = true;
+            } else {
+                ape.hasTravelDestination = false;
+            }
             ape.currentJob = Job::Sleep;
             ape.equippedTool = ToolType::None;
         }

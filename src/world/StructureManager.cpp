@@ -83,19 +83,26 @@ void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::Village
     float footprintW = (maxX - minX) + 800.f;
     float startX = minX - 400.f;
 
-    // Elevate the rear lawn so it is visible above the middle palisade
+    // Expand lawn height for a wider, more natural yard
     float yardTopY = groundY - 140.f;
-    float yardBottomY = groundY - 14.f;
+    float yardBottomY = groundY - 10.f;
     float yardH = yardBottomY - yardTopY;
 
+    // Multi-layer grass gradient
     sf::RectangleShape rearLawn(sf::Vector2f(footprintW, yardH));
     rearLawn.setPosition(startX, yardTopY);
-    rearLawn.setFillColor(sf::Color(38, 70, 32));
+    rearLawn.setFillColor(sf::Color(35, 62, 30));
     target.draw(rearLawn);
 
-    sf::RectangleShape rearGrassTrim(sf::Vector2f(footprintW, 5.f));
+    sf::RectangleShape midLawn(sf::Vector2f(footprintW, yardH * 0.45f));
+    midLawn.setPosition(startX, yardTopY + (yardH * 0.55f));
+    midLawn.setFillColor(sf::Color(44, 76, 36));
+    target.draw(midLawn);
+
+    // Textured grass fringe along the top edge
+    sf::RectangleShape rearGrassTrim(sf::Vector2f(footprintW, 6.f));
     rearGrassTrim.setPosition(startX, yardTopY);
-    rearGrassTrim.setFillColor(sf::Color(68, 126, 44));
+    rearGrassTrim.setFillColor(sf::Color(78, 142, 54));
     target.draw(rearGrassTrim);
 }
 
@@ -109,11 +116,10 @@ void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::Vil
         maxX = village.centerX + 2400.f;
     }
 
-    // Anchored at the back edge of the green yard
-    float rearFenceBaseY = groundY - 135.f;
-    float fenceScale = 0.45f;
+    float rearFenceBaseY = groundY - 128.f;
+    float fenceScale = 0.52f; // Increased from 0.45f for better visibility
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
-    sf::Color fenceBgColor(130, 135, 150, 220);
+    sf::Color fenceBgColor(140, 145, 160, 230);
 
     drawSpriteAnchored(target, rectPalisadeLeft, minX - 80.f, rearFenceBaseY, fenceScale, fenceBgColor);
     for (float fx = minX + 20.f; fx < maxX - 20.f; fx += stepW) {
@@ -132,8 +138,8 @@ void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::V
         maxX = village.centerX + 2400.f;
     }
 
-    float midFenceBaseY = groundY - 14.f;
-    float fenceScale = 0.32f; // Scaled down to match ~70px screen height
+    float midFenceBaseY = groundY - 10.f;
+    float fenceScale = 0.46f; // Increased from 0.32f for proper proportion
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
     sf::Color fenceColor(230, 230, 235, 255);
 

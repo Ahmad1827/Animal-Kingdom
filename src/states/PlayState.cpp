@@ -1990,10 +1990,48 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (debugOverlay) debugOverlay->draw(window);
-
     window.setView(letterboxView);
     sf::Vector2i mPixel = sf::Mouse::getPosition(window);
     sf::Vector2f mPos = window.mapPixelToCoords(mPixel, letterboxView);
+
+    {
+        sf::Vector2f worldMouse = sceneTexture.mapPixelToCoords(
+            sf::Vector2i(static_cast<int>(mPos.x), static_cast<int>(mPos.y)),
+            cameraManager->getView()
+        );
+
+        for (const auto& pair : reg.getAllApes()) {
+            const sim::ApeData& ape = pair.second;
+            if (!ape.alive) continue;
+
+            float apeRenderY = ape.worldY + (ape.depthLane == sim::DepthLane::Background ? -72.f : (ape.depthLane == sim::DepthLane::Foreground ? 6.f : 0.f));
+            sf::FloatRect apeHitbox(ape.worldX - 30.f, apeRenderY - 60.f, 60.f, 70.f);
+
+            if (apeHitbox.contains(worldMouse)) {
+                sf::Text hName(ape.name, cinematicFont, 14);
+                hName.setFillColor(sf::Color(255, 225, 120));
+                hName.setOutlineColor(sf::Color::Black);
+                hName.setOutlineThickness(1.5f);
+                sf::FloatRect nb = hName.getLocalBounds();
+                hName.setOrigin(nb.left + nb.width * 0.5f, nb.top + nb.height);
+
+                sf::Vector2i sPixel = window.mapCoordsToPixel(sf::Vector2f(ape.worldX, apeRenderY - 65.f), cameraManager->getView());
+                sf::Vector2f badgePos = window.mapPixelToCoords(sPixel, letterboxView);
+
+                sf::RectangleShape badgeBg(sf::Vector2f(nb.width + 12.f, nb.height + 8.f));
+                badgeBg.setOrigin(badgeBg.getSize().x * 0.5f, badgeBg.getSize().y);
+                badgeBg.setPosition(badgePos.x, badgePos.y + 2.f);
+                badgeBg.setFillColor(sf::Color(20, 15, 10, 220));
+                badgeBg.setOutlineColor(sf::Color(140, 105, 50));
+                badgeBg.setOutlineThickness(1.f);
+
+                window.draw(badgeBg);
+                hName.setPosition(badgePos);
+                window.draw(hName);
+                break;
+            }
+        }
+    }
 
     sf::ConvexShape ckCursor(7);
     ckCursor.setPoint(0, sf::Vector2f(0.f, 0.f));

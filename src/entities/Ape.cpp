@@ -209,16 +209,16 @@ void Ape::update(float dt) {
     sf::Color laneColor = sf::Color::White;
 
     if (depthLane == sim::DepthLane::Background) {
-        laneScaleMultiplier = 0.68f; // Smaller scale for perspective distance
-        laneYOffset = -98.f;         // Places feet at Y=402, safely above the middle fence (top at Y=412)
-        laneColor = sf::Color(175, 180, 200);
+        laneScaleMultiplier = 0.74f;
+        laneYOffset = -72.f; // Placed firmly on the upper lawn
+        laneColor = sf::Color(185, 190, 210);
     } else if (depthLane == sim::DepthLane::Midground) {
         laneScaleMultiplier = 0.95f;
         laneYOffset = 0.f;
-        laneColor = sf::Color(235, 235, 245);
+        laneColor = sf::Color(240, 240, 245);
     } else {
-        laneScaleMultiplier = 1.12f;
-        laneYOffset = 6.f;           // Walking on the front road
+        laneScaleMultiplier = 1.15f;
+        laneYOffset = 6.f;
         laneColor = sf::Color(255, 255, 255);
     }
 

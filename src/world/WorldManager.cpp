@@ -341,6 +341,10 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
         float leftEdge = v.borderMinX;
         float rightEdge = v.borderMaxX;
 
+        if (std::abs(leftEdge - v.centerX) < 500.f || std::abs(rightEdge - v.centerX) < 500.f) {
+            continue;
+        }
+
         bool hideLeft = false;
         bool hideRight = false;
         if (v.isExpandingBorder && v.borderMoverApe != 0) {

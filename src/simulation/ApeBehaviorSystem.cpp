@@ -10,10 +10,10 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
 
     if (ape.isMainApe && ape.id == village.leaderId) {
         ape.depthLane = DepthLane::Foreground;
-    } else if (ape.councilRole == CouncilRole::WarChief || ape.currentJob == Job::Combat || ape.currentJob == Job::March || ape.currentJob == Job::Guard || ape.currentJob == Job::Patrol) {
+    } else if (ape.councilRole == CouncilRole::WarChief || ape.councilRole == CouncilRole::Shaman || ape.currentOccupation == Occupation::Guard || ape.currentJob == Job::Guard || ape.currentJob == Job::Patrol || ape.currentJob == Job::Combat) {
         ape.depthLane = DepthLane::Background;
     } else {
-        ape.depthLane = DepthLane::Midground;
+        ape.depthLane = DepthLane::Background; // Keep all settlement residents on the upper terrace
     }
 
     if (village.isGatheringActive) {

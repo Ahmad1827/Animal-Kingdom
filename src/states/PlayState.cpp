@@ -1605,24 +1605,17 @@ void PlayState::draw(sf::RenderWindow& window) {
 
     if (worldManager) {
         worldManager->drawBackground(rt, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
+    }
 
-        if (structureManager) {
-            structureManager->draw(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
-        }
+    if (structureManager) {
+        structureManager->draw(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
+    }
 
-        if (debugOverlay && debugOverlay->getShowWarfareDebug()) {
-            for (auto& p : simulationManager->getRegistry().getAllKingdoms()) {
-                if (p.second.territoryMaxX > p.second.territoryMinX) {
-                    sf::RectangleShape rect(sf::Vector2f(p.second.territoryMaxX - p.second.territoryMinX, 2000.f));
-                    sf::Color c = p.second.color;
-                    c.a = 40; 
-                    rect.setFillColor(c);
-                    rect.setPosition(p.second.territoryMinX, -1000.f);
-                    rt.draw(rect);
-                }
-            }
-        }
+    if (npcManager) {
+        npcManager->drawLane(rt, sim::DepthLane::Background, simulationManager->getRegistry());
+    }
 
+    if (worldManager) {
         worldManager->drawTerritoryMarkers(rt, simulationManager->getRegistry(), cameraManager->getViewBounds());
         worldManager->drawGeometry(rt, cameraManager->getViewBounds(), profiler);
 
@@ -1661,6 +1654,19 @@ void PlayState::draw(sf::RenderWindow& window) {
             }
         }
 
+        if (debugOverlay && debugOverlay->getShowWarfareDebug()) {
+            for (auto& p : simulationManager->getRegistry().getAllKingdoms()) {
+                if (p.second.territoryMaxX > p.second.territoryMinX) {
+                    sf::RectangleShape rect(sf::Vector2f(p.second.territoryMaxX - p.second.territoryMinX, 2000.f));
+                    sf::Color c = p.second.color;
+                    c.a = 40; 
+                    rect.setFillColor(c);
+                    rect.setPosition(p.second.territoryMinX, -1000.f);
+                    rt.draw(rect);
+                }
+            }
+        }
+
         if (particleSystem) particleSystem->draw(rt);
 
         if (debugOverlay) {
@@ -1675,12 +1681,43 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (background) {
         background->drawForeground(rt, groundY);
     }
-    
-    if (npcManager) npcManager->draw(rt);
-    if (playerWrapper) playerWrapper->draw(rt);
 
     if (structureManager) {
         structureManager->drawForeground(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
+    }
+
+    if (npcManager) {
+        npcManager->drawLane(rt, sim::DepthLane::Midground, simulationManager->getRegistry());
+    }
+
+    if (playerWrapper) {
+        playerWrapper->setDepthLane(sim::DepthLane::Foreground);
+        playerWrapper->draw(rt);
+    }
+
+    {
+        sf::View currentView = rt.getView();
+        sf::Vector2f center = currentView.getCenter();
+        sf::Vector2f size = currentView.getSize();
+
+        float leftX = center.x - size.x * 0.5f;
+        float rightX = center.x + size.x * 0.5f;
+        float topY = center.y - size.y * 0.5f;
+        float bottomY = center.y + size.y * 0.5f;
+
+        sf::VertexArray leftTrunk(sf::TrianglesStrip, 4);
+        leftTrunk[0] = sf::Vertex(sf::Vector2f(leftX, topY), sf::Color(14, 10, 8));
+        leftTrunk[1] = sf::Vertex(sf::Vector2f(leftX + 115.f, topY), sf::Color(14, 10, 8));
+        leftTrunk[2] = sf::Vertex(sf::Vector2f(leftX, bottomY), sf::Color(14, 10, 8));
+        leftTrunk[3] = sf::Vertex(sf::Vector2f(leftX + 75.f, bottomY), sf::Color(14, 10, 8));
+        rt.draw(leftTrunk);
+
+        sf::VertexArray rightTrunk(sf::TrianglesStrip, 4);
+        rightTrunk[0] = sf::Vertex(sf::Vector2f(rightX - 115.f, topY), sf::Color(14, 10, 8));
+        rightTrunk[1] = sf::Vertex(sf::Vector2f(rightX, topY), sf::Color(14, 10, 8));
+        rightTrunk[2] = sf::Vertex(sf::Vector2f(rightX - 75.f, bottomY), sf::Color(14, 10, 8));
+        rightTrunk[3] = sf::Vertex(sf::Vector2f(rightX, bottomY), sf::Color(14, 10, 8));
+        rt.draw(rightTrunk);
     }
 
     if (pVillage && pVillage->isGatheringActive) {

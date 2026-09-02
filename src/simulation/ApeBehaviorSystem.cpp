@@ -8,6 +8,14 @@ namespace sim {
 void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village, SimulationRegistry& registry, float dt, float timeOfDay) {
     if (!ape.alive) return;
 
+    if (ape.isMainApe && ape.id == village.leaderId) {
+        ape.depthLane = DepthLane::Foreground;
+    } else if (ape.councilRole == CouncilRole::WarChief || ape.currentJob == Job::Combat || ape.currentJob == Job::March || ape.currentJob == Job::Guard || ape.currentJob == Job::Patrol) {
+        ape.depthLane = DepthLane::Background;
+    } else {
+        ape.depthLane = DepthLane::Midground;
+    }
+
     if (village.isGatheringActive) {
         ape.equippedTool = ToolType::None;
         ape.hasTravelDestination = true;
@@ -72,6 +80,7 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
                     }
                     trainee->equippedTool = ToolType::WoodenSpear;
                     trainee->currentJob = Job::March;
+                    trainee->depthLane = DepthLane::Background;
 
                     recruited++;
                     if (recruited >= 3) break;
@@ -126,6 +135,7 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
 
                     trainee->equippedTool = ToolType::WoodenSpear;
                     trainee->currentJob = Job::Combat;
+                    trainee->depthLane = DepthLane::Background;
 
                     traineeSlot++;
                     if (traineeSlot >= 3) break;

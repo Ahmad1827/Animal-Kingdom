@@ -38,6 +38,7 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
         }
 
         it->second->setVisualEquipment(data->equippedTool, data->carriedType, data->carriedAmount, isKing);
+        it->second->setDepthLane(data->depthLane);
         it->second->update(dt, data, worldManager, timeOfDay, registry, controlledId);
         ++it;
     }
@@ -50,5 +51,14 @@ void NPCManager::removeNPC(sim::EntityID id) {
 void NPCManager::draw(sf::RenderTarget& target) { 
     for (const auto& pair : activeNPCs) {
         pair.second->draw(target); 
+    }
+}
+
+void NPCManager::drawLane(sf::RenderTarget& target, sim::DepthLane lane, const sim::SimulationRegistry& registry) {
+    for (const auto& pair : activeNPCs) {
+        const sim::ApeData* d = const_cast<sim::SimulationRegistry&>(registry).getApe(pair.first);
+        if (d && d->depthLane == lane) {
+            pair.second->draw(target);
+        }
     }
 }

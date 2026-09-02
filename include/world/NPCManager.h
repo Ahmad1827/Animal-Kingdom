@@ -15,6 +15,7 @@ public:
     NPCManager(sf::Texture& texture);
     void update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, sim::SimulationManager& simManager, WorldManager* worldManager, float timeOfDay);
     void draw(sf::RenderTarget& target);
+    void drawLane(sf::RenderTarget& target, sim::DepthLane lane, const sim::SimulationRegistry& registry);
     void removeNPC(sim::EntityID id);
     int getLoadedNPCCount() const { return activeNPCs.size(); }
 };

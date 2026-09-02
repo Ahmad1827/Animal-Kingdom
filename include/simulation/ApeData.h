@@ -8,6 +8,12 @@
 
 namespace sim {
 
+enum class DepthLane {
+    Background = 0,
+    Midground  = 1,
+    Foreground = 2
+};
+
 enum class Gender { 
     Male, 
     Female 
@@ -118,6 +124,7 @@ struct ApeData {
 
     bool isMainApe = false;
     CouncilRole councilRole = CouncilRole::None;
+    DepthLane depthLane = DepthLane::Midground;
 
     float age = 20.0f;
     Gender gender = Gender::Male;

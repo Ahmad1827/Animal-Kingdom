@@ -5,7 +5,6 @@
 #include "simulation/ApeData.h"
 
 enum class ApeState { Grounded, Airborne, ClimbingTrunk, HangingBranch, ClimbingVine, Working };
-// Simplified to only use the new Sprite Sheet for ALL apes
 enum class AnimState { Idle = 0, Walk = 1, Jump = 2, Climb = 3 };
 
 class Ape {
@@ -22,6 +21,8 @@ public:
     void setIsPlayer(bool player);
     void setCarriedItem(int itemType);
     void setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amount, bool king);
+    void setDepthLane(sim::DepthLane lane);
+    sim::DepthLane getDepthLane() const { return depthLane; }
     
     sf::Vector2f getPosition() const;
     sf::Vector2f getVelocity() const;
@@ -51,14 +52,13 @@ private:
     sim::ResourceType currentResource;
     int resourceAmount;
     bool isKing;
+    sim::DepthLane depthLane;
 
-    // New Animation State Tracking
     AnimState currentAnimState;
     float animTimer;
     int currentFrame;
     bool facingRight;
 
-    // Master Sprite Sheet Configuration
     const int FRAMES_PER_STATE[4] = {8, 8, 8, 5}; 
     const float DURATION_PER_STATE[4] = {0.15f, 0.08f, 0.10f, 0.12f};
 

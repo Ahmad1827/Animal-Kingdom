@@ -45,4 +45,7 @@ public:
     void setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amount, bool isKing) {
         physicalApe.setVisualEquipment(tool, res, amount, isKing);
     }
+    void setDepthLane(sim::DepthLane lane) {
+        physicalApe.setDepthLane(lane);
+    }
 };

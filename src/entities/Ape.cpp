@@ -17,6 +17,7 @@ Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer)
       currentResource(sim::ResourceType::None), 
       resourceAmount(0), 
       isKing(false),
+      depthLane(isPlayer ? sim::DepthLane::Foreground : sim::DepthLane::Midground),
       currentAnimState(AnimState::Idle),
       animTimer(0.f),
       currentFrame(0),
@@ -68,6 +69,10 @@ void Ape::setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amou
     currentResource = res;
     resourceAmount = amount;
     isKing = king;
+}
+
+void Ape::setDepthLane(sim::DepthLane lane) {
+    depthLane = lane;
 }
 
 ImpactLevel Ape::registerLanding(float impactVelocityY) {
@@ -199,8 +204,26 @@ void Ape::update(float dt) {
         animTimer = 0.f;
     }
 
-    float baseScale = 0.58f; 
-    sf::Vector2f renderOffset(0.f, 0.f);
+    float laneScaleMultiplier = 1.0f;
+    float laneYOffset = 0.f;
+    sf::Color laneColor = sf::Color::White;
+
+    if (depthLane == sim::DepthLane::Background) {
+        laneScaleMultiplier = 0.70f;
+        laneYOffset = -64.f;
+        laneColor = sf::Color(180, 185, 205);
+    } else if (depthLane == sim::DepthLane::Midground) {
+        laneScaleMultiplier = 0.95f;
+        laneYOffset = 0.f;
+        laneColor = sf::Color(235, 235, 245);
+    } else {
+        laneScaleMultiplier = 1.15f;
+        laneYOffset = 8.f;
+        laneColor = sf::Color(255, 255, 255);
+    }
+
+    float baseScale = 0.58f * laneScaleMultiplier;
+    sf::Vector2f renderOffset(0.f, laneYOffset);
 
     animTimer += dt;
     int stateIdx = static_cast<int>(currentAnimState);
@@ -229,6 +252,7 @@ void Ape::update(float dt) {
     
     sprite.setTextureRect(sf::IntRect(currentFrame * fw, stateIdx * fh, fw, fh));
     sprite.setOrigin(fw / 2.f, static_cast<float>(fh));
+    sprite.setColor(laneColor);
     
     float flipScale = facingRight ? 1.f : -1.f;
     sprite.setScale(baseScale * flipScale * landingDetector.squashScaleX, baseScale * landingDetector.squashScaleY);
@@ -244,90 +268,91 @@ void Ape::draw(sf::RenderTarget& target) {
     center.y -= sprite.getGlobalBounds().height / 2.f;
     
     float facingDir = facingRight ? 1.f : -1.f;
+    float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.70f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
 
     if (isKing) {
         sf::ConvexShape crown(3);
-        crown.setPoint(0, sf::Vector2f(-14.f, 0.f));
-        crown.setPoint(1, sf::Vector2f(14.f, 0.f));
-        crown.setPoint(2, sf::Vector2f(0.f, -22.f));
+        crown.setPoint(0, sf::Vector2f(-14.f * laneScaleMultiplier, 0.f));
+        crown.setPoint(1, sf::Vector2f(14.f * laneScaleMultiplier, 0.f));
+        crown.setPoint(2, sf::Vector2f(0.f, -22.f * laneScaleMultiplier));
         crown.setFillColor(sf::Color(255, 215, 0));
         crown.setOutlineColor(sf::Color(184, 134, 11));
         crown.setOutlineThickness(1.f);
-        crown.setPosition(center.x + (26.f * facingDir), center.y - 52.f);
+        crown.setPosition(center.x + (26.f * facingDir * laneScaleMultiplier), center.y - (52.f * laneScaleMultiplier));
         target.draw(crown);
     }
 
     if (currentTool == sim::ToolType::StoneAxe) {
-        sf::RectangleShape handle(sf::Vector2f(6.f, 36.f));
+        sf::RectangleShape handle(sf::Vector2f(6.f * laneScaleMultiplier, 36.f * laneScaleMultiplier));
         handle.setFillColor(sf::Color(139, 69, 19));
-        handle.setOrigin(3.f, 18.f);
-        handle.setPosition(center.x + (24.f * facingDir), center.y);
+        handle.setOrigin(3.f * laneScaleMultiplier, 18.f * laneScaleMultiplier);
+        handle.setPosition(center.x + (24.f * facingDir * laneScaleMultiplier), center.y);
         target.draw(handle);
         
-        sf::RectangleShape head(sf::Vector2f(18.f, 14.f));
+        sf::RectangleShape head(sf::Vector2f(18.f * laneScaleMultiplier, 14.f * laneScaleMultiplier));
         head.setFillColor(sf::Color(105, 105, 105));
-        head.setOrigin(9.f, 7.f);
-        head.setPosition(center.x + (28.f * facingDir), center.y - 12.f);
+        head.setOrigin(9.f * laneScaleMultiplier, 7.f * laneScaleMultiplier);
+        head.setPosition(center.x + (28.f * facingDir * laneScaleMultiplier), center.y - (12.f * laneScaleMultiplier));
         target.draw(head);
     } else if (currentTool == sim::ToolType::WoodenSpear) {
-        sf::RectangleShape spear(sf::Vector2f(5.f, 66.f));
+        sf::RectangleShape spear(sf::Vector2f(5.f * laneScaleMultiplier, 66.f * laneScaleMultiplier));
         spear.setFillColor(sf::Color(160, 82, 45));
-        spear.setOrigin(2.5f, 33.f);
-        spear.setPosition(center.x + (24.f * facingDir), center.y - 8.f);
+        spear.setOrigin(2.5f * laneScaleMultiplier, 33.f * laneScaleMultiplier);
+        spear.setPosition(center.x + (24.f * facingDir * laneScaleMultiplier), center.y - (8.f * laneScaleMultiplier));
         target.draw(spear);
     } else if (currentTool == sim::ToolType::Basket) {
-        sf::RectangleShape basket(sf::Vector2f(28.f, 22.f));
+        sf::RectangleShape basket(sf::Vector2f(28.f * laneScaleMultiplier, 22.f * laneScaleMultiplier));
         basket.setFillColor(sf::Color(218, 165, 32));
-        basket.setOrigin(14.f, 11.f);
-        basket.setPosition(center.x - (30.f * facingDir), center.y + 8.f);
+        basket.setOrigin(14.f * laneScaleMultiplier, 11.f * laneScaleMultiplier);
+        basket.setPosition(center.x - (30.f * facingDir * laneScaleMultiplier), center.y + (8.f * laneScaleMultiplier));
         target.draw(basket);
     }
 
     if (carriedItemType == 1 || (resourceAmount > 0 && currentResource == sim::ResourceType::Food)) {
-        float bx = center.x + (30.f * facingDir);
-        float by = center.y + 8.f;
+        float bx = center.x + (30.f * facingDir * laneScaleMultiplier);
+        float by = center.y + (8.f * laneScaleMultiplier);
         
-        sf::CircleShape banana1(8.f, 3);
+        sf::CircleShape banana1(8.f * laneScaleMultiplier, 3);
         banana1.setScale(0.5f, 1.5f);
         banana1.setFillColor(sf::Color(255, 225, 0));
-        banana1.setPosition(bx - 7.f, by);
+        banana1.setPosition(bx - (7.f * laneScaleMultiplier), by);
         banana1.setRotation(15.f);
         target.draw(banana1);
 
-        sf::CircleShape banana2(8.f, 3);
+        sf::CircleShape banana2(8.f * laneScaleMultiplier, 3);
         banana2.setScale(0.5f, 1.5f);
         banana2.setFillColor(sf::Color(255, 215, 0));
-        banana2.setPosition(bx, by - 4.f);
+        banana2.setPosition(bx, by - (4.f * laneScaleMultiplier));
         target.draw(banana2);
         
-        sf::CircleShape banana3(8.f, 3);
+        sf::CircleShape banana3(8.f * laneScaleMultiplier, 3);
         banana3.setScale(0.5f, 1.5f);
         banana3.setFillColor(sf::Color(255, 235, 0));
-        banana3.setPosition(bx + 7.f, by);
+        banana3.setPosition(bx + (7.f * laneScaleMultiplier), by);
         banana3.setRotation(-15.f);
         target.draw(banana3);
     } 
     else if (carriedItemType == 2 || (resourceAmount > 0 && currentResource == sim::ResourceType::Wood)) {
-        sf::RectangleShape log(sf::Vector2f(44.f, 12.f));
+        sf::RectangleShape log(sf::Vector2f(44.f * laneScaleMultiplier, 12.f * laneScaleMultiplier));
         log.setFillColor(sf::Color(101, 67, 33));
         log.setOutlineColor(sf::Color(60, 30, 10));
         log.setOutlineThickness(1.f);
-        log.setOrigin(22.f, 6.f);
-        log.setPosition(center.x + (8.f * facingDir), center.y - 38.f);
+        log.setOrigin(22.f * laneScaleMultiplier, 6.f * laneScaleMultiplier);
+        log.setPosition(center.x + (8.f * facingDir * laneScaleMultiplier), center.y - (38.f * laneScaleMultiplier));
         log.setRotation(facingDir > 0 ? 15.f : -15.f);
         target.draw(log);
     } 
     else if (carriedItemType == 3 || (resourceAmount > 0 && currentResource == sim::ResourceType::Stone)) {
         sf::ConvexShape rock(5);
-        rock.setPoint(0, sf::Vector2f(0.f, -12.f));
-        rock.setPoint(1, sf::Vector2f(10.f, -6.f));
-        rock.setPoint(2, sf::Vector2f(12.f, 6.f));
-        rock.setPoint(3, sf::Vector2f(0.f, 12.f));
-        rock.setPoint(4, sf::Vector2f(-12.f, 4.f));
+        rock.setPoint(0, sf::Vector2f(0.f, -12.f * laneScaleMultiplier));
+        rock.setPoint(1, sf::Vector2f(10.f * laneScaleMultiplier, -6.f * laneScaleMultiplier));
+        rock.setPoint(2, sf::Vector2f(12.f * laneScaleMultiplier, 6.f * laneScaleMultiplier));
+        rock.setPoint(3, sf::Vector2f(0.f, 12.f * laneScaleMultiplier));
+        rock.setPoint(4, sf::Vector2f(-12.f * laneScaleMultiplier, 4.f * laneScaleMultiplier));
         rock.setFillColor(sf::Color(128, 128, 128));
         rock.setOutlineColor(sf::Color(80, 80, 80));
         rock.setOutlineThickness(1.f);
-        rock.setPosition(center.x + (30.f * facingDir), center.y + 8.f);
+        rock.setPosition(center.x + (30.f * facingDir * laneScaleMultiplier), center.y + (8.f * laneScaleMultiplier));
         target.draw(rock);
     }
 }

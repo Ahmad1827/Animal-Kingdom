@@ -80,33 +80,65 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
         maxX = village.centerX + 2400.f;
     }
 
-    float footprintW = (maxX - minX) + 200.f;
-    float startX = minX - 100.f;
+    float footprintW = (maxX - minX) + 800.f;
+    float startX = minX - 400.f;
 
-    sf::RectangleShape dirtBed(sf::Vector2f(footprintW, 36.f));
-    dirtBed.setPosition(startX, groundY - 4.f);
-    dirtBed.setFillColor(sf::Color(32, 22, 14, 235));
-    target.draw(dirtBed);
+    float terraceTopY = groundY - 110.f;
+    float terraceBottomY = groundY - 16.f;
+    float terraceHeight = terraceBottomY - terraceTopY;
 
-    sf::RectangleShape innerMat(sf::Vector2f(footprintW * 0.7f, 12.f));
-    innerMat.setOrigin(footprintW * 0.35f, 0.f);
-    innerMat.setPosition(village.centerX, groundY - 3.f);
-    innerMat.setFillColor(sf::Color(118, 88, 48, 220));
-    target.draw(innerMat);
+    sf::RectangleShape upperTerrace(sf::Vector2f(footprintW, terraceHeight));
+    upperTerrace.setPosition(startX, terraceTopY);
+    upperTerrace.setFillColor(sf::Color(44, 76, 38));
+    target.draw(upperTerrace);
+
+    sf::RectangleShape upperGrassTrim(sf::Vector2f(footprintW, 6.f));
+    upperGrassTrim.setPosition(startX, terraceTopY);
+    upperGrassTrim.setFillColor(sf::Color(76, 134, 52));
+    target.draw(upperGrassTrim);
 
     if (villageTexture && villageTexture->getSize().x > 0) {
-        sf::Color fenceBgColor = sf::Color::White;
-        float fenceScale = 0.85f;
-        float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.94f;
+        sf::Color fenceBgColor(215, 215, 220, 255);
+        float fenceScale = 0.38f;
+        float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.98f;
+        float fenceBaseY = groundY - 14.f;
 
-        drawSpriteAnchored(target, rectPalisadeLeft, minX + 25.f, groundY, fenceScale, fenceBgColor);
+        float lodgeHalfWidth = 260.f;
 
-        for (float fx = minX + 130.f; fx < maxX - 130.f; fx += stepW) {
-            drawSpriteAnchored(target, rectPalisadeMiddle, fx, groundY, fenceScale, fenceBgColor);
+        drawSpriteAnchored(target, rectPalisadeLeft, minX + 20.f, fenceBaseY, fenceScale, fenceBgColor);
+
+        for (float fx = minX + 80.f; fx < maxX - 80.f; fx += stepW) {
+            if (fx >= village.centerX - lodgeHalfWidth && fx <= village.centerX + lodgeHalfWidth) {
+                continue;
+            }
+            drawSpriteAnchored(target, rectPalisadeMiddle, fx, fenceBaseY, fenceScale, fenceBgColor);
         }
 
-        drawSpriteAnchored(target, rectPalisadeRight, maxX - 25.f, groundY, fenceScale, fenceBgColor);
+        drawSpriteAnchored(target, rectPalisadeRight, maxX - 20.f, fenceBaseY, fenceScale, fenceBgColor);
     }
+
+    float roadTopY = groundY - 14.f;
+    float roadHeight = 28.f;
+
+    sf::RectangleShape frontRoad(sf::Vector2f(footprintW, roadHeight));
+    frontRoad.setPosition(startX, roadTopY);
+    frontRoad.setFillColor(sf::Color(186, 156, 114));
+    target.draw(frontRoad);
+
+    sf::RectangleShape frontRoadDust(sf::Vector2f(footprintW, 4.f));
+    frontRoadDust.setPosition(startX, roadTopY);
+    frontRoadDust.setFillColor(sf::Color(218, 192, 146));
+    target.draw(frontRoadDust);
+
+    sf::RectangleShape roadGrassLip(sf::Vector2f(footprintW, 6.f));
+    roadGrassLip.setPosition(startX, roadTopY + roadHeight);
+    roadGrassLip.setFillColor(sf::Color(44, 82, 32));
+    target.draw(roadGrassLip);
+
+    sf::RectangleShape cliffDirt(sf::Vector2f(footprintW, 26.f));
+    cliffDirt.setPosition(startX, roadTopY + roadHeight + 6.f);
+    cliffDirt.setFillColor(sf::Color(58, 40, 24));
+    target.draw(cliffDirt);
 }
 
 void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
@@ -129,7 +161,7 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
         if (s.type == sim::StructureType::EmptyPlot && !s.isUnderConstruction && !s.isFinished) {
             drawEmptyPlot(target, s, groundY);
         } else if (!s.isFinished) {
-            drawConstructionSite(target, s, groundY);
+            drawConstructionSite(target, s, groundY - 64.f);
         } else {
             switch (s.type) {
                 case sim::StructureType::VillageCenter:
@@ -139,20 +171,20 @@ void StructureManager::draw(sf::RenderTarget& target, sim::SimulationRegistry& r
                     drawThrone(target, s, *v, groundY);
                     break;
                 case sim::StructureType::Nest:
-                    drawNest(target, s, *v, groundY);
+                    drawNest(target, s, *v, groundY - 64.f);
                     break;
                 case sim::StructureType::StorageHut:
-                    drawStorageHut(target, s, *v, groundY);
+                    drawStorageHut(target, s, *v, groundY - 64.f);
                     break;
                 case sim::StructureType::WatchPlatform:
                 case sim::StructureType::Watchtower:
-                    drawWatchPlatform(target, s, *v, groundY);
+                    drawWatchPlatform(target, s, *v, groundY - 64.f);
                     break;
                 case sim::StructureType::BuilderHut:
-                    drawBuilderHut(target, s, *v, groundY);
+                    drawBuilderHut(target, s, *v, groundY - 64.f);
                     break;
                 case sim::StructureType::Bonfire:
-                    drawBonfire(target, s, *v, groundY);
+                    drawBonfire(target, s, *v, groundY - 64.f);
                     break;
                 case sim::StructureType::ToolRack:
                     drawToolRack(target, s, *v, groundY);
@@ -209,6 +241,7 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
 void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
         drawSpriteAnchored(target, rectCenterBuilding, s.worldX, groundY, 1.0f);
+        drawSpriteAnchored(target, rectFxFire, s.worldX - 44.f, groundY - 2.f, 0.88f);
         return;
     }
 
@@ -315,13 +348,13 @@ void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::St
 
 void StructureManager::drawThrone(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectBorderMonument, s.worldX, groundY, 1.0f);
+        drawSpriteAnchored(target, rectBorderMonument, s.worldX + 52.f, groundY, 0.58f);
         return;
     }
 
     sf::RectangleShape baseThrone(sf::Vector2f(90.f, 20.f));
     baseThrone.setOrigin(45.f, 20.f);
-    baseThrone.setPosition(s.worldX, groundY);
+    baseThrone.setPosition(s.worldX + 52.f, groundY);
     baseThrone.setFillColor(sf::Color(80, 55, 30));
     baseThrone.setOutlineColor(sf::Color(20, 10, 5));
     baseThrone.setOutlineThickness(2.f);
@@ -329,7 +362,7 @@ void StructureManager::drawThrone(sf::RenderTarget& target, const sim::Structure
 
     sf::RectangleShape backThrone(sf::Vector2f(70.f, 110.f));
     backThrone.setOrigin(35.f, 110.f);
-    backThrone.setPosition(s.worldX, groundY - 20.f);
+    backThrone.setPosition(s.worldX + 52.f, groundY - 20.f);
     backThrone.setFillColor(sf::Color(100, 70, 40));
     backThrone.setOutlineColor(sf::Color(20, 10, 5));
     backThrone.setOutlineThickness(2.f);
@@ -527,7 +560,7 @@ void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::St
 
 void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.90f);
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.65f);
         return;
     }
 
@@ -559,7 +592,7 @@ void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureDa
 
 void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 1.0f);
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.70f);
         return;
     }
 
@@ -592,7 +625,7 @@ void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::Struc
 
 void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectLookpost, s.worldX, groundY, 1.0f);
+        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 0.75f);
         return;
     }
 
@@ -633,7 +666,7 @@ void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::St
 
 void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.90f);
+        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 0.75f);
         return;
     }
 
@@ -665,7 +698,8 @@ void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::Struc
 
 void StructureManager::drawBonfire(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectFirePit, s.worldX, groundY, 0.90f);
+        drawSpriteAnchored(target, rectFirePit, s.worldX, groundY, 0.72f);
+        drawSpriteAnchored(target, rectFxFire, s.worldX, groundY - 4.f, 0.72f);
         return;
     }
 
@@ -691,7 +725,7 @@ void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim:
     float progressRatio = std::clamp(s.progress / std::max(1.f, s.maxProgress), 0.f, 1.f);
 
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.80f, sf::Color(255, 255, 255, static_cast<sf::Uint8>(60 + progressRatio * 140)));
+        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 0.75f, sf::Color(255, 255, 255, static_cast<sf::Uint8>(120 + progressRatio * 135)));
     } else {
         sf::RectangleShape stakeL(sf::Vector2f(14.f, 65.f));
         stakeL.setOrigin(7.f, 65.f);

@@ -210,7 +210,7 @@ void Ape::update(float dt) {
 
     if (depthLane == sim::DepthLane::Background) {
         laneScaleMultiplier = 0.72f;
-        laneYOffset = -135.f;
+        laneYOffset = -115.f;
         laneColor = sf::Color(185, 190, 210);
     } else if (depthLane == sim::DepthLane::Midground) {
         laneScaleMultiplier = 0.95f;
@@ -218,7 +218,7 @@ void Ape::update(float dt) {
         laneColor = sf::Color(240, 240, 245);
     } else {
         laneScaleMultiplier = 1.15f;
-        laneYOffset = 6.f;
+        laneYOffset = 16.f;
         laneColor = sf::Color(255, 255, 255);
     }
 

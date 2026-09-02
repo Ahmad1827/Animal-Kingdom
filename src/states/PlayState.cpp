@@ -69,13 +69,17 @@ void PlayState::init() {
     }
 
     const sf::Texture& vTex = game->getAssetManager().getTexture("village_assets");
+    const sf::Texture& gTex = game->getAssetManager().getTexture("layer1_ground");
     if (structureManager) {
         structureManager->setTexture(vTex);
+        structureManager->setGroundTexture(gTex);
     }
     if (worldManager) {
         worldManager->setVillageTexture(vTex);
     }
     
+    waterPlane.setSurfaceWorldY(572.0f);
+
     cinematicFont.loadFromFile("font.ttf");
 
     sim::EntityID startApeId = sim::PopulationGenerator::generatePlayerDynasty(simulationManager->getRegistry(), activeSeed);
@@ -1699,31 +1703,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         structureManager->drawForeground(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
 
-    {
-        sf::View currentView = rt.getView();
-        sf::Vector2f center = currentView.getCenter();
-        sf::Vector2f size = currentView.getSize();
-
-        float leftX = center.x - size.x * 0.5f;
-        float rightX = center.x + size.x * 0.5f;
-        float topY = center.y - size.y * 0.5f;
-        float bottomY = center.y + size.y * 0.5f;
-
-        sf::VertexArray leftTrunk(sf::TrianglesStrip, 4);
-        leftTrunk[0] = sf::Vertex(sf::Vector2f(leftX, topY), sf::Color(14, 10, 8));
-        leftTrunk[1] = sf::Vertex(sf::Vector2f(leftX + 115.f, topY), sf::Color(14, 10, 8));
-        leftTrunk[2] = sf::Vertex(sf::Vector2f(leftX, bottomY), sf::Color(14, 10, 8));
-        leftTrunk[3] = sf::Vertex(sf::Vector2f(leftX + 75.f, bottomY), sf::Color(14, 10, 8));
-        rt.draw(leftTrunk);
-
-        sf::VertexArray rightTrunk(sf::TrianglesStrip, 4);
-        rightTrunk[0] = sf::Vertex(sf::Vector2f(rightX - 115.f, topY), sf::Color(14, 10, 8));
-        rightTrunk[1] = sf::Vertex(sf::Vector2f(rightX, topY), sf::Color(14, 10, 8));
-        rightTrunk[2] = sf::Vertex(sf::Vector2f(rightX - 75.f, bottomY), sf::Color(14, 10, 8));
-        rightTrunk[3] = sf::Vertex(sf::Vector2f(rightX, bottomY), sf::Color(14, 10, 8));
-        rt.draw(rightTrunk);
-    }
-
     if (pVillage && pVillage->isGatheringActive) {
         for (sim::EntityID mId : pVillage->members) {
             sim::ApeData* ape = reg.getApe(mId);
@@ -2000,7 +1979,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             const sim::ApeData& ape = pair.second;
             if (!ape.alive) continue;
 
-            float apeRenderY = ape.worldY + (ape.depthLane == sim::DepthLane::Background ? -135.f : (ape.depthLane == sim::DepthLane::Foreground ? 6.f : 0.f));
+            float apeRenderY = ape.worldY + (ape.depthLane == sim::DepthLane::Background ? -115.f : (ape.depthLane == sim::DepthLane::Foreground ? 16.f : 0.f));
             sf::FloatRect apeHitbox(ape.worldX - 30.f, apeRenderY - 60.f, 60.f, 70.f);
 
             if (apeHitbox.contains(worldMouse)) {

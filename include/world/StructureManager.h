@@ -28,7 +28,7 @@ private:
     const sf::IntRect rectBambooNode       = sf::IntRect(4223, 3957, 222, 229);
     const sf::IntRect rectFxFire           = sf::IntRect(359,  4795, 70,  90);
     const sf::IntRect rectFxSmoke          = sf::IntRect(1148, 4794, 68,  91);
-
+    const sf::Texture* groundTexture = nullptr;
     void drawSpriteAnchored(sf::RenderTarget& target, const sf::IntRect& rect, float x, float y, float scale, sf::Color color = sf::Color::White);
 
 public:
@@ -61,4 +61,5 @@ public:
     void drawBonfire(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);
     void drawMeetingGround(sf::RenderTarget& target, float worldX, float groundY);
     void drawConstructionSite(sf::RenderTarget& target, const sim::StructureData& s, float groundY);
+    void setGroundTexture(const sf::Texture& tex);
 };

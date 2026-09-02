@@ -144,32 +144,30 @@ void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::V
 }
 
 void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
+    if (!groundTexture || groundTexture->getSize().x == 0) return;
+
     sf::View view = target.getView();
     float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
     float viewWidth = view.getSize().x + 800.f;
 
-    float roadTopY = groundY - 14.f;
-    float roadH = 28.f;
+    float texW = static_cast<float>(groundTexture->getSize().x);
+    float texH = static_cast<float>(groundTexture->getSize().y);
 
-    sf::RectangleShape frontRoad(sf::Vector2f(viewWidth, roadH));
-    frontRoad.setPosition(viewLeft, roadTopY);
-    frontRoad.setFillColor(sf::Color(186, 154, 110));
-    target.draw(frontRoad);
+    float targetRoadH = 160.f;
+    float scale = targetRoadH / texH;
+    float topY = groundY - 24.f;
 
-    sf::RectangleShape frontRoadDust(sf::Vector2f(viewWidth, 4.f));
-    frontRoadDust.setPosition(viewLeft, roadTopY);
-    frontRoadDust.setFillColor(sf::Color(218, 188, 142));
-    target.draw(frontRoadDust);
+    float stepW = std::floor(texW * scale);
+    if (stepW <= 0.f) stepW = 100.f;
+    float startX = std::floor(viewLeft / stepW) * stepW;
+    float endX = viewLeft + viewWidth;
 
-    sf::RectangleShape lowerGrassLip(sf::Vector2f(viewWidth, 8.f));
-    lowerGrassLip.setPosition(viewLeft, roadTopY + roadH);
-    lowerGrassLip.setFillColor(sf::Color(44, 82, 32));
-    target.draw(lowerGrassLip);
-
-    sf::RectangleShape cliffDirt(sf::Vector2f(viewWidth, 24.f));
-    cliffDirt.setPosition(viewLeft, roadTopY + roadH + 8.f);
-    cliffDirt.setFillColor(sf::Color(58, 40, 24));
-    target.draw(cliffDirt);
+    for (float x = startX; x < endX; x += stepW) {
+        sf::Sprite spr(*groundTexture);
+        spr.setScale(scale, scale);
+        spr.setPosition(x, topY);
+        target.draw(spr);
+    }
 }
 
 
@@ -876,4 +874,8 @@ void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim:
         barFill.setFillColor(sf::Color(228, 184, 52));
         target.draw(barFill);
     }
+}
+
+void StructureManager::setGroundTexture(const sf::Texture& tex) {
+    groundTexture = &tex;
 }

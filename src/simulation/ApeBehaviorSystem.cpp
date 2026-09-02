@@ -16,15 +16,17 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
         return;
     }
 
-    float hour = (timeOfDay <= 1.0f) ? (timeOfDay * 24.0f) : timeOfDay;
-    bool isDay = (hour >= 5.5f && hour <= 20.0f);
+    if (village.borderMaxX <= village.borderMinX || (village.borderMaxX - village.borderMinX < 1600.f)) {
+        village.borderMinX = village.centerX - 1600.f;
+        village.borderMaxX = village.centerX + 1600.f;
+        village.territoryRadius = 1600.f;
+    }
 
     float minX = village.borderMinX;
     float maxX = village.borderMaxX;
-    if (maxX <= minX || (maxX - minX < 800.f)) {
-        minX = village.centerX - 1600.f;
-        maxX = village.centerX + 1600.f;
-    }
+
+    float hour = (timeOfDay <= 1.0f) ? (timeOfDay * 24.0f) : timeOfDay;
+    bool isDay = (hour >= 5.5f && hour <= 20.0f);
 
     float toolRackX = village.centerX - 700.0f;
     float sparringGroundX = village.centerX + 500.0f;
@@ -38,11 +40,10 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
                 if (std::abs(ape.worldX - toolRackX) > 25.f) {
                     ape.travelDestinationX = toolRackX;
                     ape.hasTravelDestination = true;
-                    ape.currentJob = Job::Builder;
                 } else {
                     ape.hasTravelDestination = false;
-                    ape.currentJob = Job::Builder;
                 }
+                ape.currentJob = Job::Patrol;
                 return;
             }
 

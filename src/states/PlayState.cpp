@@ -82,6 +82,15 @@ void PlayState::init() {
     simulationManager->setControlledApe(startApeId);
     simulationManager->getRegistry().setControlledApe(startApeId);
     sim::PopulationGenerator::generateVillages(simulationManager->getRegistry(), activeSeed);
+
+    for (auto& pair : simulationManager->getRegistry().getAllVillages()) {
+        sim::VillageData& v = pair.second;
+        if (v.borderMaxX <= v.borderMinX || (v.borderMaxX - v.borderMinX < 1600.f)) {
+            v.borderMinX = v.centerX - 1600.f;
+            v.borderMaxX = v.centerX + 1600.f;
+            v.territoryRadius = 1600.f;
+        }
+    }
     
     npcManager = std::make_unique<NPCManager>(game->getAssetManager().getTexture("playerTex"));
     
@@ -232,7 +241,6 @@ void PlayState::processEvents(const sf::Event& event) {
                     sim::VillageData* village = reg.getVillage(player->villageId);
 
                     if (village && targetApe->id != village->leaderId && targetApe->villageId == village->id) {
-
                         auto appointCouncilRole = [&](sim::EntityID& roleSlot, sim::CouncilRole role) {
                             if (roleSlot != 0 && roleSlot != targetApe->id) {
                                 sim::ApeData* formerApe = reg.getApe(roleSlot);
@@ -567,6 +575,8 @@ void PlayState::processEvents(const sf::Event& event) {
         }
     }
 }
+
+
 
 void PlayState::update(float dt) {
     static float targetRefreshTimer = 0.f;

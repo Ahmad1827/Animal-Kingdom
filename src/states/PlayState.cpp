@@ -85,7 +85,7 @@ void PlayState::init() {
 
     for (auto& pair : simulationManager->getRegistry().getAllVillages()) {
         sim::VillageData& v = pair.second;
-        if (v.borderMaxX <= v.borderMinX || (v.borderMaxX - v.borderMinX < 1600.f)) {
+        if (v.borderMaxX <= v.borderMinX || (v.borderMaxX - v.borderMinX < 800.f)) {
             v.borderMinX = v.centerX - 1600.f;
             v.borderMaxX = v.centerX + 1600.f;
             v.territoryRadius = 1600.f;

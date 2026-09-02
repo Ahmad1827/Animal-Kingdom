@@ -1607,17 +1607,21 @@ void PlayState::draw(sf::RenderWindow& window) {
         worldManager->drawBackground(rt, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
     }
 
+    // 1. Background structures: draws Rear Lawn, Rear Palisade, and Background Huts/Tower at Y ≈ 400
     if (structureManager) {
         structureManager->drawBackgroundStructures(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
 
+    // 2. Background Lane: NPCs walking on the green yard (feet at Y ≈ 402, above the middle fence)
     if (npcManager) {
         npcManager->drawLane(rt, sim::DepthLane::Background, simulationManager->getRegistry());
     }
 
+    // 3. Midground structures: Middle Palisade (top at Y ≈ 412) and Front Dirt Path (Y ≈ 486 to 514)
     if (structureManager) {
         structureManager->drawMidgroundStructures(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
+
 
     if (worldManager) {
         worldManager->drawTerritoryMarkers(rt, simulationManager->getRegistry(), cameraManager->getViewBounds());
@@ -1690,6 +1694,7 @@ void PlayState::draw(sf::RenderWindow& window) {
         npcManager->drawLane(rt, sim::DepthLane::Midground, simulationManager->getRegistry());
     }
 
+    // 5. Foreground: The King on the front dirt path
     if (playerWrapper) {
         playerWrapper->setDepthLane(sim::DepthLane::Foreground);
         playerWrapper->draw(rt);

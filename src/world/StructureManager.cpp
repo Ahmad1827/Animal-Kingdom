@@ -83,18 +83,19 @@ void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::Village
     float footprintW = (maxX - minX) + 800.f;
     float startX = minX - 400.f;
 
-    float yardTopY = groundY - 95.f;
+    // Elevate the rear lawn so it is visible above the middle palisade
+    float yardTopY = groundY - 140.f;
     float yardBottomY = groundY - 14.f;
     float yardH = yardBottomY - yardTopY;
 
     sf::RectangleShape rearLawn(sf::Vector2f(footprintW, yardH));
     rearLawn.setPosition(startX, yardTopY);
-    rearLawn.setFillColor(sf::Color(44, 76, 36));
+    rearLawn.setFillColor(sf::Color(38, 70, 32));
     target.draw(rearLawn);
 
     sf::RectangleShape rearGrassTrim(sf::Vector2f(footprintW, 5.f));
     rearGrassTrim.setPosition(startX, yardTopY);
-    rearGrassTrim.setFillColor(sf::Color(78, 138, 52));
+    rearGrassTrim.setFillColor(sf::Color(68, 126, 44));
     target.draw(rearGrassTrim);
 }
 
@@ -108,10 +109,11 @@ void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::Vil
         maxX = village.centerX + 2400.f;
     }
 
-    float rearFenceBaseY = groundY - 90.f;
-    float fenceScale = 0.72f;
+    // Anchored at the back edge of the green yard
+    float rearFenceBaseY = groundY - 135.f;
+    float fenceScale = 0.45f;
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
-    sf::Color fenceBgColor(165, 170, 185, 235);
+    sf::Color fenceBgColor(130, 135, 150, 220);
 
     drawSpriteAnchored(target, rectPalisadeLeft, minX - 80.f, rearFenceBaseY, fenceScale, fenceBgColor);
     for (float fx = minX + 20.f; fx < maxX - 20.f; fx += stepW) {
@@ -131,7 +133,7 @@ void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::V
     }
 
     float midFenceBaseY = groundY - 14.f;
-    float fenceScale = 0.88f;
+    float fenceScale = 0.32f; // Scaled down to match ~70px screen height
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
     sf::Color fenceColor(230, 230, 235, 255);
 
@@ -205,7 +207,7 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
         if (s.worldX < viewBounds.left - 800.f || s.worldX > viewBounds.left + viewBounds.width + 800.f) continue;
 
         float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
-        float yardY = groundY - 50.f;
+        float yardY = groundY - 100.f;
 
         sim::VillageData* v = registry.getVillage(s.villageId);
         sim::VillageData fallbackVillage;

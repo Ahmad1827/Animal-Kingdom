@@ -209,16 +209,16 @@ void Ape::update(float dt) {
     sf::Color laneColor = sf::Color::White;
 
     if (depthLane == sim::DepthLane::Background) {
-        laneScaleMultiplier = 0.72f;
-        laneYOffset = -52.f;
-        laneColor = sf::Color(185, 190, 210);
+        laneScaleMultiplier = 0.68f; // Smaller scale for perspective distance
+        laneYOffset = -98.f;         // Places feet at Y=402, safely above the middle fence (top at Y=412)
+        laneColor = sf::Color(175, 180, 200);
     } else if (depthLane == sim::DepthLane::Midground) {
         laneScaleMultiplier = 0.95f;
         laneYOffset = 0.f;
-        laneColor = sf::Color(240, 240, 245);
+        laneColor = sf::Color(235, 235, 245);
     } else {
-        laneScaleMultiplier = 1.15f;
-        laneYOffset = 6.f;
+        laneScaleMultiplier = 1.12f;
+        laneYOffset = 6.f;           // Walking on the front road
         laneColor = sf::Color(255, 255, 255);
     }
 
@@ -268,8 +268,7 @@ void Ape::draw(sf::RenderTarget& target) {
     center.y -= sprite.getGlobalBounds().height / 2.f;
     
     float facingDir = facingRight ? 1.f : -1.f;
-    float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.72f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
-
+float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.68f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.12f);
     if (isKing) {
         sf::ConvexShape crown(3);
         crown.setPoint(0, sf::Vector2f(-14.f * laneScaleMultiplier, 0.f));

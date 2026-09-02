@@ -193,7 +193,7 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
         if (s.worldX < viewBounds.left - 800.f || s.worldX > viewBounds.left + viewBounds.width + 800.f) continue;
 
         float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
-        float yardY = groundY - 110.f; // Placed inside the upper green lawn
+        float yardY = groundY - 130.f;
 
         sim::VillageData* v = registry.getVillage(s.villageId);
         sim::VillageData fallbackVillage;

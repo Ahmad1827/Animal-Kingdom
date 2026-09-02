@@ -31,8 +31,8 @@ Background::Background(AssetManager& assets) {
     layer4_foreground.scale = 0.16f;
 
     layer1_sky.yOffset = 0.0f;
-    layer2_mountains.yOffset = 25.0f;
-    layer3_hills.yOffset = 25.0f;
+    layer2_mountains.yOffset = -110.0f;
+    layer3_hills.yOffset = -135.0f;
     layer4_foreground.yOffset = -10.0f;
 
     blendedMountColor = sf::Color::White;

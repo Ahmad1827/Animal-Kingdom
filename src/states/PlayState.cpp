@@ -1608,11 +1608,15 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (structureManager) {
-        structureManager->draw(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
+        structureManager->drawBackgroundStructures(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
 
     if (npcManager) {
         npcManager->drawLane(rt, sim::DepthLane::Background, simulationManager->getRegistry());
+    }
+
+    if (structureManager) {
+        structureManager->drawMidgroundStructures(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
 
     if (worldManager) {
@@ -1682,10 +1686,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         background->drawForeground(rt, groundY);
     }
 
-    if (structureManager) {
-        structureManager->drawForeground(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
-    }
-
     if (npcManager) {
         npcManager->drawLane(rt, sim::DepthLane::Midground, simulationManager->getRegistry());
     }
@@ -1693,6 +1693,10 @@ void PlayState::draw(sf::RenderWindow& window) {
     if (playerWrapper) {
         playerWrapper->setDepthLane(sim::DepthLane::Foreground);
         playerWrapper->draw(rt);
+    }
+
+    if (structureManager) {
+        structureManager->drawForeground(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
 
     {

@@ -209,16 +209,16 @@ void Ape::update(float dt) {
     sf::Color laneColor = sf::Color::White;
 
     if (depthLane == sim::DepthLane::Background) {
-        laneScaleMultiplier = 0.70f;
-        laneYOffset = -64.f;
-        laneColor = sf::Color(180, 185, 205);
+        laneScaleMultiplier = 0.72f;
+        laneYOffset = -52.f;
+        laneColor = sf::Color(185, 190, 210);
     } else if (depthLane == sim::DepthLane::Midground) {
         laneScaleMultiplier = 0.95f;
         laneYOffset = 0.f;
-        laneColor = sf::Color(235, 235, 245);
+        laneColor = sf::Color(240, 240, 245);
     } else {
         laneScaleMultiplier = 1.15f;
-        laneYOffset = 8.f;
+        laneYOffset = 6.f;
         laneColor = sf::Color(255, 255, 255);
     }
 
@@ -268,7 +268,7 @@ void Ape::draw(sf::RenderTarget& target) {
     center.y -= sprite.getGlobalBounds().height / 2.f;
     
     float facingDir = facingRight ? 1.f : -1.f;
-    float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.70f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
+    float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.72f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
 
     if (isKing) {
         sf::ConvexShape crown(3);

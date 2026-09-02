@@ -37,10 +37,18 @@ public:
     const sf::Texture* getTexture() const { return villageTexture; }
 
     void update(float dt, sim::SimulationRegistry& registry);
+
     void draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
+    void drawBackgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
+    void drawMidgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
     void drawForeground(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
 
     void drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY);
+    void drawRearLawn(sf::RenderTarget& target, const sim::VillageData& village, float groundY);
+    void drawRearPalisade(sf::RenderTarget& target, const sim::VillageData& village, float groundY);
+    void drawMiddlePalisade(sf::RenderTarget& target, const sim::VillageData& village, float groundY);
+    void drawFrontRoad(sf::RenderTarget& target, const sim::VillageData& village, float groundY);
+
     void drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);
     void drawThrone(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);
     void drawToolRack(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY);

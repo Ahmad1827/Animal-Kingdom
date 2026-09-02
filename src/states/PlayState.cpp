@@ -227,36 +227,57 @@ void PlayState::processEvents(const sf::Event& event) {
                 sim::SimulationRegistry& reg = simulationManager->getRegistry();
                 sim::ApeData* targetApe = reg.getApe(inspectedApeId);
                 sim::ApeData* player = reg.getApe(simulationManager->getControlledApe());
+
                 if (targetApe && player) {
                     sim::VillageData* village = reg.getVillage(player->villageId);
+
                     if (village && targetApe->id != village->leaderId && targetApe->villageId == village->id) {
-                        if (event.key.code == sf::Keyboard::Num1) {
-                            village->warChiefId = targetApe->id;
-                            targetApe->councilRole = sim::CouncilRole::WarChief;
+
+                        auto appointCouncilRole = [&](sim::EntityID& roleSlot, sim::CouncilRole role) {
+                            if (roleSlot != 0 && roleSlot != targetApe->id) {
+                                sim::ApeData* formerApe = reg.getApe(roleSlot);
+                                if (formerApe) {
+                                    formerApe->councilRole = sim::CouncilRole::None;
+                                    formerApe->hasTravelDestination = false;
+                                    formerApe->opinions[player->id] = std::clamp(formerApe->opinions[player->id] - 40, -100, 100);
+                                }
+                            }
+
+                            if (roleSlot != targetApe->id) {
+                                targetApe->opinions[player->id] = std::clamp(targetApe->opinions[player->id] + 30, -100, 100);
+                            }
+
+                            roleSlot = targetApe->id;
+                            targetApe->councilRole = role;
                             targetApe->hasTravelDestination = false;
+                        };
+
+                        auto revokeCouncilRole = [&](sim::EntityID& roleSlot) {
+                            if (roleSlot == targetApe->id) {
+                                roleSlot = 0;
+                                targetApe->councilRole = sim::CouncilRole::None;
+                                targetApe->hasTravelDestination = false;
+                                targetApe->opinions[player->id] = std::clamp(targetApe->opinions[player->id] - 30, -100, 100);
+                            }
+                        };
+
+                        if (event.key.code == sf::Keyboard::Num1) {
+                            appointCouncilRole(village->warChiefId, sim::CouncilRole::WarChief);
                             return;
                         } else if (event.key.code == sf::Keyboard::Num2) {
-                            village->chiefBuilderId = targetApe->id;
-                            targetApe->councilRole = sim::CouncilRole::ChiefBuilder;
-                            targetApe->hasTravelDestination = false;
+                            appointCouncilRole(village->chiefBuilderId, sim::CouncilRole::ChiefBuilder);
                             return;
                         } else if (event.key.code == sf::Keyboard::Num3) {
-                            village->leadForagerId = targetApe->id;
-                            targetApe->councilRole = sim::CouncilRole::LeadForager;
-                            targetApe->hasTravelDestination = false;
+                            appointCouncilRole(village->leadForagerId, sim::CouncilRole::LeadForager);
                             return;
                         } else if (event.key.code == sf::Keyboard::Num4) {
-                            village->shamanId = targetApe->id;
-                            targetApe->councilRole = sim::CouncilRole::Shaman;
-                            targetApe->hasTravelDestination = false;
+                            appointCouncilRole(village->shamanId, sim::CouncilRole::Shaman);
                             return;
                         } else if (event.key.code == sf::Keyboard::Num0) {
-                            if (village->warChiefId == targetApe->id) village->warChiefId = 0;
-                            if (village->chiefBuilderId == targetApe->id) village->chiefBuilderId = 0;
-                            if (village->leadForagerId == targetApe->id) village->leadForagerId = 0;
-                            if (village->shamanId == targetApe->id) village->shamanId = 0;
-                            targetApe->councilRole = sim::CouncilRole::None;
-                            targetApe->hasTravelDestination = false;
+                            revokeCouncilRole(village->warChiefId);
+                            revokeCouncilRole(village->chiefBuilderId);
+                            revokeCouncilRole(village->leadForagerId);
+                            revokeCouncilRole(village->shamanId);
                             return;
                         }
                     }
@@ -3000,14 +3021,34 @@ void PlayState::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID ape
     opFrame.setOutlineThickness(1.f);
     window.draw(opFrame);
 
-    std::string relText = "Relationship: Neutral";
+    int personalOp = 0;
+    if (player) {
+        if (ape->opinions.count(player->id)) {
+            personalOp = ape->opinions[player->id];
+        } else if (ape->villageId == player->villageId) {
+            personalOp = 20;
+            ape->opinions[player->id] = personalOp;
+        }
+    }
+
+    std::string relText = "Opinion of You: " + (personalOp >= 0 ? ("+" + std::to_string(personalOp)) : std::to_string(personalOp));
     sf::Color relCol = sf::Color(200, 200, 200);
-    if (player && ape->villageId == player->villageId) {
-        relText = "Clan Kinship (+45 Opinion)";
-        relCol = sf::Color(100, 230, 100);
-    } else if (apeKingdom && player && player->currentKingdom == apeKingdom->id) {
-        relText = "Fellow Realm Subject (+20 Opinion)";
-        relCol = sf::Color(140, 210, 255);
+
+    if (personalOp >= 30) {
+        relCol = sf::Color(100, 235, 100);
+        relText += " (Loyal)";
+    } else if (personalOp > 0) {
+        relCol = sf::Color(180, 225, 140);
+        relText += " (Favorable)";
+    } else if (personalOp == 0) {
+        relCol = sf::Color(210, 210, 210);
+        relText += " (Neutral)";
+    } else if (personalOp <= -30) {
+        relCol = sf::Color(240, 70, 70);
+        relText += " (Hostile)";
+    } else {
+        relCol = sf::Color(235, 150, 90);
+        relText += " (Discontent)";
     }
 
     sf::Text opTxt(relText, cinematicFont, 13);

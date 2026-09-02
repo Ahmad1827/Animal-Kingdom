@@ -102,7 +102,25 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
                         trainee->hasTravelDestination = true;
                     } else {
                         trainee->hasTravelDestination = false;
-                        trainee->skills.combat = std::min(10.0f, trainee->skills.combat + dt * (0.06f + ape.skills.leadership * 0.02f));
+                        float combatGain = dt * (0.06f + ape.skills.leadership * 0.02f);
+                        trainee->skills.combat = std::min(10.0f, trainee->skills.combat + combatGain);
+
+                        if (trainee->skills.combat >= 5.0f) {
+                            bool hasBrave = false;
+                            for (Trait t : trainee->traits) {
+                                if (t == Trait::Brave) {
+                                    hasBrave = true;
+                                    break;
+                                }
+                            }
+                            if (!hasBrave) {
+                                trainee->traits.erase(
+                                    std::remove(trainee->traits.begin(), trainee->traits.end(), Trait::Coward),
+                                    trainee->traits.end()
+                                );
+                                trainee->traits.push_back(Trait::Brave);
+                            }
+                        }
                     }
 
                     trainee->equippedTool = ToolType::WoodenSpear;

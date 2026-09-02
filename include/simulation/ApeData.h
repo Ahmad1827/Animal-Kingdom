@@ -2,6 +2,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <unordered_map>
 #include "simulation/EntityID.h"
 #include "simulation/ResourceNode.h"
 
@@ -162,6 +163,7 @@ struct ApeData {
     std::vector<EntityID> siblings;
     std::vector<Trait> traits;
     ApeSkills skills;
+    std::unordered_map<EntityID, int> opinions;
 
     bool isWaitingForAudience = false;
     EntityID summonedRepId = 0;

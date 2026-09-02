@@ -210,51 +210,51 @@ sf::FloatRect Chunk::getBounds() const { return bounds; }
 void Chunk::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool, ProfilerStats& profiler, sf::Texture&) const {
     if (!bounds.intersects(viewBounds)) return;
 
-    if (!isJungleTerrain && undergroundMesh.getVertexCount() > 0) {
-        target.draw(undergroundMesh);
-        profiler.drawCalls++;
-        profiler.objectsRendered++;
-    }
+    // if (!isJungleTerrain && undergroundMesh.getVertexCount() > 0) {
+    //     target.draw(undergroundMesh);
+    //     profiler.drawCalls++;
+    //     profiler.objectsRendered++;
+    // }
 
-    if (isJungleTerrain) {
-        for (const auto& s : jungleSoilSprites) {
-            if (s.getGlobalBounds().intersects(viewBounds)) {
-                target.draw(s);
-                profiler.drawCalls++;
-                profiler.objectsRendered++;
-            }
-        }
-    }
+    // if (isJungleTerrain) {
+    //     for (const auto& s : jungleSoilSprites) {
+    //         if (s.getGlobalBounds().intersects(viewBounds)) {
+    //             target.draw(s);
+    //             profiler.drawCalls++;
+    //             profiler.objectsRendered++;
+    //         }
+    //     }
+    // }
 
-    if (!isJungleTerrain && terrainMesh.getVertexCount() > 0) {
-        sf::RenderStates states;
-        states.texture = nullptr;
-        target.draw(terrainMesh, states);
-        profiler.drawCalls++;
-        profiler.objectsRendered++;
-    }
+    // if (!isJungleTerrain && terrainMesh.getVertexCount() > 0) {
+    //     sf::RenderStates states;
+    //     states.texture = nullptr;
+    //     target.draw(terrainMesh, states);
+    //     profiler.drawCalls++;
+    //     profiler.objectsRendered++;
+    // }
 
-    if (isJungleTerrain) {
-        for (const auto& s : jungleSurfaceSprites) {
-            if (s.getGlobalBounds().intersects(viewBounds)) {
-                target.draw(s);
-                profiler.drawCalls++;
-                profiler.objectsRendered++;
-            }
-        }
-    }
+    // if (isJungleTerrain) {
+    //     for (const auto& s : jungleSurfaceSprites) {
+    //         if (s.getGlobalBounds().intersects(viewBounds)) {
+    //             target.draw(s);
+    //             profiler.drawCalls++;
+    //             profiler.objectsRendered++;
+    //         }
+    //     }
+    // }
 }
 
 void Chunk::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {
     if (!bounds.intersects(viewBounds)) return;
 
-    for (const auto& dec : decorations) {
-        if (dec.getBounds().intersects(viewBounds)) {
-            dec.draw(target);
-            profiler.drawCalls++;
-            profiler.visibleDecorations++;
-        }
-    }
+    // for (const auto& dec : decorations) {
+    //     if (dec.getBounds().intersects(viewBounds)) {
+    //         dec.draw(target);
+    //         profiler.drawCalls++;
+    //         profiler.visibleDecorations++;
+    //     }
+    // }
 
     for (auto& tree : const_cast<std::vector<Tree>&>(trees)) {
         tree.update(1.0f / 60.0f);

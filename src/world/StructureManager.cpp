@@ -72,125 +72,106 @@ void StructureManager::drawMeetingGround(sf::RenderTarget& target, float worldX,
     }
 }
 
-void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
-    float minX = village.borderMinX;
-    float maxX = village.borderMaxX;
-    if (maxX <= minX) {
-        minX = village.centerX - 2400.f;
-        maxX = village.centerX + 2400.f;
-    }
+void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
+    sf::View view = target.getView();
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
+    float viewWidth = view.getSize().x + 800.f;
 
-    float footprintW = (maxX - minX) + 800.f;
-    float startX = minX - 400.f;
-
-    // Expand lawn height for a wider, more natural yard
-    float yardTopY = groundY - 140.f;
-    float yardBottomY = groundY - 10.f;
+    // Raised significantly higher (from 500 down to 285, giving ~200px of visible yard)
+    float yardTopY = groundY - 215.f;
+    float yardBottomY = groundY - 14.f;
     float yardH = yardBottomY - yardTopY;
 
-    // Multi-layer grass gradient
-    sf::RectangleShape rearLawn(sf::Vector2f(footprintW, yardH));
-    rearLawn.setPosition(startX, yardTopY);
-    rearLawn.setFillColor(sf::Color(35, 62, 30));
+    // 1. Base deep lawn
+    sf::RectangleShape rearLawn(sf::Vector2f(viewWidth, yardH));
+    rearLawn.setPosition(viewLeft, yardTopY);
+    rearLawn.setFillColor(sf::Color(30, 56, 26));
     target.draw(rearLawn);
 
-    sf::RectangleShape midLawn(sf::Vector2f(footprintW, yardH * 0.45f));
-    midLawn.setPosition(startX, yardTopY + (yardH * 0.55f));
-    midLawn.setFillColor(sf::Color(44, 76, 36));
+    // 2. Middle gradient grass
+    sf::RectangleShape midLawn(sf::Vector2f(viewWidth, yardH * 0.55f));
+    midLawn.setPosition(viewLeft, yardTopY + (yardH * 0.45f));
+    midLawn.setFillColor(sf::Color(44, 78, 36));
     target.draw(midLawn);
 
-    // Textured grass fringe along the top edge
-    sf::RectangleShape rearGrassTrim(sf::Vector2f(footprintW, 6.f));
-    rearGrassTrim.setPosition(startX, yardTopY);
-    rearGrassTrim.setFillColor(sf::Color(78, 142, 54));
+    // 3. Highlighted sunlit grass trim along the top horizon
+    sf::RectangleShape rearGrassTrim(sf::Vector2f(viewWidth, 6.f));
+    rearGrassTrim.setPosition(viewLeft, yardTopY);
+    rearGrassTrim.setFillColor(sf::Color(78, 146, 52));
     target.draw(rearGrassTrim);
 }
 
-void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
+void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
     if (!villageTexture || villageTexture->getSize().x == 0) return;
 
-    float minX = village.borderMinX;
-    float maxX = village.borderMaxX;
-    if (maxX <= minX) {
-        minX = village.centerX - 2400.f;
-        maxX = village.centerX + 2400.f;
-    }
+    sf::View view = target.getView();
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
+    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 400.f;
 
-    float rearFenceBaseY = groundY - 128.f;
-    float fenceScale = 0.52f; // Increased from 0.45f for better visibility
+    float rearFenceBaseY = groundY - 210.f;
+    float fenceScale = 0.38f;
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
-    sf::Color fenceBgColor(140, 145, 160, 230);
+    sf::Color fenceBgColor(135, 140, 155, 215);
 
-    drawSpriteAnchored(target, rectPalisadeLeft, minX - 80.f, rearFenceBaseY, fenceScale, fenceBgColor);
-    for (float fx = minX + 20.f; fx < maxX - 20.f; fx += stepW) {
+    float startX = std::floor(viewLeft / stepW) * stepW;
+    for (float fx = startX; fx < viewRight; fx += stepW) {
         drawSpriteAnchored(target, rectPalisadeMiddle, fx, rearFenceBaseY, fenceScale, fenceBgColor);
     }
-    drawSpriteAnchored(target, rectPalisadeRight, maxX + 80.f, rearFenceBaseY, fenceScale, fenceBgColor);
 }
 
 void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     if (!villageTexture || villageTexture->getSize().x == 0) return;
 
-    float minX = village.borderMinX;
-    float maxX = village.borderMaxX;
-    if (maxX <= minX) {
-        minX = village.centerX - 2400.f;
-        maxX = village.centerX + 2400.f;
-    }
+    sf::View view = target.getView();
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
+    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 400.f;
 
-    float midFenceBaseY = groundY - 10.f;
-    float fenceScale = 0.46f; // Increased from 0.32f for proper proportion
+    float midFenceBaseY = groundY - 14.f;
+    float fenceScale = 0.58f;
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
     sf::Color fenceColor(230, 230, 235, 255);
 
     float lodgeHalfWidth = 240.f;
+    float startX = std::floor(viewLeft / stepW) * stepW;
 
-    drawSpriteAnchored(target, rectPalisadeLeft, minX + 20.f, midFenceBaseY, fenceScale, fenceColor);
-
-    for (float fx = minX + 110.f; fx < maxX - 110.f; fx += stepW) {
+    for (float fx = startX; fx < viewRight; fx += stepW) {
+        // Leave an opening for the Clan Lodge door
         if (fx >= village.centerX - lodgeHalfWidth && fx <= village.centerX + lodgeHalfWidth) {
             continue;
         }
         drawSpriteAnchored(target, rectPalisadeMiddle, fx, midFenceBaseY, fenceScale, fenceColor);
     }
-
-    drawSpriteAnchored(target, rectPalisadeRight, maxX - 20.f, midFenceBaseY, fenceScale, fenceColor);
 }
 
-void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
-    float minX = village.borderMinX;
-    float maxX = village.borderMaxX;
-    if (maxX <= minX) {
-        minX = village.centerX - 2400.f;
-        maxX = village.centerX + 2400.f;
-    }
-
-    float footprintW = (maxX - minX) + 800.f;
-    float startX = minX - 400.f;
+void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
+    sf::View view = target.getView();
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
+    float viewWidth = view.getSize().x + 800.f;
 
     float roadTopY = groundY - 14.f;
     float roadH = 28.f;
 
-    sf::RectangleShape frontRoad(sf::Vector2f(footprintW, roadH));
-    frontRoad.setPosition(startX, roadTopY);
+    sf::RectangleShape frontRoad(sf::Vector2f(viewWidth, roadH));
+    frontRoad.setPosition(viewLeft, roadTopY);
     frontRoad.setFillColor(sf::Color(186, 154, 110));
     target.draw(frontRoad);
 
-    sf::RectangleShape frontRoadDust(sf::Vector2f(footprintW, 4.f));
-    frontRoadDust.setPosition(startX, roadTopY);
+    sf::RectangleShape frontRoadDust(sf::Vector2f(viewWidth, 4.f));
+    frontRoadDust.setPosition(viewLeft, roadTopY);
     frontRoadDust.setFillColor(sf::Color(218, 188, 142));
     target.draw(frontRoadDust);
 
-    sf::RectangleShape lowerGrassLip(sf::Vector2f(footprintW, 8.f));
-    lowerGrassLip.setPosition(startX, roadTopY + roadH);
+    sf::RectangleShape lowerGrassLip(sf::Vector2f(viewWidth, 8.f));
+    lowerGrassLip.setPosition(viewLeft, roadTopY + roadH);
     lowerGrassLip.setFillColor(sf::Color(44, 82, 32));
     target.draw(lowerGrassLip);
 
-    sf::RectangleShape cliffDirt(sf::Vector2f(footprintW, 24.f));
-    cliffDirt.setPosition(startX, roadTopY + roadH + 8.f);
+    sf::RectangleShape cliffDirt(sf::Vector2f(viewWidth, 24.f));
+    cliffDirt.setPosition(viewLeft, roadTopY + roadH + 8.f);
     cliffDirt.setFillColor(sf::Color(58, 40, 24));
     target.draw(cliffDirt);
 }
+
 
 void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     drawRearLawn(target, village, groundY);
@@ -200,20 +181,19 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
 }
 
 void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
-    for (auto& pair : registry.getAllVillages()) {
-        const sim::VillageData& v = pair.second;
-        if (v.centerX + 3500.f < viewBounds.left || v.centerX - 3500.f > viewBounds.left + viewBounds.width) continue;
-        float groundY = world ? world->getTerrainHeight(v.centerX) : 500.0f;
-        drawRearLawn(target, v, groundY);
-        drawRearPalisade(target, v, groundY);
-    }
+    float defaultGroundY = world ? world->getTerrainHeight(viewBounds.left + viewBounds.width * 0.5f) : 500.0f;
+    sim::VillageData dummyVillage;
+    
+    // Draw continuous background terrain and palisade once across the screen to infinity
+    drawRearLawn(target, dummyVillage, defaultGroundY);
+    drawRearPalisade(target, dummyVillage, defaultGroundY);
 
     for (auto& pair : registry.getAllStructures()) {
         sim::StructureData& s = pair.second;
         if (s.worldX < viewBounds.left - 800.f || s.worldX > viewBounds.left + viewBounds.width + 800.f) continue;
 
         float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
-        float yardY = groundY - 100.f;
+        float yardY = groundY - 110.f; // Placed inside the upper green lawn
 
         sim::VillageData* v = registry.getVillage(s.villageId);
         sim::VillageData fallbackVillage;
@@ -251,13 +231,16 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
 }
 
 void StructureManager::drawMidgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
-    for (auto& pair : registry.getAllVillages()) {
-        const sim::VillageData& v = pair.second;
-        if (v.centerX + 3500.f < viewBounds.left || v.centerX - 3500.f > viewBounds.left + viewBounds.width) continue;
-        float groundY = world ? world->getTerrainHeight(v.centerX) : 500.0f;
-        drawMiddlePalisade(target, v, groundY);
-        drawFrontRoad(target, v, groundY);
+    float defaultGroundY = world ? world->getTerrainHeight(viewBounds.left + viewBounds.width * 0.5f) : 500.0f;
+    sim::VillageData primaryVillage;
+    for (const auto& pair : registry.getAllVillages()) {
+        primaryVillage = pair.second;
+        break;
     }
+
+    // Continuous middle palisade and road to infinity
+    drawMiddlePalisade(target, primaryVillage, defaultGroundY);
+    drawFrontRoad(target, primaryVillage, defaultGroundY);
 
     for (auto& pair : registry.getAllStructures()) {
         sim::StructureData& s = pair.second;

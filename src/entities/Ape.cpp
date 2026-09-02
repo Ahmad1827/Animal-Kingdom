@@ -209,8 +209,8 @@ void Ape::update(float dt) {
     sf::Color laneColor = sf::Color::White;
 
     if (depthLane == sim::DepthLane::Background) {
-        laneScaleMultiplier = 0.74f;
-        laneYOffset = -72.f; // Placed firmly on the upper lawn
+        laneScaleMultiplier = 0.72f;
+        laneYOffset = -115.f; // Standing on the upper lawn
         laneColor = sf::Color(185, 190, 210);
     } else if (depthLane == sim::DepthLane::Midground) {
         laneScaleMultiplier = 0.95f;
@@ -268,8 +268,7 @@ void Ape::draw(sf::RenderTarget& target) {
     center.y -= sprite.getGlobalBounds().height / 2.f;
     
     float facingDir = facingRight ? 1.f : -1.f;
-float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.68f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.12f);
-    if (isKing) {
+    float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.72f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);    if (isKing) {
         sf::ConvexShape crown(3);
         crown.setPoint(0, sf::Vector2f(-14.f * laneScaleMultiplier, 0.f));
         crown.setPoint(1, sf::Vector2f(14.f * laneScaleMultiplier, 0.f));

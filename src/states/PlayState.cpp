@@ -1607,21 +1607,17 @@ void PlayState::draw(sf::RenderWindow& window) {
         worldManager->drawBackground(rt, cameraManager->getViewBounds(), debugOverlay->getShowFoliage(), profiler, game->getAssetManager().getTexture("tileset"));
     }
 
-    // 1. Background structures: draws Rear Lawn, Rear Palisade, and Background Huts/Tower at Y ≈ 400
     if (structureManager) {
         structureManager->drawBackgroundStructures(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
 
-    // 2. Background Lane: NPCs walking on the green yard (feet at Y ≈ 402, above the middle fence)
     if (npcManager) {
         npcManager->drawLane(rt, sim::DepthLane::Background, simulationManager->getRegistry());
     }
 
-    // 3. Midground structures: Middle Palisade (top at Y ≈ 412) and Front Dirt Path (Y ≈ 486 to 514)
     if (structureManager) {
         structureManager->drawMidgroundStructures(rt, simulationManager->getRegistry(), worldManager.get(), cameraManager->getViewBounds());
     }
-
 
     if (worldManager) {
         worldManager->drawTerritoryMarkers(rt, simulationManager->getRegistry(), cameraManager->getViewBounds());
@@ -1694,7 +1690,6 @@ void PlayState::draw(sf::RenderWindow& window) {
         npcManager->drawLane(rt, sim::DepthLane::Midground, simulationManager->getRegistry());
     }
 
-    // 5. Foreground: The King on the front dirt path
     if (playerWrapper) {
         playerWrapper->setDepthLane(sim::DepthLane::Foreground);
         playerWrapper->draw(rt);
@@ -1990,6 +1985,7 @@ void PlayState::draw(sf::RenderWindow& window) {
     }
 
     if (debugOverlay) debugOverlay->draw(window);
+
     window.setView(letterboxView);
     sf::Vector2i mPixel = sf::Mouse::getPosition(window);
     sf::Vector2f mPos = window.mapPixelToCoords(mPixel, letterboxView);
@@ -2004,7 +2000,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             const sim::ApeData& ape = pair.second;
             if (!ape.alive) continue;
 
-            float apeRenderY = ape.worldY + (ape.depthLane == sim::DepthLane::Background ? -72.f : (ape.depthLane == sim::DepthLane::Foreground ? 6.f : 0.f));
+            float apeRenderY = ape.worldY + (ape.depthLane == sim::DepthLane::Background ? -115.f : (ape.depthLane == sim::DepthLane::Foreground ? 6.f : 0.f));
             sf::FloatRect apeHitbox(ape.worldX - 30.f, apeRenderY - 60.f, 60.f, 70.f);
 
             if (apeHitbox.contains(worldMouse)) {

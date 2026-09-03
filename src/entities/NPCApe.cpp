@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include "entities/Ape.h"
 
 NPCApe::NPCApe(sim::EntityID id, float x, float y, sf::Texture& texture) 
     : simId(id), physicalApe(x, y, texture, false), stateTimer(0.f), intendedMoveX(0.f), 
@@ -94,6 +95,7 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
     }
 
     float groundHeight = worldManager->getTerrainHeight(playerBounds.left + playerBounds.width / 2.f);
+    physicalApe.setGroundY(groundHeight);
     float bottomY = playerBounds.top + playerBounds.height;
     float distanceToGround = groundHeight - bottomY;
     
@@ -138,11 +140,12 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
         sf::FloatRect bounds = physicalApe.getBounds();
         sf::FloatRect textBounds = nameText.getLocalBounds();
         nameText.setOrigin(textBounds.left + textBounds.width / 2.f, textBounds.top + textBounds.height);
-        nameText.setPosition(bounds.left + bounds.width / 2.f, bounds.top - 14.f);
+        float headY = physicalApe.getSprite().getPosition().y - physicalApe.getSprite().getGlobalBounds().height;
+        nameText.setPosition(bounds.left + bounds.width / 2.f, headY - 6.f);
     }
 
     if (!data) return;
-
+    physicalApe.setDepthLane(data->depthLane);
     if (data->currentJob == sim::Job::Woodcutter && data->currentTargetNode != 0 && worldManager) {
         float myX = physicalApe.getPosition().x;
         float destX = (data->travelDestinationX != 0.f) ? data->travelDestinationX : myX;

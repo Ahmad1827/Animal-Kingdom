@@ -23,6 +23,9 @@ public:
     void setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amount, bool king);
     void setDepthLane(sim::DepthLane lane);
     static void setGlobalShadowParams(float shearX, float projY, sf::Color color);
+    static float getGlobalShadowShearX() { return globalShadowShearX; }
+    static float getGlobalShadowProjY() { return globalShadowProjY; }
+    static sf::Color getGlobalShadowColor() { return globalShadowColor; }
     sim::DepthLane getDepthLane() const { return depthLane; }
     
     sf::Vector2f getPosition() const;

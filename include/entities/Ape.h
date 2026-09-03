@@ -35,12 +35,16 @@ public:
     
     Animator* getAnimator();
     sf::Sprite& getSprite();
+    void setGroundY(float gy);
+    float getGroundY() const;
 
 private:
     sf::Sprite sprite;
     sf::Texture& texture;
     Animator animator;
     LandingDetector landingDetector;
+
+    float groundY;
 
     static float globalShadowShearX;
     static float globalShadowProjY;

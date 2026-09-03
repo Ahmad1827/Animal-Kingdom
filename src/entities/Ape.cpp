@@ -29,7 +29,8 @@ Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer)
       currentAnimState(AnimState::Idle),
       animTimer(0.f),
       currentFrame(0),
-      facingRight(true) {
+      facingRight(true),
+      groundY(y + 50.f) {
     
     if (!newTexturesLoaded) {
         masterSpriteSheet.loadFromFile("assets/sprites/spritesheet.png");
@@ -79,6 +80,9 @@ void Ape::setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amou
     isKing = king;
 }
 
+void Ape::setGroundY(float gy) { groundY = gy; }
+float Ape::getGroundY() const { return groundY; }
+
 void Ape::setDepthLane(sim::DepthLane lane) {
     depthLane = lane;
 }
@@ -122,6 +126,7 @@ void Ape::update(float dt) {
             if (sf::Keyboard::isKeyPressed(sf::Keyboard::W) || sf::Keyboard::isKeyPressed(sf::Keyboard::Up)) {
                 velocity.y = -600.f;
                 state = ApeState::Airborne;
+                groundY = bounds.top + bounds.height;
             }
         }
     }
@@ -272,15 +277,23 @@ void Ape::update(float dt) {
 void Ape::draw(sf::RenderTarget& target) {
     float footY = sprite.getPosition().y;
     float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.70f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
+    float laneYOffset = (depthLane == sim::DepthLane::Background) ? -145.f : (depthLane == sim::DepthLane::Midground ? 0.f : 16.f);
+
+    float groundPlaneY = groundY + laneYOffset;
+    float altitude = std::max(0.f, groundPlaneY - footY);
 
     sf::Transform shadowProj(
-        1.f, -globalShadowShearX, globalShadowShearX * footY,
-        0.f, -globalShadowProjY,  (1.f + globalShadowProjY) * footY,
+        1.f, -globalShadowShearX, globalShadowShearX * groundPlaneY,
+        0.f, -globalShadowProjY,  groundPlaneY + globalShadowProjY * footY,
         0.f, 0.f,                 1.f
     );
 
+    float shadowAlphaFactor = std::clamp(1.0f - (altitude / 500.0f), 0.25f, 1.0f);
+    sf::Color shadowCol = globalShadowColor;
+    shadowCol.a = static_cast<sf::Uint8>(shadowCol.a * shadowAlphaFactor);
+
     sf::Sprite shadowSpr = sprite;
-    shadowSpr.setColor(globalShadowColor);
+    shadowSpr.setColor(shadowCol);
     target.draw(shadowSpr, shadowProj);
 
     target.draw(sprite);

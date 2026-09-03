@@ -341,7 +341,7 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
         float leftEdge = v.borderMinX;
         float rightEdge = v.borderMaxX;
 
-        if (std::abs(leftEdge - v.centerX) < 500.f || std::abs(rightEdge - v.centerX) < 500.f) {
+        if (std::abs(leftEdge - v.centerX) < 600.f || std::abs(rightEdge - v.centerX) < 600.f) {
             continue;
         }
 

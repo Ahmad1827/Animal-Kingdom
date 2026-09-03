@@ -283,13 +283,6 @@ void Ape::draw(sf::RenderTarget& target) {
     shadowSpr.setColor(globalShadowColor);
     target.draw(shadowSpr, shadowProj);
 
-    sf::CircleShape contactShadow(16.f * laneScaleMultiplier);
-    contactShadow.setScale(1.0f, 0.28f);
-    contactShadow.setOrigin(16.f * laneScaleMultiplier, 16.f * laneScaleMultiplier);
-    contactShadow.setPosition(sprite.getPosition().x, footY - 2.f);
-    contactShadow.setFillColor(sf::Color(0, 0, 0, globalShadowColor.a));
-    target.draw(contactShadow);
-
     target.draw(sprite);
 
     sf::Vector2f center = sprite.getPosition();

@@ -27,14 +27,6 @@ void StructureManager::drawSpriteAnchored(sf::RenderTarget& target, const sf::In
             0.f, 0.f,           1.f
         );
         target.draw(shadowSpr, shadowProj);
-
-        float contactW = static_cast<float>(rect.width) * scale * 0.45f;
-        sf::CircleShape contact(contactW);
-        contact.setScale(1.0f, 0.22f);
-        contact.setOrigin(contactW, contactW);
-        contact.setPosition(x, y - 2.f);
-        contact.setFillColor(sf::Color(0, 0, 0, shadowColor.a));
-        target.draw(contact);
     }
 
     sprite.setColor(color);
@@ -239,20 +231,16 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
         float yardY = groundY - 130.f;
 
         float leftHutX = v.centerX - 470.f;
-        drawGroundShadow(target, leftHutX, yardY, 110.f, 22.f, 95);
         drawSpriteAnchored(target, rectVillageHut, leftHutX, yardY, 0.72f);
 
         float leftFireX = v.centerX - 370.f;
-        drawGroundShadow(target, leftFireX, yardY, 45.f, 12.f, 85);
         drawSpriteAnchored(target, rectFirePit, leftFireX, yardY, 0.65f);
         drawSpriteAnchored(target, rectFxFire, leftFireX, yardY - 4.f, 0.65f);
 
         float rightScaffoldX = v.centerX + 480.f;
-        drawGroundShadow(target, rightScaffoldX, yardY, 115.f, 24.f, 95);
         drawSpriteAnchored(target, rectLookpostBamboo, rightScaffoldX, yardY, 0.78f);
 
         float rightFireX = v.centerX + 370.f;
-        drawGroundShadow(target, rightFireX, yardY, 45.f, 12.f, 85);
         drawSpriteAnchored(target, rectFirePit, rightFireX, yardY, 0.65f);
         drawSpriteAnchored(target, rectFxFire, rightFireX, yardY - 4.f, 0.65f);
     }
@@ -353,7 +341,6 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
 }
 
 void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
-    drawGroundShadow(target, s.worldX, groundY - 6.f, 320.f, 44.f, 120);
 
     if (villageTexture && villageTexture->getSize().x > 0) {
         drawSpriteAnchored(target, rectCenterBuilding, s.worldX, groundY, 1.0f);
@@ -462,31 +449,10 @@ void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::St
     target.draw(skull);
 }   
 
-void StructureManager::drawThrone(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
-    if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectBorderMonument, s.worldX + 52.f, groundY, 0.58f);
-        return;
-    }
-
-    sf::RectangleShape baseThrone(sf::Vector2f(90.f, 20.f));
-    baseThrone.setOrigin(45.f, 20.f);
-    baseThrone.setPosition(s.worldX + 52.f, groundY);
-    baseThrone.setFillColor(sf::Color(80, 55, 30));
-    baseThrone.setOutlineColor(sf::Color(20, 10, 5));
-    baseThrone.setOutlineThickness(2.f);
-    target.draw(baseThrone);
-
-    sf::RectangleShape backThrone(sf::Vector2f(70.f, 110.f));
-    backThrone.setOrigin(35.f, 110.f);
-    backThrone.setPosition(s.worldX + 52.f, groundY - 20.f);
-    backThrone.setFillColor(sf::Color(100, 70, 40));
-    backThrone.setOutlineColor(sf::Color(20, 10, 5));
-    backThrone.setOutlineThickness(2.f);
-    target.draw(backThrone);
+void StructureManager::drawThrone(sf::RenderTarget&, const sim::StructureData&, const sim::VillageData&, float) {
 }
 
 void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
-    drawGroundShadow(target, s.worldX, groundY - 4.f, 95.f, 14.f, 100);
 
     if (villageTexture && villageTexture->getSize().x > 0) {
         drawSpriteAnchored(target, rectToolRack, s.worldX, groundY, 1.0f);
@@ -573,7 +539,6 @@ void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::Structu
 }
 
 void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
-    drawGroundShadow(target, s.worldX, groundY - 4.f, 105.f, 16.f, 100);
 
     if (villageTexture && villageTexture->getSize().x > 0) {
         if (s.type == sim::StructureType::WoodPile) {

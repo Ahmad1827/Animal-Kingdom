@@ -77,28 +77,43 @@ void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::Village
     float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
     float viewWidth = view.getSize().x + 800.f;
 
-    // Raised significantly higher (from 500 down to 285, giving ~200px of visible yard)
     float yardTopY = groundY - 215.f;
     float yardBottomY = groundY - 14.f;
     float yardH = yardBottomY - yardTopY;
 
-    // 1. Base deep lawn
-    sf::RectangleShape rearLawn(sf::Vector2f(viewWidth, yardH));
-    rearLawn.setPosition(viewLeft, yardTopY);
-    rearLawn.setFillColor(sf::Color(30, 56, 26));
-    target.draw(rearLawn);
+    if (rearLawnTexture && rearLawnTexture->getSize().x > 0) {
+        float texW = static_cast<float>(rearLawnTexture->getSize().x);
+        float texH = static_cast<float>(rearLawnTexture->getSize().y);
 
-    // 2. Middle gradient grass
-    sf::RectangleShape midLawn(sf::Vector2f(viewWidth, yardH * 0.55f));
-    midLawn.setPosition(viewLeft, yardTopY + (yardH * 0.45f));
-    midLawn.setFillColor(sf::Color(44, 78, 36));
-    target.draw(midLawn);
+        float scale = yardH / texH;
+        float stepW = std::floor(texW * scale);
+        if (stepW <= 0.f) stepW = 100.f;
 
-    // 3. Highlighted sunlit grass trim along the top horizon
-    sf::RectangleShape rearGrassTrim(sf::Vector2f(viewWidth, 6.f));
-    rearGrassTrim.setPosition(viewLeft, yardTopY);
-    rearGrassTrim.setFillColor(sf::Color(78, 146, 52));
-    target.draw(rearGrassTrim);
+        float startX = std::floor(viewLeft / stepW) * stepW;
+        float endX = viewLeft + viewWidth;
+
+        for (float x = startX; x < endX; x += stepW) {
+            sf::Sprite spr(*rearLawnTexture);
+            spr.setScale(scale, scale);
+            spr.setPosition(x, yardTopY);
+            target.draw(spr);
+        }
+    } else {
+        sf::RectangleShape rearLawn(sf::Vector2f(viewWidth, yardH));
+        rearLawn.setPosition(viewLeft, yardTopY);
+        rearLawn.setFillColor(sf::Color(30, 56, 26));
+        target.draw(rearLawn);
+
+        sf::RectangleShape midLawn(sf::Vector2f(viewWidth, yardH * 0.55f));
+        midLawn.setPosition(viewLeft, yardTopY + (yardH * 0.45f));
+        midLawn.setFillColor(sf::Color(44, 78, 36));
+        target.draw(midLawn);
+
+        sf::RectangleShape rearGrassTrim(sf::Vector2f(viewWidth, 6.f));
+        rearGrassTrim.setPosition(viewLeft, yardTopY);
+        rearGrassTrim.setFillColor(sf::Color(78, 146, 52));
+        target.draw(rearGrassTrim);
+    }
 }
 
 void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
@@ -878,4 +893,8 @@ void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim:
 
 void StructureManager::setGroundTexture(const sf::Texture& tex) {
     groundTexture = &tex;
+}
+
+void StructureManager::setRearLawnTexture(const sf::Texture& tex) {
+    rearLawnTexture = &tex;
 }

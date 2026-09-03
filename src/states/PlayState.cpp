@@ -70,9 +70,11 @@ void PlayState::init() {
 
     const sf::Texture& vTex = game->getAssetManager().getTexture("village_assets");
     const sf::Texture& gTex = game->getAssetManager().getTexture("layer1_ground");
+    const sf::Texture& rTex = game->getAssetManager().getTexture("layer2_ground");
     if (structureManager) {
         structureManager->setTexture(vTex);
         structureManager->setGroundTexture(gTex);
+        structureManager->setRearLawnTexture(rTex);
     }
     if (worldManager) {
         worldManager->setVillageTexture(vTex);

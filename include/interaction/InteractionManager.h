@@ -38,7 +38,8 @@ public:
 
     void update(float dt, const sf::Vector2f& playerPos, CameraManager& cameraManager);
     void handleEvent(const sf::Event& event, CameraManager& cameraManager);
-    void draw(sf::RenderWindow& window);
+    void draw(sf::RenderTarget& target);
+    void drawAtScreenPos(sf::RenderWindow& window, const sf::Vector2f& screenPos);
 
     bool isInteracting() const { return isMenuOpen || isClosing; }
 };

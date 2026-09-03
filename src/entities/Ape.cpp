@@ -222,16 +222,16 @@ void Ape::update(float dt) {
     sf::Color laneColor = sf::Color::White;
 
     if (depthLane == sim::DepthLane::Background) {
-        laneScaleMultiplier = 0.70f;
-        laneYOffset = -145.f;
-        laneColor = sf::Color(185, 190, 210);
+        laneScaleMultiplier = 0.82f;
+        laneYOffset = -115.f;
+        laneColor = sf::Color(180, 185, 205);
     } else if (depthLane == sim::DepthLane::Midground) {
-        laneScaleMultiplier = 0.95f;
+        laneScaleMultiplier = 0.94f;
         laneYOffset = 0.f;
-        laneColor = sf::Color(240, 240, 245);
+        laneColor = sf::Color(235, 235, 240);
     } else {
-        laneScaleMultiplier = 1.15f;
-        laneYOffset = 22.f;
+        laneScaleMultiplier = 1.0f;
+        laneYOffset = 24.f;
         laneColor = sf::Color(255, 255, 255);
     }
 
@@ -277,7 +277,7 @@ void Ape::update(float dt) {
 void Ape::draw(sf::RenderTarget& target) {
     float footY = sprite.getPosition().y;
     float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.70f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
-    float laneYOffset = (depthLane == sim::DepthLane::Background) ? -145.f : (depthLane == sim::DepthLane::Midground ? 0.f : 22.f);
+    float laneYOffset = (depthLane == sim::DepthLane::Background) ? -115.f : (depthLane == sim::DepthLane::Foreground ? 24.f : 0.f);
     float groundPlaneY = groundY + laneYOffset;
     float altitude = std::max(0.f, groundPlaneY - footY);
 

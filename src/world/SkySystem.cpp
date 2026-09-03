@@ -288,30 +288,40 @@ void SkySystem::update(float dt, float timeOfDay, float cameraX) {
 void SkySystem::drawSky(sf::RenderTarget& target, float timeOfDay, float cameraX) {
     SkyPalette pal = evaluatePalette(timeOfDay);
 
-    int bandCount = skyBands.getVertexCount() / 4;
-    for (int i = 0; i < bandCount; ++i) {
-        float normY = static_cast<float>(i) / static_cast<float>(bandCount - 1);
-        sf::Color bandColor;
+    sf::Vector2f viewSize = target.getView().getSize();
+    float viewW = viewSize.x;
+    float viewH = viewSize.y;
 
+    const int bandCount = 18;
+    float bandH = viewH / static_cast<float>(bandCount);
+
+    sf::VertexArray bands(sf::Quads, bandCount * 4);
+
+    float leftEdge = -60.f;
+    float rightEdge = viewW + 60.f;
+
+    for (int i = 0; i < bandCount; ++i) {
+        float y0 = i * bandH;
+        float y1 = (i + 1) * bandH;
+        float normY = static_cast<float>(i) / static_cast<float>(bandCount - 1);
+
+        sf::Color bandColor;
         if (normY < 0.33f) {
-            float t = normY / 0.33f;
-            bandColor = lerpColor(pal.zenith, pal.midSky, t);
+            bandColor = lerpColor(pal.zenith, pal.midSky, normY / 0.33f);
         } else if (normY < 0.70f) {
-            float t = (normY - 0.33f) / 0.37f;
-            bandColor = lerpColor(pal.midSky, pal.lowerSky, t);
+            bandColor = lerpColor(pal.midSky, pal.lowerSky, (normY - 0.33f) / 0.37f);
         } else {
-            float t = (normY - 0.70f) / 0.30f;
-            bandColor = lerpColor(pal.lowerSky, pal.horizon, t);
+            bandColor = lerpColor(pal.lowerSky, pal.horizon, (normY - 0.70f) / 0.30f);
         }
 
         int idx = i * 4;
-        skyBands[idx + 0].color = bandColor;
-        skyBands[idx + 1].color = bandColor;
-        skyBands[idx + 2].color = bandColor;
-        skyBands[idx + 3].color = bandColor;
+        bands[idx + 0] = sf::Vertex(sf::Vector2f(leftEdge, y0), bandColor);
+        bands[idx + 1] = sf::Vertex(sf::Vector2f(rightEdge, y0), bandColor);
+        bands[idx + 2] = sf::Vertex(sf::Vector2f(rightEdge, y1), bandColor);
+        bands[idx + 3] = sf::Vertex(sf::Vector2f(leftEdge, y1), bandColor);
     }
 
-    target.draw(skyBands);
+    target.draw(bands);
 }
 
 void SkySystem::drawStars(sf::RenderTarget& target, float timeOfDay) {

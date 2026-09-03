@@ -4,7 +4,10 @@
 #include <cmath>
 
 CameraManager::CameraManager(sf::Vector2f size) {
-    view.setSize(size.x * 1.35f, size.y * 1.35f);
+    currentZoom = 2.85f;
+    targetZoom = 2.85f;
+
+    view.setSize(size.x * currentZoom, size.y * currentZoom);
     view.setCenter(0.f, 0.f);
     
     trauma = 0.f;
@@ -12,9 +15,6 @@ CameraManager::CameraManager(sf::Vector2f size) {
     maxShakeOffset = 30.f;
     traumaDecay = 0.8f;
     time = 0.f;
-    
-    currentZoom = 1.35f;
-    targetZoom = 1.35f;
     
     tuning.deadZone = {50.f, 150.f};
     tuning.lookAheadMax = 300.f;
@@ -24,8 +24,8 @@ CameraManager::CameraManager(sf::Vector2f size) {
     tuning.fallLerpY = 8.0f;
     tuning.climbLerp = 6.0f;
     tuning.airLerpX = 2.5f;
-    tuning.basePreloadMargin = 2500.f;
-    tuning.baseUnloadMargin = 5000.f;
+    tuning.basePreloadMargin = 3200.f;
+    tuning.baseUnloadMargin = 6400.f;
 
     anchorPos = {0.f, 0.f};
 }
@@ -60,7 +60,7 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
 
     sf::Vector2f idealPos = anchorPos;
     idealPos.x += lookAheadOffset.x;
-    idealPos.y -= 100.f;
+    idealPos.y = targetPos.y + 12.f;
 
     float currentLerpX = tuning.baseLerpX + (speedRatio * 1.5f);
     float currentLerpY = tuning.baseLerpY;
@@ -123,7 +123,7 @@ void CameraManager::updateTransition(float dt, const sf::Vector2f& targetPos) {
     shakeOffset = {0.f, 0.f};
 
     sf::Vector2f idealPos = anchorPos;
-    idealPos.y -= 100.f;
+    idealPos.y = targetPos.y + 12.f;
 
     sf::Vector2f currentCenter = view.getCenter();
     sf::Vector2f newCenter;
@@ -140,7 +140,10 @@ void CameraManager::updateTransition(float dt, const sf::Vector2f& targetPos) {
     view.setRotation(0.f);
 }
 
-void CameraManager::setZoom(float zoom) { targetZoom = zoom; }
+void CameraManager::setZoom(float zoom) {
+    targetZoom = zoom;
+}
+
 const sf::View& CameraManager::getView() const { return view; }
 CameraTuning& CameraManager::getTuning() { return tuning; }
 
@@ -175,6 +178,6 @@ sf::FloatRect CameraManager::getUnloadBounds() const {
 sf::Vector2f CameraManager::getIdealPosition() const {
     sf::Vector2f ideal = anchorPos;
     ideal.x += lookAheadOffset.x;
-    ideal.y -= 100.f;
+    ideal.y = anchorPos.y + 12.f;
     return ideal;
 }

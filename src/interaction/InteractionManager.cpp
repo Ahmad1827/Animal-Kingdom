@@ -179,24 +179,15 @@ void InteractionManager::handleEvent(const sf::Event& event, CameraManager& came
     }
 }
 
-void InteractionManager::draw(sf::RenderWindow& window) {
+void InteractionManager::draw(sf::RenderTarget& target) {
     if (!fontLoaded) return;
 
-    lastWinSize = sf::Vector2f(static_cast<float>(window.getSize().x), static_cast<float>(window.getSize().y));
-
-    sf::View originalView = window.getView();
-    window.setView(window.getDefaultView()); 
+    sf::View originalView = target.getView();
 
     if (!isMenuOpen && !isClosing && currentPromptTarget) {
         sf::Vector2f worldPos = currentPromptTarget->getInteractionPosition();
         
-        sf::Vector2f promptWorldPos = worldPos;
-        float targetElevatedY = (worldPos.y >= 450.f) ? (worldPos.y - 120.f) : (worldPos.y - 40.f);
-        promptWorldPos.y = std::min(targetElevatedY, lastPlayerPos.y - 75.f);
-
-        window.setView(originalView);
-        sf::Vector2i screenPos = window.mapCoordsToPixel(promptWorldPos, originalView);
-        window.setView(window.getDefaultView());
+        target.setView(originalView);
 
         std::string rawTitle = currentPromptTarget->getInteractionTitle();
 
@@ -217,8 +208,8 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         float pillW = pillPaddingX * 2.f + iconSize + spacing + tb.width + spacing + kb.width + 6.f;
         float pillH = 18.f;
 
-        float promptX = static_cast<float>(screenPos.x);
-        float promptY = static_cast<float>(screenPos.y);
+        float promptX = worldPos.x;
+        float promptY = worldPos.y - 45.f;
 
         sf::RectangleShape pillBg(sf::Vector2f(pillW, pillH));
         pillBg.setOrigin(pillW / 2.f, pillH / 2.f);
@@ -226,7 +217,7 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         pillBg.setFillColor(sf::Color(20, 14, 10, 225));
         pillBg.setOutlineColor(sf::Color(175, 135, 65, 230));
         pillBg.setOutlineThickness(1.f);
-        window.draw(pillBg);
+        target.draw(pillBg);
 
         float leftX = promptX - pillW / 2.f + pillPaddingX;
 
@@ -234,11 +225,11 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         icon.setOrigin(2.5f, 2.5f);
         icon.setPosition(leftX + 2.5f, promptY);
         icon.setFillColor(sf::Color(225, 175, 55));
-        window.draw(icon);
+        target.draw(icon);
 
         titleText.setOrigin(tb.left, tb.top + tb.height / 2.f);
         titleText.setPosition(leftX + iconSize + spacing, promptY);
-        window.draw(titleText);
+        target.draw(titleText);
 
         float keyBadgeW = kb.width + 5.f;
         float keyBadgeH = 12.f;
@@ -250,35 +241,37 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         keyBadge.setFillColor(sf::Color(55, 38, 22, 240));
         keyBadge.setOutlineColor(sf::Color(140, 105, 50));
         keyBadge.setOutlineThickness(1.f);
-        window.draw(keyBadge);
+        target.draw(keyBadge);
 
         keyText.setOrigin(kb.left + kb.width / 2.f, kb.top + kb.height / 2.f);
         keyText.setPosition(keyBadge.getPosition());
-        window.draw(keyText);
+        target.draw(keyText);
     }
 
     if ((isMenuOpen || isClosing) && activeTarget) {
+        target.setView(target.getDefaultView());
+
         float ease = getEase();
         sf::Uint8 alpha = static_cast<sf::Uint8>(255 * ease);
         float yOffset = 20.f * (1.f - ease);
 
-        sf::Vector2f winSize(static_cast<float>(window.getSize().x), static_cast<float>(window.getSize().y));
+        sf::Vector2f targetSize = static_cast<sf::Vector2f>(target.getSize());
         float pW = 460.f;
         float pH = 520.f;
 
         sf::RectangleShape shadow(sf::Vector2f(pW + 16.f, pH + 16.f));
         shadow.setOrigin((pW + 16.f) / 2.f, (pH + 16.f) / 2.f);
-        shadow.setPosition(winSize.x / 2.0f + 6.f, winSize.y / 2.0f + 6.f + yOffset);
+        shadow.setPosition(targetSize.x / 2.0f + 6.f, targetSize.y / 2.0f + 6.f + yOffset);
         shadow.setFillColor(sf::Color(0, 0, 0, static_cast<sf::Uint8>(110 * ease)));
-        window.draw(shadow);
+        target.draw(shadow);
 
         sf::RectangleShape woodBorder(sf::Vector2f(pW + 12.f, pH + 12.f));
         woodBorder.setOrigin((pW + 12.f) / 2.f, (pH + 12.f) / 2.f);
-        woodBorder.setPosition(winSize.x / 2.0f, winSize.y / 2.0f + yOffset);
+        woodBorder.setPosition(targetSize.x / 2.0f, targetSize.y / 2.0f + yOffset);
         woodBorder.setFillColor(sf::Color(45, 30, 20, alpha));
         woodBorder.setOutlineColor(sf::Color(15, 10, 5, alpha));
         woodBorder.setOutlineThickness(2.f);
-        window.draw(woodBorder);
+        target.draw(woodBorder);
 
         sf::RectangleShape panel(sf::Vector2f(pW, pH));
         panel.setOrigin(pW / 2.f, pH / 2.f);
@@ -286,7 +279,7 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         panel.setFillColor(sf::Color(220, 205, 172, static_cast<sf::Uint8>(250 * ease)));
         panel.setOutlineColor(sf::Color(165, 125, 60, alpha));
         panel.setOutlineThickness(2.f);
-        window.draw(panel);
+        target.draw(panel);
 
         sf::RectangleShape headerPlate(sf::Vector2f(pW - 24.f, 44.f));
         headerPlate.setOrigin((pW - 24.f) / 2.f, 22.f);
@@ -294,7 +287,7 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         headerPlate.setFillColor(sf::Color(65, 45, 28, alpha));
         headerPlate.setOutlineColor(sf::Color(140, 105, 45, alpha));
         headerPlate.setOutlineThickness(1.5f);
-        window.draw(headerPlate);
+        target.draw(headerPlate);
 
         sf::Text titleText(activeTarget->getInteractionTitle(), menuFont, 18);
         titleText.setFillColor(sf::Color(245, 215, 120, alpha));
@@ -302,7 +295,7 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         sf::FloatRect titleBounds = titleText.getLocalBounds();
         titleText.setOrigin(titleBounds.left + titleBounds.width / 2.f, titleBounds.top + titleBounds.height / 2.f);
         titleText.setPosition(headerPlate.getPosition());
-        window.draw(titleText);
+        target.draw(titleText);
 
         float startY = panel.getPosition().y - pH / 2.f + 70.f;
         for (size_t i = 0; i < currentMenuEntries.size(); ++i) {
@@ -320,7 +313,7 @@ void InteractionManager::draw(sf::RenderWindow& window) {
                     rowBg.setOutlineColor(sf::Color(165, 145, 115, alpha));
                     rowBg.setOutlineThickness(1.f);
                 }
-                window.draw(rowBg);
+                target.draw(rowBg);
             }
 
             sf::Text entryText(currentMenuEntries[i].label, menuFont, 13);
@@ -331,7 +324,7 @@ void InteractionManager::draw(sf::RenderWindow& window) {
                     sf::CircleShape selDot(3.5f, 4);
                     selDot.setPosition(rowRect.left + 8.f, rowRect.top + 10.f);
                     selDot.setFillColor(sf::Color(160, 45, 25, alpha));
-                    window.draw(selDot);
+                    target.draw(selDot);
                 } else {
                     entryText.setFillColor(sf::Color(55, 38, 22, alpha));
                 }
@@ -341,7 +334,7 @@ void InteractionManager::draw(sf::RenderWindow& window) {
                 entryText.setStyle(sf::Text::Bold);
                 entryText.setPosition(rowRect.left + 8.f, rowRect.top + 5.f);
             }
-            window.draw(entryText);
+            target.draw(entryText);
         }
 
         sf::Text footer("[ ESC ] Return to Settlement", menuFont, 11);
@@ -350,8 +343,72 @@ void InteractionManager::draw(sf::RenderWindow& window) {
         sf::FloatRect footerBounds = footer.getLocalBounds();
         footer.setOrigin(footerBounds.left + footerBounds.width / 2.f, footerBounds.top + footerBounds.height / 2.f);
         footer.setPosition(panel.getPosition().x, panel.getPosition().y + pH / 2.f - 20.f);
-        window.draw(footer);
+        target.draw(footer);
     }
 
-    window.setView(originalView);
+    target.setView(originalView);
+}
+
+void InteractionManager::drawAtScreenPos(sf::RenderWindow& window, const sf::Vector2f& screenPos) {
+    if (!fontLoaded) return;
+
+    if (!isMenuOpen && !isClosing && currentPromptTarget) {
+        std::string rawTitle = currentPromptTarget->getInteractionTitle();
+
+        sf::Text keyText("[E]", menuFont, 14);
+        keyText.setFillColor(sf::Color(255, 235, 170));
+        keyText.setStyle(sf::Text::Bold);
+
+        sf::Text titleText(rawTitle, menuFont, 14);
+        titleText.setFillColor(sf::Color(240, 225, 190));
+        titleText.setStyle(sf::Text::Bold);
+
+        sf::FloatRect kb = keyText.getLocalBounds();
+        sf::FloatRect tb = titleText.getLocalBounds();
+
+        float pillPaddingX = 12.f;
+        float spacing = 8.f;
+        float iconSize = 8.f;
+        float pillW = pillPaddingX * 2.f + iconSize + spacing + tb.width + spacing + kb.width + 10.f;
+        float pillH = 28.f;
+
+        float promptX = screenPos.x;
+        float promptY = screenPos.y;
+
+        sf::RectangleShape pillBg(sf::Vector2f(pillW, pillH));
+        pillBg.setOrigin(pillW / 2.f, pillH / 2.f);
+        pillBg.setPosition(promptX, promptY);
+        pillBg.setFillColor(sf::Color(20, 14, 10, 230));
+        pillBg.setOutlineColor(sf::Color(175, 135, 65, 240));
+        pillBg.setOutlineThickness(1.5f);
+        window.draw(pillBg);
+
+        float leftX = promptX - pillW / 2.f + pillPaddingX;
+
+        sf::CircleShape icon(4.f, 4);
+        icon.setOrigin(4.f, 4.f);
+        icon.setPosition(leftX + 4.f, promptY);
+        icon.setFillColor(sf::Color(225, 175, 55));
+        window.draw(icon);
+
+        titleText.setOrigin(tb.left, tb.top + tb.height / 2.f);
+        titleText.setPosition(leftX + iconSize + spacing, promptY);
+        window.draw(titleText);
+
+        float keyBadgeW = kb.width + 8.f;
+        float keyBadgeH = 18.f;
+        float keyBadgeX = leftX + iconSize + spacing + tb.width + spacing + keyBadgeW / 2.f;
+
+        sf::RectangleShape keyBadge(sf::Vector2f(keyBadgeW, keyBadgeH));
+        keyBadge.setOrigin(keyBadgeW / 2.f, keyBadgeH / 2.f);
+        keyBadge.setPosition(keyBadgeX, promptY);
+        keyBadge.setFillColor(sf::Color(55, 38, 22, 245));
+        keyBadge.setOutlineColor(sf::Color(140, 105, 50));
+        keyBadge.setOutlineThickness(1.f);
+        window.draw(keyBadge);
+
+        keyText.setOrigin(kb.left + kb.width / 2.f, kb.top + kb.height / 2.f);
+        keyText.setPosition(keyBadge.getPosition());
+        window.draw(keyText);
+    }
 }

@@ -1,6 +1,10 @@
 # Build directory (where you run make/cmake)
 build/
 
+assets/
+
+src/core/Game.cpp
+
 # Compiled object files
 *.o
 *.obj

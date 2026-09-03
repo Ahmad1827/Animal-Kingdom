@@ -77,7 +77,7 @@ void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::Village
     float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
     float viewWidth = view.getSize().x + 800.f;
 
-    float yardTopY = groundY - 215.f;
+    float yardTopY = groundY - 245.f;
     float yardBottomY = groundY - 14.f;
     float yardH = yardBottomY - yardTopY;
 
@@ -123,16 +123,18 @@ void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::Vil
     float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
     float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 400.f;
 
-    float rearFenceBaseY = groundY - 210.f;
-    float fenceScale = 0.38f;
+    float rearFenceBaseY = groundY - 240.f;
+    float fenceScale = 0.30f;
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
-    sf::Color fenceBgColor(135, 140, 155, 215);
+    sf::Color fenceBgColor(180, 185, 200, 245);
 
     float startX = std::floor(viewLeft / stepW) * stepW;
     for (float fx = startX; fx < viewRight; fx += stepW) {
         drawSpriteAnchored(target, rectPalisadeMiddle, fx, rearFenceBaseY, fenceScale, fenceBgColor);
     }
 }
+
+
 
 void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     if (!villageTexture || villageTexture->getSize().x == 0) return;
@@ -197,16 +199,31 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
     float defaultGroundY = world ? world->getTerrainHeight(viewBounds.left + viewBounds.width * 0.5f) : 500.0f;
     sim::VillageData dummyVillage;
     
-    // Draw continuous background terrain and palisade once across the screen to infinity
     drawRearLawn(target, dummyVillage, defaultGroundY);
     drawRearPalisade(target, dummyVillage, defaultGroundY);
+
+    for (auto& pair : registry.getAllVillages()) {
+        const sim::VillageData& v = pair.second;
+        if (v.centerX + 3500.f < viewBounds.left || v.centerX - 3500.f > viewBounds.left + viewBounds.width) continue;
+
+        float groundY = world ? world->getTerrainHeight(v.centerX) : 500.0f;
+        float yardY = groundY - 145.f;
+
+        drawSpriteAnchored(target, rectVillageHut, v.centerX - 560.f, yardY, 0.72f);
+        drawSpriteAnchored(target, rectFirePit, v.centerX - 410.f, yardY, 0.68f);
+        drawSpriteAnchored(target, rectFxFire, v.centerX - 410.f, yardY - 4.f, 0.68f);
+
+        drawSpriteAnchored(target, rectFirePit, v.centerX + 310.f, yardY, 0.68f);
+        drawSpriteAnchored(target, rectFxFire, v.centerX + 310.f, yardY - 4.f, 0.68f);
+        drawSpriteAnchored(target, rectLookpostBamboo, v.centerX + 530.f, yardY, 0.78f);
+    }
 
     for (auto& pair : registry.getAllStructures()) {
         sim::StructureData& s = pair.second;
         if (s.worldX < viewBounds.left - 800.f || s.worldX > viewBounds.left + viewBounds.width + 800.f) continue;
 
         float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
-        float yardY = groundY - 130.f;
+        float yardY = groundY - 145.f;
 
         sim::VillageData* v = registry.getVillage(s.villageId);
         sim::VillageData fallbackVillage;

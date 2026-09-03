@@ -1981,7 +1981,7 @@ void PlayState::draw(sf::RenderWindow& window) {
             const sim::ApeData& ape = pair.second;
             if (!ape.alive) continue;
 
-            float apeRenderY = ape.worldY + (ape.depthLane == sim::DepthLane::Background ? -115.f : (ape.depthLane == sim::DepthLane::Foreground ? 16.f : 0.f));
+            float apeRenderY = ape.worldY + (ape.depthLane == sim::DepthLane::Background ? -145.f : (ape.depthLane == sim::DepthLane::Foreground ? 16.f : 0.f));
             sf::FloatRect apeHitbox(ape.worldX - 30.f, apeRenderY - 60.f, 60.f, 70.f);
 
             if (apeHitbox.contains(worldMouse)) {

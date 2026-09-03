@@ -5,7 +5,7 @@ assets/*
 
 src/core/Game.cpp
 src/states/PlayState.cpp
-
+include/states/PlayState.h
 # Compiled object files
 *.o
 *.obj

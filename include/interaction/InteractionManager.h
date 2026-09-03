@@ -25,7 +25,6 @@ private:
     const float transitionDuration = 0.5f;
 
     sf::Vector2f lastPlayerPos;
-    sf::Vector2f lastWinSize;
 
     float getEase() const;
     void executeEntry(int index);
@@ -38,8 +37,8 @@ public:
 
     void update(float dt, const sf::Vector2f& playerPos, CameraManager& cameraManager);
     void handleEvent(const sf::Event& event, CameraManager& cameraManager);
+    void draw(sf::RenderWindow& window, const sf::View& letterboxView, const sf::View& cameraView);
     void draw(sf::RenderTarget& target);
-    void drawAtScreenPos(sf::RenderWindow& window, const sf::Vector2f& screenPos);
 
     bool isInteracting() const { return isMenuOpen || isClosing; }
 };

@@ -4,8 +4,8 @@
 #include <cmath>
 
 CameraManager::CameraManager(sf::Vector2f size) {
-    currentZoom = 2.85f;
-    targetZoom = 2.85f;
+    currentZoom = 2.15f;
+    targetZoom = 2.15f;
 
     view.setSize(size.x * currentZoom, size.y * currentZoom);
     view.setCenter(0.f, 0.f);
@@ -24,8 +24,8 @@ CameraManager::CameraManager(sf::Vector2f size) {
     tuning.fallLerpY = 8.0f;
     tuning.climbLerp = 6.0f;
     tuning.airLerpX = 2.5f;
-    tuning.basePreloadMargin = 3200.f;
-    tuning.baseUnloadMargin = 6400.f;
+    tuning.basePreloadMargin = 2800.f;
+    tuning.baseUnloadMargin = 5600.f;
 
     anchorPos = {0.f, 0.f};
 }
@@ -60,7 +60,7 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
 
     sf::Vector2f idealPos = anchorPos;
     idealPos.x += lookAheadOffset.x;
-    idealPos.y = targetPos.y + 12.f;
+    idealPos.y = anchorPos.y - 45.f;
 
     float currentLerpX = tuning.baseLerpX + (speedRatio * 1.5f);
     float currentLerpY = tuning.baseLerpY;
@@ -123,7 +123,7 @@ void CameraManager::updateTransition(float dt, const sf::Vector2f& targetPos) {
     shakeOffset = {0.f, 0.f};
 
     sf::Vector2f idealPos = anchorPos;
-    idealPos.y = targetPos.y + 12.f;
+    idealPos.y = anchorPos.y - 45.f;
 
     sf::Vector2f currentCenter = view.getCenter();
     sf::Vector2f newCenter;
@@ -178,6 +178,6 @@ sf::FloatRect CameraManager::getUnloadBounds() const {
 sf::Vector2f CameraManager::getIdealPosition() const {
     sf::Vector2f ideal = anchorPos;
     ideal.x += lookAheadOffset.x;
-    ideal.y = anchorPos.y + 12.f;
+    ideal.y = anchorPos.y - 45.f;
     return ideal;
 }

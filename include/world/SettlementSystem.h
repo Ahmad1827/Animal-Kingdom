@@ -21,7 +21,7 @@ class SettlementSystem {
 private:
     std::vector<RealSettlement> realSettlements;
     int activeSettlementIdx = -1;
-    int lastSettlementIdx = -1;
+    bool isInitialized = false;
 
     sf::Font font;
     bool fontLoaded = false;
@@ -49,11 +49,17 @@ private:
     std::vector<sf::Vertex> rhumbLines;
     std::vector<sf::Vertex> seaWaves;
 
+    sf::RectangleShape miniFrameOuter;
+    sf::RectangleShape miniFrameInner;
+    sf::RectangleShape miniSea;
+    sf::ConvexShape miniBritain;
+    sf::ConvexShape miniIreland;
+
     float pulseTime = 0.f;
+    float westCoastX = -7200.f;
 
     void buildAuthenticMapGeometry();
     void syncDynamicVillages(sim::SimulationRegistry& registry);
-    
 
 public:
     SettlementSystem();
@@ -61,10 +67,15 @@ public:
     void syncWithWorld(sim::SimulationRegistry& registry);
     void update(float dt, float playerX, sim::SimulationRegistry& registry);
     void draw(sf::RenderWindow& window, const sf::View& letterboxView);
+    void drawMinimap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry);
     void drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX);
     void drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry);
+    void drawCoast(sf::RenderTarget& rt, const sf::FloatRect& viewBounds, float groundY, float timeOfDay, const sf::Texture* skyTex, const sf::View& cameraView);
+
+    sf::Vector2f getPlayerMapCoord(float playerX) const;
+    float getWestCoastLimit() const { return westCoastX; }
+    const RealSettlement* getActiveSettlement() const;
     const RealSettlement* getSettlementAt(float x) const;
     const RealSettlement* getSettlementByVillageId(sim::VillageID id) const;
     bool canFreelyPass(float x) const;
-    const RealSettlement* getActiveSettlement() const;
 };

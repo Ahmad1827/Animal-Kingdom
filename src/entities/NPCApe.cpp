@@ -221,6 +221,6 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
 void NPCApe::draw(sf::RenderTarget& target) {
     physicalApe.draw(target);
     if (fontLoaded) {
-        target.draw(nameText);
+        // target.draw(nameText);
     }
 }

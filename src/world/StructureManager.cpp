@@ -9,7 +9,28 @@ void StructureManager::setTexture(const sf::Texture& tex) {
     villageTexture = &tex;
 }
 
-void StructureManager::update(float, sim::SimulationRegistry&) {}
+void StructureManager::update(float dt, sim::SimulationRegistry& registry) {
+    if (activeBuilderId == 0) {
+        for (auto& pair : registry.getAllApes()) {
+            sim::ApeData& ape = pair.second;
+            if (!ape.alive || ape.id == registry.getControlledApe()) continue;
+            activeBuilderId = ape.id;
+            ape.depthLane = sim::DepthLane::Foreground;
+            ape.currentJob = sim::Job::Builder;
+            break;
+        }
+    }
+
+    if (activeBuilderId != 0) {
+        sim::ApeData* builder = registry.getApe(activeBuilderId);
+        if (builder && builder->alive) {
+            builder->depthLane = sim::DepthLane::Foreground;
+            builder->currentJob = sim::Job::Builder;
+        }
+    }
+
+    updateUpgrades(dt, registry);
+}
 
 void StructureManager::drawSpriteAnchored(sf::RenderTarget& target, const sf::IntRect& rect, float x, float y, float scale, sf::Color color) {
     if (!villageTexture || villageTexture->getSize().x == 0) return;
@@ -217,87 +238,283 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
 }
 
 void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
-    float defaultGroundY = world ? world->getTerrainHeight(viewBounds.left + viewBounds.width * 0.5f) : 500.0f;
-    sim::VillageData dummyVillage;
-    
-    drawRearLawn(target, dummyVillage, defaultGroundY);
-    drawRearPalisade(target, dummyVillage, defaultGroundY);
+    for (const auto& pair : registry.getAllVillages()) {
+        const sim::VillageData& village = pair.second;
+        float groundY = world ? world->getTerrainHeight(village.centerX) : 500.f;
 
-    for (auto& pair : registry.getAllVillages()) {
-        const sim::VillageData& v = pair.second;
-        if (v.centerX + 3500.f < viewBounds.left || v.centerX - 3500.f > viewBounds.left + viewBounds.width) continue;
-
-        float groundY = world ? world->getTerrainHeight(v.centerX) : 500.0f;
-        float yardY = groundY - 130.f;
-
-        float leftHutX = v.centerX - 470.f;
-        drawSpriteAnchored(target, rectVillageHut, leftHutX, yardY, 0.72f);
-
-        float leftFireX = v.centerX - 370.f;
-        drawSpriteAnchored(target, rectFirePit, leftFireX, yardY, 0.65f);
-        drawSpriteAnchored(target, rectFxFire, leftFireX, yardY - 4.f, 0.65f);
-
-        float rightScaffoldX = v.centerX + 480.f;
-        drawSpriteAnchored(target, rectLookpostBamboo, rightScaffoldX, yardY, 0.78f);
-
-        float rightFireX = v.centerX + 370.f;
-        drawSpriteAnchored(target, rectFirePit, rightFireX, yardY, 0.65f);
-        drawSpriteAnchored(target, rectFxFire, rightFireX, yardY - 4.f, 0.65f);
+        drawSettlementFootprint(target, village, groundY);
+        drawRearLawn(target, village, groundY);
+        drawRearPalisade(target, village, groundY);
     }
 }
 
 void StructureManager::drawMidgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
-    float defaultGroundY = world ? world->getTerrainHeight(viewBounds.left + viewBounds.width * 0.5f) : 500.0f;
-    sim::VillageData primaryVillage;
     for (const auto& pair : registry.getAllVillages()) {
-        primaryVillage = pair.second;
-        break;
-    }
+        const sim::VillageData& village = pair.second;
+        float groundY = world ? world->getTerrainHeight(village.centerX) : 500.f;
 
-    // Continuous middle palisade and road to infinity
-    drawMiddlePalisade(target, primaryVillage, defaultGroundY);
-    drawFrontRoad(target, primaryVillage, defaultGroundY);
+        drawMiddlePalisade(target, village, groundY);
 
-    for (auto& pair : registry.getAllStructures()) {
-        sim::StructureData& s = pair.second;
-        if (s.worldX < viewBounds.left - 800.f || s.worldX > viewBounds.left + viewBounds.width + 800.f) continue;
+        for (const auto& spair : registry.getAllStructures()) {
+            const sim::StructureData& s = spair.second;
+            if (s.villageId != village.id) continue;
 
-        float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
-        sim::VillageData* v = registry.getVillage(s.villageId);
-        sim::VillageData fallbackVillage;
-        if (!v) v = &fallbackVillage;
-
-        if (s.type == sim::StructureType::EmptyPlot && !s.isUnderConstruction && !s.isFinished) {
-            drawEmptyPlot(target, s, groundY);
-        } else if (!s.isFinished) {
-            if (s.type != sim::StructureType::WatchPlatform && s.type != sim::StructureType::Watchtower &&
-                s.type != sim::StructureType::BuilderHut && s.type != sim::StructureType::Nest &&
-                s.type != sim::StructureType::StorageHut) {
-                drawConstructionSite(target, s, groundY);
-            }
-        } else {
-            switch (s.type) {
-                case sim::StructureType::VillageCenter:
-                    drawVillageCenter(target, s, *v, groundY);
-                    break;
-                case sim::StructureType::Throne:
-                    drawThrone(target, s, *v, groundY);
-                    break;
-                case sim::StructureType::ToolRack:
-                    drawToolRack(target, s, *v, groundY);
-                    break;
-                case sim::StructureType::WoodPile:
-                case sim::StructureType::StonePile:
-                    drawStockpileProps(target, s, *v, groundY);
-                    break;
-                case sim::StructureType::SimpleBarrier:
-                case sim::StructureType::Barricade:
-                    drawSimpleBarrier(target, s, *v, groundY);
-                    break;
-                default:
-                    break;
+            if (s.type == sim::StructureType::ToolRack) {
+                drawToolRack(target, s, village, groundY);
+            } else if (s.type == sim::StructureType::StonePile) {
+                drawStockpileProps(target, s, village, groundY);
+            } else if (s.type == sim::StructureType::WatchPlatform) {
+                drawWatchPlatform(target, s, village, groundY);
+            } else if (s.type == sim::StructureType::VillageCenter) {
+                drawVillageCenter(target, s, village, groundY);
             }
         }
+    }
+}
+
+bool StructureManager::tryStartUpgrade(sim::VillageData& village, sim::SimulationRegistry& registry) {
+    if (upgradePhase != VillageUpgradePhase::Idle) return false;
+    if (village.amber < upgradeCost) return false;
+
+    village.amber -= upgradeCost;
+    upgradePhase = VillageUpgradePhase::Sinking;
+    upgradeTimer = 0.f;
+    buildProgress = 0.f;
+    upgradeModalOpen = false;
+
+    activeBuilderId = 0;
+    if (village.chiefBuilderId != 0 && village.chiefBuilderId != registry.getControlledApe()) {
+        activeBuilderId = village.chiefBuilderId;
+    }
+
+    if (activeBuilderId == 0) {
+        for (sim::EntityID mId : village.members) {
+            if (mId != 0 && mId != registry.getControlledApe()) {
+                activeBuilderId = mId;
+                break;
+            }
+        }
+    }
+
+    if (activeBuilderId == 0) {
+        for (auto& pair : registry.getAllApes()) {
+            if (pair.first != registry.getControlledApe() && pair.second.alive) {
+                activeBuilderId = pair.first;
+                break;
+            }
+        }
+    }
+
+    sim::ApeData* builder = registry.getApe(activeBuilderId);
+    if (builder) {
+        builder->depthLane = sim::DepthLane::Foreground;
+        builder->currentJob = sim::Job::Builder;
+        builder->hasTravelDestination = true;
+        builder->travelDestinationX = village.centerX + 70.f;
+    }
+
+    return true;
+}
+
+void StructureManager::updateUpgrades(float dt, sim::SimulationRegistry& registry) {
+    if (upgradePhase == VillageUpgradePhase::Idle) return;
+
+    upgradeTimer += dt;
+
+    if (upgradePhase == VillageUpgradePhase::Sinking) {
+        sim::ApeData* builder = registry.getApe(activeBuilderId);
+        if (builder && builder->alive) {
+            builder->depthLane = sim::DepthLane::Foreground;
+            builder->currentJob = sim::Job::Builder;
+        }
+
+        if (upgradeTimer >= 2.0f) {
+            upgradePhase = VillageUpgradePhase::WaitingForBuilder;
+            upgradeTimer = 0.f;
+            buildProgress = 0.f;
+        }
+    } else if (upgradePhase == VillageUpgradePhase::WaitingForBuilder) {
+        sim::ApeData* builder = registry.getApe(activeBuilderId);
+        if (!builder || !builder->alive) {
+            for (auto& pair : registry.getAllApes()) {
+                if (pair.first != registry.getControlledApe() && pair.second.alive) {
+                    activeBuilderId = pair.first;
+                    builder = &pair.second;
+                    break;
+                }
+            }
+        }
+
+        if (builder) {
+            builder->depthLane = sim::DepthLane::Foreground;
+            builder->currentJob = sim::Job::Builder;
+
+            sim::VillageData* village = registry.getVillage(builder->villageId);
+            float targetX = village ? (village->centerX + 70.f) : (builder->worldX);
+
+            float dist = std::abs(builder->worldX - targetX);
+            if (dist > 40.f) {
+                builder->hasTravelDestination = true;
+                builder->travelDestinationX = targetX;
+            } else {
+                builder->hasTravelDestination = false;
+                upgradePhase = VillageUpgradePhase::Building;
+                upgradeTimer = 0.f;
+                buildProgress = 0.f;
+            }
+        }
+    } else if (upgradePhase == VillageUpgradePhase::Building) {
+        sim::ApeData* builder = registry.getApe(activeBuilderId);
+        if (builder && builder->alive) {
+            builder->depthLane = sim::DepthLane::Foreground;
+            builder->currentJob = sim::Job::Builder;
+            builder->hasTravelDestination = false;
+
+            buildProgress += (dt / totalBuildDuration);
+            if (buildProgress >= 1.0f) {
+                buildProgress = 1.0f;
+                upgradePhase = VillageUpgradePhase::Rising;
+                upgradeTimer = 0.f;
+            }
+        } else {
+            upgradePhase = VillageUpgradePhase::WaitingForBuilder;
+        }
+    } else if (upgradePhase == VillageUpgradePhase::Rising) {
+        if (upgradeTimer >= 2.5f) {
+            upgradePhase = VillageUpgradePhase::Idle;
+            upgradeTimer = 0.f;
+            buildProgress = 0.f;
+            upgradeCost = static_cast<int>(upgradeCost * 2.0f);
+
+            for (auto& pair : registry.getAllVillages()) {
+                sim::VillageData& v = pair.second;
+                if (v.tier == sim::SettlementTier::FirePit) {
+                    v.tier = sim::SettlementTier::Camp;
+                } else if (v.tier == sim::SettlementTier::Camp) {
+                    v.tier = sim::SettlementTier::Village;
+                }
+            }
+
+            sim::ApeData* builder = registry.getApe(activeBuilderId);
+            if (builder && builder->alive) {
+                builder->depthLane = sim::DepthLane::Foreground;
+                builder->currentJob = sim::Job::Builder;
+            }
+        }
+    }
+}
+
+void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+    if (upgradePhase == VillageUpgradePhase::Sinking) {
+        float p = std::clamp(upgradeTimer / 2.0f, 0.0f, 1.0f);
+        float ease = p * p;
+
+        if (village.tier == sim::SettlementTier::FirePit) {
+            float sinkY = groundY + (ease * 110.f);
+            drawSpriteAnchored(target, rectFirePit, s.worldX, sinkY, 1.0f);
+            drawSpriteAnchored(target, rectFxFire, s.worldX, sinkY - 4.f, std::max(0.0f, 1.0f - ease));
+        } else {
+            float sinkY = groundY + (ease * 480.f);
+            drawSpriteAnchored(target, tier1Visual.spriteRect, s.worldX, sinkY, tier1Visual.scale);
+        }
+        return;
+    }
+
+    if (upgradePhase == VillageUpgradePhase::WaitingForBuilder) {
+        float scaffoldH = 75.f;
+        int posts = 7;
+        float startX = s.worldX - 220.f;
+        float spacing = 440.f / static_cast<float>(posts - 1);
+
+        for (int i = 0; i < posts; ++i) {
+            float px = startX + i * spacing;
+            sf::RectangleShape post(sf::Vector2f(12.f, scaffoldH));
+            post.setOrigin(6.f, scaffoldH);
+            post.setPosition(px, groundY);
+            post.setFillColor(sf::Color(108, 72, 38));
+            post.setOutlineColor(sf::Color(32, 18, 8));
+            post.setOutlineThickness(2.f);
+            target.draw(post);
+        }
+
+        sf::RectangleShape plank(sf::Vector2f(470.f, 11.f));
+        plank.setOrigin(235.f, 5.5f);
+        plank.setPosition(s.worldX, groundY - 35.f);
+        plank.setFillColor(sf::Color(138, 96, 52));
+        plank.setOutlineColor(sf::Color(32, 18, 8));
+        plank.setOutlineThickness(1.5f);
+        target.draw(plank);
+        return;
+    }
+
+    if (upgradePhase == VillageUpgradePhase::Building) {
+        float p = std::clamp(buildProgress, 0.0f, 1.0f);
+        float scaffoldH = 75.f + p * 320.f;
+
+        int posts = 7;
+        float startX = s.worldX - 220.f;
+        float spacing = 440.f / static_cast<float>(posts - 1);
+
+        for (int i = 0; i < posts; ++i) {
+            float px = startX + i * spacing;
+            sf::RectangleShape post(sf::Vector2f(12.f, scaffoldH));
+            post.setOrigin(6.f, scaffoldH);
+            post.setPosition(px, groundY);
+            post.setFillColor(sf::Color(108, 72, 38));
+            post.setOutlineColor(sf::Color(32, 18, 8));
+            post.setOutlineThickness(2.f);
+            target.draw(post);
+        }
+
+        int planks = std::max(1, static_cast<int>(1 + p * 6.0f));
+        for (int i = 1; i <= planks; ++i) {
+            float py = groundY - (i * 48.f);
+            sf::RectangleShape plank(sf::Vector2f(470.f, 11.f));
+            plank.setOrigin(235.f, 5.5f);
+            plank.setPosition(s.worldX, py);
+            plank.setFillColor(sf::Color(138, 96, 52));
+            plank.setOutlineColor(sf::Color(32, 18, 8));
+            plank.setOutlineThickness(1.5f);
+            target.draw(plank);
+
+            for (int j = 0; j < posts - 1; ++j) {
+                float x1 = startX + j * spacing;
+                float x2 = startX + (j + 1) * spacing;
+                sf::Vertex brace[] = {
+                    sf::Vertex(sf::Vector2f(x1, py), sf::Color(84, 54, 26)),
+                    sf::Vertex(sf::Vector2f(x2, py + 48.f), sf::Color(84, 54, 26)),
+                    sf::Vertex(sf::Vector2f(x2, py), sf::Color(84, 54, 26)),
+                    sf::Vertex(sf::Vector2f(x1, py + 48.f), sf::Color(84, 54, 26))
+                };
+                target.draw(brace, 4, sf::Lines);
+            }
+        }
+        return;
+    }
+
+    if (upgradePhase == VillageUpgradePhase::Rising) {
+        float p = std::clamp(upgradeTimer / 2.5f, 0.0f, 1.0f);
+        float ease = 1.0f - std::pow(1.0f - p, 3.0f);
+        float riseY = groundY + ((1.0f - ease) * 480.f);
+
+        if (village.tier == sim::SettlementTier::FirePit) {
+            drawSpriteAnchored(target, tier1Visual.spriteRect, s.worldX, riseY, tier1Visual.scale);
+        } else {
+            drawSpriteAnchored(target, tier2Visual.spriteRect, s.worldX, riseY, tier2Visual.scale);
+        }
+        return;
+    }
+
+    if (village.tier == sim::SettlementTier::FirePit) {
+        drawSpriteAnchored(target, rectFirePit, s.worldX, groundY, 1.0f);
+        drawSpriteAnchored(target, rectFxFire, s.worldX, groundY - 4.f, 1.0f);
+        return;
+    }
+
+    if (villageTexture && villageTexture->getSize().x > 0) {
+        const BuildingTierVisual& visual = (village.tier == sim::SettlementTier::Camp) ? tier1Visual : tier2Visual;
+        drawSpriteAnchored(target, visual.spriteRect, s.worldX, groundY, visual.scale);
+        drawSpriteAnchored(target, rectFxFire, s.worldX - 44.f, groundY - 2.f, 0.88f);
     }
 }
 
@@ -339,115 +556,7 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
         }
     }
 }
-
-void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
-
-    if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectCenterBuilding, s.worldX, groundY, 1.0f);
-        drawSpriteAnchored(target, rectFxFire, s.worldX - 44.f, groundY - 2.f, 0.88f);
-        return;
-    }
-
-    sf::Color woodColor(76, 50, 26);
-    sf::Color roofColor(148, 108, 50);
-    sf::Color bannerColor(195, 42, 32);
-
-    if (village.identity == sim::VillageIdentity::StoneFocused) {
-        woodColor = sf::Color(64, 56, 50);
-        roofColor = sf::Color(108, 98, 88);
-        bannerColor = sf::Color(68, 118, 162);
-    } else if (village.identity == sim::VillageIdentity::FoodRich || village.identity == sim::VillageIdentity::Peaceful) {
-        roofColor = sf::Color(88, 124, 42);
-        bannerColor = sf::Color(222, 168, 44);
-    } else if (village.identity == sim::VillageIdentity::Aggressive) {
-        bannerColor = sf::Color(212, 26, 18);
-    }
-
-    sf::RectangleShape lodgeBase(sf::Vector2f(360.f, 130.f));
-    lodgeBase.setOrigin(180.f, 130.f);
-    lodgeBase.setPosition(s.worldX, groundY);
-    lodgeBase.setFillColor(sf::Color(48, 30, 16));
-    lodgeBase.setOutlineColor(sf::Color(16, 10, 5));
-    lodgeBase.setOutlineThickness(3.5f);
-    target.draw(lodgeBase);
-
-    for (int i = -2; i <= 2; ++i) {
-        sf::RectangleShape pillar(sf::Vector2f(28.f, 230.f));
-        pillar.setOrigin(14.f, 230.f);
-        pillar.setPosition(s.worldX + i * 80.f, groundY);
-        pillar.setFillColor(woodColor);
-        pillar.setOutlineColor(sf::Color(16, 10, 5));
-        pillar.setOutlineThickness(3.f);
-        target.draw(pillar);
-    }
-
-    sf::RectangleShape crossBeam(sf::Vector2f(410.f, 28.f));
-    crossBeam.setOrigin(205.f, 28.f);
-    crossBeam.setPosition(s.worldX, groundY - 195.f);
-    crossBeam.setFillColor(woodColor);
-    crossBeam.setOutlineColor(sf::Color(16, 10, 5));
-    crossBeam.setOutlineThickness(3.f);
-    target.draw(crossBeam);
-
-    sf::ConvexShape roof(4);
-    roof.setPoint(0, sf::Vector2f(-235.f, 0.f));
-    roof.setPoint(1, sf::Vector2f(0.f, -115.f));
-    roof.setPoint(2, sf::Vector2f(235.f, 0.f));
-    roof.setPoint(3, sf::Vector2f(0.f, -48.f));
-    roof.setPosition(s.worldX, groundY - 210.f);
-    roof.setFillColor(roofColor);
-    roof.setOutlineColor(sf::Color(40, 26, 12));
-    roof.setOutlineThickness(4.f);
-    target.draw(roof);
-
-    sf::RectangleShape hearthRing(sf::Vector2f(110.f, 22.f));
-    hearthRing.setOrigin(55.f, 22.f);
-    hearthRing.setPosition(s.worldX, groundY);
-    hearthRing.setFillColor(sf::Color(68, 62, 56));
-    hearthRing.setOutlineColor(sf::Color(22, 22, 22));
-    hearthRing.setOutlineThickness(2.5f);
-    target.draw(hearthRing);
-
-    sf::ConvexShape hearthFire(3);
-    hearthFire.setPoint(0, sf::Vector2f(0.f, -55.f));
-    hearthFire.setPoint(1, sf::Vector2f(28.f, 0.f));
-    hearthFire.setPoint(2, sf::Vector2f(-28.f, 0.f));
-    hearthFire.setPosition(s.worldX, groundY - 12.f);
-    hearthFire.setFillColor(sf::Color(245, 115, 22, 240));
-    target.draw(hearthFire);
-
-    sf::ConvexShape hearthCore(3);
-    hearthCore.setPoint(0, sf::Vector2f(0.f, -32.f));
-    hearthCore.setPoint(1, sf::Vector2f(15.f, 0.f));
-    hearthCore.setPoint(2, sf::Vector2f(-15.f, 0.f));
-    hearthCore.setPosition(s.worldX, groundY - 12.f);
-    hearthCore.setFillColor(sf::Color(255, 228, 80, 250));
-    target.draw(hearthCore);
-
-    sf::RectangleShape bannerL(sf::Vector2f(48.f, 135.f));
-    bannerL.setOrigin(24.f, 0.f);
-    bannerL.setPosition(s.worldX - 120.f, groundY - 200.f);
-    bannerL.setFillColor(bannerColor);
-    bannerL.setOutlineColor(sf::Color(16, 10, 5));
-    bannerL.setOutlineThickness(3.f);
-    target.draw(bannerL);
-
-    sf::RectangleShape bannerR(sf::Vector2f(48.f, 135.f));
-    bannerR.setOrigin(24.f, 0.f);
-    bannerR.setPosition(s.worldX + 120.f, groundY - 200.f);
-    bannerR.setFillColor(bannerColor);
-    bannerR.setOutlineColor(sf::Color(16, 10, 5));
-    bannerR.setOutlineThickness(3.f);
-    target.draw(bannerR);
-
-    sf::CircleShape skull(20.f, 6);
-    skull.setOrigin(20.f, 20.f);
-    skull.setPosition(s.worldX, groundY - 170.f);
-    skull.setFillColor(sf::Color(238, 232, 218));
-    skull.setOutlineColor(sf::Color(22, 22, 22));
-    skull.setOutlineThickness(3.f);
-    target.draw(skull);
-}   
+  
 
 void StructureManager::drawThrone(sf::RenderTarget&, const sim::StructureData&, const sim::VillageData&, float) {
 }
@@ -889,4 +998,102 @@ void StructureManager::setShadowParams(float shearX, float projY, sf::Color colo
     shadowShearX = shearX;
     shadowProjY = projY;
     shadowColor = color;
+}
+
+void StructureManager::setTier2Visual(const std::string& textureKey, const sf::IntRect& rect, float scale) {
+    tier2Visual.textureKey = textureKey;
+    tier2Visual.spriteRect = rect;
+    tier2Visual.scale = scale;
+}
+
+
+bool StructureManager::handleModalClick(const sf::Vector2f& uiCoords, sim::VillageData& village, sim::SimulationRegistry& registry) {
+    if (!upgradeModalOpen) return false;
+
+    if (modalCloseButtonBounds.contains(uiCoords)) {
+        upgradeModalOpen = false;
+        return true;
+    }
+
+    if (modalUpgradeButtonBounds.contains(uiCoords)) {
+        return tryStartUpgrade(village, registry);
+    }
+
+    return false;
+}
+
+void StructureManager::drawUpgradeModal(sf::RenderTarget& target, const sf::Font& font, int villageAmber, sim::SettlementTier tier) {
+    if (!upgradeModalOpen) return;
+
+    sf::RectangleShape dim(sf::Vector2f(1280.f, 720.f));
+    dim.setFillColor(sf::Color(0, 0, 0, 160));
+    target.draw(dim);
+
+    float panelW = 460.f;
+    float panelH = 300.f;
+    float panelX = (1280.f - panelW) * 0.5f;
+    float panelY = (720.f - panelH) * 0.5f;
+
+    sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
+    panel.setPosition(panelX, panelY);
+    panel.setFillColor(sf::Color(22, 16, 12, 245));
+    panel.setOutlineColor(sf::Color(180, 140, 60));
+    panel.setOutlineThickness(3.f);
+    target.draw(panel);
+
+    sf::Text title("VILLAGE UPGRADE", font, 22);
+    title.setFillColor(sf::Color(255, 215, 90));
+    title.setOutlineColor(sf::Color::Black);
+    title.setOutlineThickness(1.5f);
+    sf::FloatRect tb = title.getLocalBounds();
+    title.setPosition(panelX + (panelW - tb.width) * 0.5f, panelY + 24.f);
+    target.draw(title);
+
+    std::string currentStr = (tier == sim::SettlementTier::FirePit) ? "Campfire" : "Hut Encampment";
+    std::string nextStr = (tier == sim::SettlementTier::FirePit) ? "Hut Encampment" : "Village Compound";
+    sf::Text desc("Current: " + currentStr + "\nNext:    " + nextStr, font, 16);
+    desc.setFillColor(sf::Color(220, 210, 195));
+    desc.setOutlineColor(sf::Color::Black);
+    desc.setOutlineThickness(1.f);
+    desc.setPosition(panelX + 44.f, panelY + 85.f);
+    target.draw(desc);
+
+    bool canAfford = (villageAmber >= upgradeCost);
+    float btnW = 280.f;
+    float btnH = 46.f;
+    float btnX = panelX + (panelW - btnW) * 0.5f;
+    float btnY = panelY + 165.f;
+    modalUpgradeButtonBounds = sf::FloatRect(btnX, btnY, btnW, btnH);
+
+    sf::RectangleShape btn(sf::Vector2f(btnW, btnH));
+    btn.setPosition(btnX, btnY);
+    btn.setFillColor(canAfford ? sf::Color(55, 40, 20) : sf::Color(35, 25, 22));
+    btn.setOutlineColor(canAfford ? sf::Color(240, 185, 50) : sf::Color(110, 50, 40));
+    btn.setOutlineThickness(2.f);
+    target.draw(btn);
+
+    sf::CircleShape amberGem(6.f, 4);
+    amberGem.setOrigin(6.f, 6.f);
+    amberGem.setPosition(btnX + 22.f, btnY + 23.f);
+    amberGem.setFillColor(sf::Color(255, 185, 25));
+    target.draw(amberGem);
+
+    std::string btnStr = "Upgrade (" + std::to_string(upgradeCost) + " Amber)";
+    sf::Text btnText(btnStr, font, 15);
+    btnText.setFillColor(canAfford ? sf::Color(255, 235, 180) : sf::Color(170, 90, 80));
+    btnText.setOutlineColor(sf::Color::Black);
+    btnText.setOutlineThickness(1.f);
+    btnText.setPosition(btnX + 40.f, btnY + 13.f);
+    target.draw(btnText);
+
+    modalCloseButtonBounds = sf::FloatRect(panelX + panelW - 42.f, panelY + 12.f, 30.f, 30.f);
+    sf::Text closeText("X", font, 18);
+    closeText.setFillColor(sf::Color(200, 80, 80));
+    closeText.setPosition(modalCloseButtonBounds.left + 8.f, modalCloseButtonBounds.top + 4.f);
+    target.draw(closeText);
+
+    sf::Text escPrompt("[ESC] Close   |   [E / Enter] Confirm", font, 13);
+    escPrompt.setFillColor(sf::Color(140, 130, 120));
+    escPrompt.setPosition(panelX + 44.f, panelY + 248.f);
+    target.draw(escPrompt);
 }

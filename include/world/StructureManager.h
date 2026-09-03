@@ -3,8 +3,23 @@
 #include <unordered_map>
 #include <string>
 #include "simulation/SimulationRegistry.h"
+#include "simulation/VillageData.h"
 
 class WorldManager;
+
+enum class VillageUpgradePhase {
+    Idle,
+    Sinking,
+    WaitingForBuilder,
+    Building,
+    Rising
+};
+
+struct BuildingTierVisual {
+    std::string textureKey;
+    sf::IntRect spriteRect;
+    float scale;
+};
 
 class StructureManager {
 private:
@@ -28,13 +43,29 @@ private:
     const sf::IntRect rectBambooNode       = sf::IntRect(4223, 3957, 222, 229);
     const sf::IntRect rectFxFire           = sf::IntRect(359,  4795, 70,  90);
     const sf::IntRect rectFxSmoke          = sf::IntRect(1148, 4794, 68,  91);
+
     const sf::Texture* groundTexture = nullptr;
     const sf::Texture* rearLawnTexture = nullptr;
     float shadowShearX = 0.f;
     float shadowProjY = 0.2f;
     sf::Color shadowColor = sf::Color(10, 14, 22, 100);
     bool enableShadows = true;
+
     void drawSpriteAnchored(sf::RenderTarget& target, const sf::IntRect& rect, float x, float y, float scale, sf::Color color = sf::Color::White);
+
+    VillageUpgradePhase upgradePhase = VillageUpgradePhase::Idle;
+    float upgradeTimer = 0.f;
+    float buildProgress = 0.f;
+    const float totalBuildDuration = 12.0f;
+    int upgradeCost = 8;
+    sim::EntityID activeBuilderId = 0;
+
+    bool upgradeModalOpen = false;
+    sf::FloatRect modalUpgradeButtonBounds;
+    sf::FloatRect modalCloseButtonBounds;
+
+    BuildingTierVisual tier1Visual = { "village_assets", sf::IntRect(8, 1406, 771, 683), 1.0f };
+    BuildingTierVisual tier2Visual = { "village_assets", sf::IntRect(8, 1406, 771, 683), 1.0f };
 
 public:
     StructureManager();
@@ -68,4 +99,16 @@ public:
     void drawConstructionSite(sf::RenderTarget& target, const sim::StructureData& s, float groundY);
     void setGroundTexture(const sf::Texture& tex);
     void setRearLawnTexture(const sf::Texture& tex);
+
+    void setTier2Visual(const std::string& textureKey, const sf::IntRect& rect, float scale = 1.0f);
+    void updateUpgrades(float dt, sim::SimulationRegistry& registry);
+    bool tryStartUpgrade(sim::VillageData& village, sim::SimulationRegistry& registry);
+    bool isUpgrading() const { return upgradePhase != VillageUpgradePhase::Idle; }
+    int getUpgradeCost() const { return upgradeCost; }
+
+    void openUpgradeModal() { upgradeModalOpen = true; }
+    void closeUpgradeModal() { upgradeModalOpen = false; }
+    bool isUpgradeModalOpen() const { return upgradeModalOpen; }
+    bool handleModalClick(const sf::Vector2f& uiCoords, sim::VillageData& village, sim::SimulationRegistry& registry);
+    void drawUpgradeModal(sf::RenderTarget& target, const sf::Font& font, int villageAmber, sim::SettlementTier tier);
 };

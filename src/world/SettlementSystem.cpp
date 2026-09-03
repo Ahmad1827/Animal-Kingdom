@@ -8,241 +8,251 @@ SettlementSystem::SettlementSystem() {
                  font.loadFromFile("font.ttf") ||
                  font.loadFromFile("assets/fonts/font.ttf");
 
-    initMapGraphics();
+    buildAuthenticMapGeometry();
 }
 
-void SettlementSystem::initMapGraphics() {
-    mapOverlay.setSize(sf::Vector2f(1280.f, 720.f));
-    mapOverlay.setFillColor(sf::Color(8, 7, 6, 210));
+void SettlementSystem::buildAuthenticMapGeometry() {
+    mapOuterVellum.setSize(sf::Vector2f(1060.f, 650.f));
+    mapOuterVellum.setOrigin(530.f, 325.f);
+    mapOuterVellum.setPosition(640.f, 360.f);
+    mapOuterVellum.setFillColor(sf::Color(214, 196, 161));
+    mapOuterVellum.setOutlineColor(sf::Color(44, 28, 16));
+    mapOuterVellum.setOutlineThickness(4.f);
 
-    parchmentBg.setSize(sf::Vector2f(980.f, 630.f));
-    parchmentBg.setOrigin(490.f, 315.f);
-    parchmentBg.setPosition(640.f, 360.f);
-    parchmentBg.setFillColor(sf::Color(24, 19, 14));
+    mapInnerVellum.setSize(sf::Vector2f(1036.f, 626.f));
+    mapInnerVellum.setOrigin(518.f, 313.f);
+    mapInnerVellum.setPosition(640.f, 360.f);
+    mapInnerVellum.setFillColor(sf::Color(226, 210, 178));
+    mapInnerVellum.setOutlineColor(sf::Color(135, 95, 45));
+    mapInnerVellum.setOutlineThickness(2.f);
 
-    parchmentBorderOuter.setSize(sf::Vector2f(970.f, 620.f));
-    parchmentBorderOuter.setOrigin(485.f, 310.f);
-    parchmentBorderOuter.setPosition(640.f, 360.f);
-    parchmentBorderOuter.setFillColor(sf::Color::Transparent);
-    parchmentBorderOuter.setOutlineColor(sf::Color(160, 120, 55));
-    parchmentBorderOuter.setOutlineThickness(2.f);
+    mapInnerBorder.setSize(sf::Vector2f(1016.f, 606.f));
+    mapInnerBorder.setOrigin(508.f, 303.f);
+    mapInnerBorder.setPosition(640.f, 360.f);
+    mapInnerBorder.setFillColor(sf::Color(186, 204, 208, 170));
+    mapInnerBorder.setOutlineColor(sf::Color(90, 65, 35));
+    mapInnerBorder.setOutlineThickness(1.5f);
 
-    parchmentBorderInner.setSize(sf::Vector2f(954.f, 604.f));
-    parchmentBorderInner.setOrigin(477.f, 302.f);
-    parchmentBorderInner.setPosition(640.f, 360.f);
-    parchmentBorderInner.setFillColor(sf::Color::Transparent);
-    parchmentBorderInner.setOutlineColor(sf::Color(70, 52, 28));
-    parchmentBorderInner.setOutlineThickness(1.f);
-
-    compassRays.clear();
-    sf::Color rayClr(75, 58, 35, 65);
-    sf::Vector2f roseCenter(760.f, 380.f);
-    for (int i = 0; i < 16; ++i) {
-        float angle = i * (3.14159265f / 8.0f);
-        sf::Vector2f dir(std::cos(angle), std::sin(angle));
-        compassRays.push_back(sf::Vertex(roseCenter, rayClr));
-        compassRays.push_back(sf::Vertex(roseCenter + dir * 340.f, sf::Color(75, 58, 35, 0)));
-    }
-
-    coastOutline.clear();
-    sf::Color ink(130, 100, 55);
     std::vector<sf::Vector2f> britPts = {
-        {260.f, 575.f}, {295.f, 540.f}, {340.f, 525.f}, {410.f, 520.f},
-        {480.f, 510.f}, {550.f, 495.f}, {585.f, 455.f}, {565.f, 420.f},
-        {535.f, 380.f}, {510.f, 335.f}, {485.f, 255.f}, {460.f, 195.f},
-        {435.f, 120.f}, {420.f, 170.f}, {405.f, 230.f}, {375.f, 310.f},
-        {340.f, 370.f}, {325.f, 435.f}, {350.f, 480.f}, {295.f, 530.f},
-        {260.f, 575.f}
+        {260.f, 575.f}, {275.f, 585.f}, {310.f, 570.f}, {365.f, 565.f},
+        {425.f, 560.f}, {480.f, 555.f}, {535.f, 535.f}, {525.f, 505.f},
+        {575.f, 470.f}, {540.f, 435.f}, {525.f, 390.f}, {530.f, 355.f},
+        {505.f, 315.f}, {490.f, 260.f}, {465.f, 225.f}, {480.f, 210.f},
+        {485.f, 190.f}, {510.f, 155.f}, {455.f, 145.f}, {460.f, 100.f},
+        {415.f, 110.f}, {395.f, 150.f}, {375.f, 195.f}, {380.f, 225.f},
+        {385.f, 265.f}, {415.f, 265.f}, {390.f, 295.f}, {435.f, 300.f},
+        {440.f, 340.f}, {430.f, 380.f}, {410.f, 400.f}, {355.f, 395.f},
+        {340.f, 420.f}, {360.f, 445.f}, {330.f, 475.f}, {370.f, 500.f},
+        {415.f, 505.f}, {320.f, 530.f}
     };
-    for (size_t i = 0; i + 1 < britPts.size(); ++i) {
-        coastOutline.push_back(sf::Vertex(britPts[i], ink));
-        coastOutline.push_back(sf::Vertex(britPts[i + 1], ink));
+    britainCoast.setPointCount(britPts.size());
+    for (size_t i = 0; i < britPts.size(); ++i) britainCoast.setPoint(i, britPts[i]);
+    britainCoast.setFillColor(sf::Color(215, 198, 160));
+    britainCoast.setOutlineColor(sf::Color(65, 45, 25));
+    britainCoast.setOutlineThickness(2.f);
+
+    std::vector<sf::Vector2f> irePts = {
+        {230.f, 335.f}, {270.f, 325.f}, {285.f, 360.f}, {275.f, 415.f},
+        {250.f, 475.f}, {205.f, 485.f}, {180.f, 430.f}, {195.f, 360.f}
+    };
+    irelandCoast.setPointCount(irePts.size());
+    for (size_t i = 0; i < irePts.size(); ++i) irelandCoast.setPoint(i, irePts[i]);
+    irelandCoast.setFillColor(sf::Color(205, 188, 150));
+    irelandCoast.setOutlineColor(sf::Color(75, 55, 35));
+    irelandCoast.setOutlineThickness(1.5f);
+
+    std::vector<sf::Vector2f> fraPts = {
+        {160.f, 630.f}, {320.f, 615.f}, {540.f, 605.f}, {740.f, 615.f},
+        {880.f, 645.f}, {880.f, 660.f}, {160.f, 660.f}
+    };
+    frankiaCoast.setPointCount(fraPts.size());
+    for (size_t i = 0; i < fraPts.size(); ++i) frankiaCoast.setPoint(i, fraPts[i]);
+    frankiaCoast.setFillColor(sf::Color(210, 192, 155));
+    frankiaCoast.setOutlineColor(sf::Color(70, 50, 30));
+    frankiaCoast.setOutlineThickness(1.5f);
+
+    std::vector<sf::Vector2f> scaPts = {
+        {720.f, 80.f}, {800.f, 70.f}, {890.f, 80.f}, {940.f, 135.f},
+        {920.f, 210.f}, {845.f, 215.f}, {780.f, 175.f}, {710.f, 120.f}
+    };
+    scandiCoast.setPointCount(scaPts.size());
+    for (size_t i = 0; i < scaPts.size(); ++i) scandiCoast.setPoint(i, scaPts[i]);
+    scandiCoast.setFillColor(sf::Color(202, 185, 152));
+    scandiCoast.setOutlineColor(sf::Color(70, 55, 38));
+    scandiCoast.setOutlineThickness(1.5f);
+
+    rhumbLines.clear();
+    sf::Vector2f roseA(760.f, 360.f);
+    sf::Vector2f roseB(320.f, 240.f);
+    for (int i = 0; i < 16; ++i) {
+        float a = i * (3.14159265f / 8.f);
+        sf::Vector2f d(std::cos(a), std::sin(a));
+        rhumbLines.push_back(sf::Vertex(roseA, sf::Color(140, 95, 55, 60)));
+        rhumbLines.push_back(sf::Vertex(roseA + d * 380.f, sf::Color(140, 95, 55, 0)));
+        rhumbLines.push_back(sf::Vertex(roseB, sf::Color(70, 105, 130, 45)));
+        rhumbLines.push_back(sf::Vertex(roseB + d * 280.f, sf::Color(70, 105, 130, 0)));
     }
 
-    channelOutline.clear();
-    std::vector<sf::Vector2f> frankPts = {
-        {220.f, 620.f}, {320.f, 615.f}, {440.f, 610.f}, {560.f, 612.f}, {640.f, 625.f}
+    seaWaves.clear();
+    auto addWave = [&](float x, float y) {
+        sf::Color wCol(115, 145, 155, 140);
+        seaWaves.push_back(sf::Vertex(sf::Vector2f(x, y), wCol));
+        seaWaves.push_back(sf::Vertex(sf::Vector2f(x + 10.f, y - 3.f), wCol));
+        seaWaves.push_back(sf::Vertex(sf::Vector2f(x + 10.f, y - 3.f), wCol));
+        seaWaves.push_back(sf::Vertex(sf::Vector2f(x + 20.f, y), wCol));
+        seaWaves.push_back(sf::Vertex(sf::Vector2f(x + 20.f, y), wCol));
+        seaWaves.push_back(sf::Vertex(sf::Vector2f(x + 30.f, y - 3.f), wCol));
     };
-    for (size_t i = 0; i + 1 < frankPts.size(); ++i) {
-        channelOutline.push_back(sf::Vertex(frankPts[i], sf::Color(95, 75, 45)));
-        channelOutline.push_back(sf::Vertex(frankPts[i + 1], sf::Color(95, 75, 45)));
-    }
-
-    scandiOutline.clear();
-    std::vector<sf::Vector2f> scandPts = {
-        {680.f, 95.f}, {750.f, 85.f}, {840.f, 100.f}, {870.f, 160.f}, {810.f, 195.f}, {740.f, 150.f}, {680.f, 95.f}
-    };
-    for (size_t i = 0; i + 1 < scandPts.size(); ++i) {
-        scandiOutline.push_back(sf::Vertex(scandPts[i], sf::Color(105, 85, 55)));
-        scandiOutline.push_back(sf::Vertex(scandPts[i + 1], sf::Color(105, 85, 55)));
-    }
+    addWave(630.f, 260.f);
+    addWave(680.f, 330.f);
+    addWave(610.f, 410.f);
+    addWave(720.f, 480.f);
+    addWave(250.f, 280.f);
+    addWave(310.f, 350.f);
 }
 
-void SettlementSystem::syncWithWorld(sim::SimulationRegistry& registry) {
-    settlements.clear();
-
-    struct SettlementTemplate {
+void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
+    struct HistProfile {
         std::string hist;
         std::string modern;
         std::string kingdom;
         bool allied;
-        sf::Vector2f mapCoord;
+        sf::Vector2f mapPos;
     };
 
-    std::vector<SettlementTemplate> templates = {
-        {"Cornovii Coast", "Tintagel Reach", "Kingdom of Cornwallum", false, {270.f, 565.f}},
-        {"Wintanceaster", "Winchester", "Kingdom of Wessex", true, {425.f, 510.f}},
-        {"Hamwic", "Southampton", "Kingdom of Wessex", true, {450.f, 530.f}},
-        {"Readingas", "Reading", "Royal Wessex Burh", true, {480.f, 485.f}},
-        {"Lundenburh", "London", "March of Wessex & Mercia", true, {525.f, 480.f}},
-        {"Theodford", "Thetford", "Kingdom of East Anglia", false, {565.f, 435.f}},
-        {"Tamworthig", "Tamworth", "Kingdom of Mercia", true, {460.f, 420.f}},
-        {"Gleawceaster", "Gloucester", "Kingdom of Mercia", true, {395.f, 460.f}},
-        {"Legaceaster", "Chester", "March of Wales", false, {385.f, 380.f}},
-        {"Snotingaham", "Nottingham", "Five Boroughs of Danelaw", false, {485.f, 385.f}},
-        {"Jorvik", "York", "Kingdom of Jorvik", false, {490.f, 335.f}},
-        {"Dunholm", "Durham", "Kingdom of Northumbria", false, {465.f, 280.f}},
-        {"Bebbanburg", "Bamburgh", "Kingdom of Bernicia", false, {470.f, 235.f}},
-        {"Dun Eideann", "Edinburgh", "Kingdom of Alba", false, {435.f, 195.f}},
-        {"Sgain", "Scone", "Kingdom of Alba", false, {425.f, 165.f}},
-        {"Hrossey Sound", "Orkney Coast", "Norse Jarldom", false, {440.f, 105.f}},
-        {"Kaupang Fjord", "Skagerrak Reach", "Viking Shore to Scandinavia", false, {750.f, 130.f}}
+    std::vector<HistProfile> profiles = {
+        {"Wintanceaster", "Winchester", "Kingdom of Wessex", true, {430.f, 510.f}},
+        {"Readingas", "Reading", "Royal Wessex Burh", true, {475.f, 485.f}},
+        {"Lundenburh", "London", "March of Wessex & Mercia", true, {520.f, 485.f}},
+        {"Theodford", "Thetford", "Kingdom of East Anglia", false, {555.f, 440.f}},
+        {"Tamworthig", "Tamworth", "Kingdom of Mercia", true, {455.f, 425.f}},
+        {"Legaceaster", "Chester", "March of Wales", false, {395.f, 385.f}},
+        {"Lindcylene", "Lincoln", "Five Boroughs of Danelaw", false, {515.f, 390.f}},
+        {"Jorvik", "York", "Kingdom of Jorvik", false, {490.f, 340.f}},
+        {"Dunholm", "Durham", "Kingdom of Northumbria", false, {470.f, 285.f}},
+        {"Bebbanburg", "Bamburgh", "Kingdom of Bernicia", false, {475.f, 235.f}},
+        {"Dun Eideann", "Edinburgh", "Kingdom of Alba", false, {440.f, 195.f}},
+        {"Sgain", "Scone", "Kingdom of Alba", false, {430.f, 165.f}},
+        {"Hrossey Sound", "Orkney Coast", "Norse Jarldom", false, {445.f, 110.f}},
+        {"Kaupang Fjord", "Skagerrak Reach", "Viking Shore to Scandinavia", false, {740.f, 130.f}}
     };
 
     auto allVillages = registry.getAllVillages();
-    std::vector<sim::VillageData*> sortedVillages;
-    for (auto& pair : allVillages) {
-        sortedVillages.push_back(&pair.second);
+    std::vector<const sim::VillageData*> sorted;
+    for (const auto& pair : allVillages) {
+        sorted.push_back(&pair.second);
     }
-    std::sort(sortedVillages.begin(), sortedVillages.end(), [](const sim::VillageData* a, const sim::VillageData* b) {
+    std::sort(sorted.begin(), sorted.end(), [](const sim::VillageData* a, const sim::VillageData* b) {
         return a->centerX < b->centerX;
     });
 
-    const float villageSpan = 540.f;
+    realSettlements.clear();
 
-    if (!sortedVillages.empty()) {
-        float firstCenter = sortedVillages.front()->centerX;
-        settlements.push_back({
-            0,
-            firstCenter - 3600.f,
-            firstCenter - 1400.f,
-            templates[0].hist,
-            templates[0].modern,
-            templates[0].kingdom,
-            templates[0].allied,
-            templates[0].mapCoord
-        });
+    for (size_t i = 0; i < sorted.size(); ++i) {
+        const sim::VillageData* v = sorted[i];
+        HistProfile hp = profiles[i % profiles.size()];
 
-        for (size_t i = 0; i < sortedVillages.size(); ++i) {
-            sim::VillageData* v = sortedVillages[i];
-            size_t tIdx = (i + 1) % templates.size();
-            settlements.push_back({
-                v->id,
-                v->centerX - villageSpan,
-                v->centerX + villageSpan,
-                templates[tIdx].hist,
-                templates[tIdx].modern,
-                templates[tIdx].kingdom,
-                templates[tIdx].allied,
-                templates[tIdx].mapCoord
-            });
+        RealSettlement rs;
+        rs.villageId = v->id;
+        rs.kingdomId = v->kingdomId;
+        rs.borderLeftX = v->borderMinX;
+        rs.borderRightX = v->borderMaxX;
+        rs.centerX = v->centerX;
+
+        if (v->kingdomId != 0) {
+            sim::KingdomData* kd = registry.getKingdom(v->kingdomId);
+            if (kd) {
+                hp.kingdom = "Kingdom of " + kd->name;
+            }
         }
 
-        float lastCenter = sortedVillages.back()->centerX;
-        float currentX = lastCenter + 2200.f;
-        for (size_t i = sortedVillages.size() + 1; i < templates.size(); ++i) {
-            settlements.push_back({
-                0,
-                currentX - villageSpan,
-                currentX + villageSpan,
-                templates[i].hist,
-                templates[i].modern,
-                templates[i].kingdom,
-                templates[i].allied,
-                templates[i].mapCoord
-            });
-            currentX += 2400.f;
-        }
-    } else {
-        float startX = -1200.f;
-        for (size_t i = 0; i < templates.size(); ++i) {
-            settlements.push_back({
-                0,
-                startX - villageSpan,
-                startX + villageSpan,
-                templates[i].hist,
-                templates[i].modern,
-                templates[i].kingdom,
-                templates[i].allied,
-                templates[i].mapCoord
-            });
-            startX += 2400.f;
-        }
+        rs.historicalName = hp.hist;
+        rs.modernName = hp.modern;
+        rs.kingdomName = hp.kingdom;
+        rs.isAllied = hp.allied;
+        rs.mapCoord = hp.mapPos;
+
+        realSettlements.push_back(rs);
     }
 }
 
-void SettlementSystem::update(float dt, float playerX) {
-    minExploredX = std::min(minExploredX, playerX);
-    maxExploredX = std::max(maxExploredX, playerX);
+void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& registry) {
+    if (realSettlements.empty() || registry.getAllVillages().size() != realSettlements.size()) {
+        syncDynamicVillages(registry);
+    }
 
-    int activeIdx = -1;
-    for (size_t i = 0; i < settlements.size(); ++i) {
-        if (playerX >= settlements[i].borderLeftX && playerX <= settlements[i].borderRightX) {
-            activeIdx = static_cast<int>(i);
+    if (!hasExplored) {
+        minExploredX = playerX - 500.f;
+        maxExploredX = playerX + 500.f;
+        hasExplored = true;
+    } else {
+        minExploredX = std::min(minExploredX, playerX);
+        maxExploredX = std::max(maxExploredX, playerX);
+    }
+
+    pulseTime += dt;
+
+    int currentIdx = -1;
+    for (size_t i = 0; i < realSettlements.size(); ++i) {
+        if (playerX >= realSettlements[i].borderLeftX && playerX <= realSettlements[i].borderRightX) {
+            currentIdx = static_cast<int>(i);
             break;
         }
     }
 
-    if (activeIdx != currentSettlementIdx) {
-        previousSettlementIdx = currentSettlementIdx;
-        currentSettlementIdx = activeIdx;
+    if (currentIdx != activeSettlementIdx) {
+        lastSettlementIdx = activeSettlementIdx;
+        activeSettlementIdx = currentIdx;
 
-        if (currentSettlementIdx != -1) {
-            displayOldName = settlements[currentSettlementIdx].historicalName;
-            displayModernName = settlements[currentSettlementIdx].modernName;
-            displayKingdom = settlements[currentSettlementIdx].kingdom;
-            displayAllied = settlements[currentSettlementIdx].isAlliedWithWessex;
-            isLeaving = false;
-        } else if (previousSettlementIdx != -1) {
-            displayOldName = settlements[previousSettlementIdx].historicalName;
-            displayModernName = settlements[previousSettlementIdx].modernName;
-            displayKingdom = settlements[previousSettlementIdx].kingdom;
-            displayAllied = settlements[previousSettlementIdx].isAlliedWithWessex;
-            isLeaving = true;
+        if (activeSettlementIdx != -1) {
+            const auto& curr = realSettlements[activeSettlementIdx];
+            bannerOldName = curr.historicalName;
+            bannerModernName = curr.modernName;
+            bannerKingdom = curr.kingdomName;
+            bannerAllied = curr.isAllied;
+            isExiting = false;
+            bannerTimer = 0.f;
+            showBanner = true;
+        } else if (lastSettlementIdx != -1 && lastSettlementIdx < static_cast<int>(realSettlements.size())) {
+            const auto& prev = realSettlements[lastSettlementIdx];
+            bannerOldName = prev.historicalName;
+            bannerModernName = prev.modernName;
+            bannerKingdom = prev.kingdomName;
+            bannerAllied = prev.isAllied;
+            isExiting = true;
+            bannerTimer = 0.f;
+            showBanner = true;
         }
-
-        animTimer = 0.f;
-        isAnimating = true;
     }
 
-    if (isAnimating) {
-        animTimer += dt;
-        if (animTimer >= 5.0f) {
-            isAnimating = false;
+    if (showBanner) {
+        bannerTimer += dt;
+        if (bannerTimer >= 5.2f) {
+            showBanner = false;
         }
     }
 }
 
 void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxView) {
-    if (!fontLoaded || !isAnimating) return;
+    if (!fontLoaded || !showBanner) return;
 
     window.setView(letterboxView);
 
     float alpha = 0.f;
     float morphT = 0.f;
 
-    if (animTimer < 0.5f) {
-        alpha = animTimer / 0.5f;
-    } else if (animTimer < 1.8f) {
+    if (bannerTimer < 0.5f) {
+        alpha = bannerTimer / 0.5f;
+    } else if (bannerTimer < 1.9f) {
         alpha = 1.0f;
-    } else if (animTimer < 3.0f) {
+    } else if (bannerTimer < 3.1f) {
         alpha = 1.0f;
-        morphT = (animTimer - 1.8f) / 1.2f;
-    } else if (animTimer < 4.0f) {
+        morphT = (bannerTimer - 1.9f) / 1.2f;
+    } else if (bannerTimer < 4.2f) {
         alpha = 1.0f;
         morphT = 1.0f;
     } else {
-        alpha = 1.0f - ((animTimer - 4.0f) / 1.0f);
+        alpha = 1.0f - ((bannerTimer - 4.2f) / 1.0f);
         morphT = 1.0f;
     }
 
@@ -250,11 +260,11 @@ void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxV
     morphT = std::clamp(morphT, 0.0f, 1.0f);
     sf::Uint8 byteAlpha = static_cast<sf::Uint8>(alpha * 255);
 
-    float centerY = 90.f;
-    std::string prefix = isLeaving ? "Departing Territory of " : "Entering Realm of ";
-    sf::Color realmColor = displayAllied ? sf::Color(145, 215, 130, byteAlpha) : sf::Color(225, 150, 90, byteAlpha);
+    float centerY = 88.f;
+    std::string prefix = isExiting ? "Departing Boundary of " : "Entering Realm of ";
+    sf::Color realmColor = bannerAllied ? sf::Color(140, 215, 125, byteAlpha) : sf::Color(225, 150, 90, byteAlpha);
 
-    sf::Text kingdomText(prefix + displayKingdom, font, 13);
+    sf::Text kingdomText(prefix + bannerKingdom, font, 13);
     kingdomText.setStyle(sf::Text::Italic);
     kingdomText.setFillColor(realmColor);
     kingdomText.setOutlineColor(sf::Color(0, 0, 0, byteAlpha));
@@ -266,7 +276,7 @@ void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxV
 
     if (morphT < 1.0f) {
         sf::Uint8 oldAlpha = static_cast<sf::Uint8>((1.0f - morphT) * 255 * alpha);
-        sf::Text oldText(displayOldName, font, 24);
+        sf::Text oldText(bannerOldName, font, 24);
         oldText.setStyle(sf::Text::Bold);
         oldText.setFillColor(sf::Color(255, 225, 140, oldAlpha));
         oldText.setOutlineColor(sf::Color(0, 0, 0, oldAlpha));
@@ -279,7 +289,7 @@ void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxV
 
     if (morphT > 0.0f) {
         sf::Uint8 modAlpha = static_cast<sf::Uint8>(morphT * 255 * alpha);
-        sf::Text modernText(displayModernName, font, 24);
+        sf::Text modernText(bannerModernName, font, 24);
         modernText.setStyle(sf::Text::Bold);
         modernText.setFillColor(sf::Color(245, 245, 250, modAlpha));
         modernText.setOutlineColor(sf::Color(0, 0, 0, modAlpha));
@@ -290,138 +300,178 @@ void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxV
         window.draw(modernText);
     }
 
-    float lineHalfW = 140.f * alpha;
-    sf::Color lineClr = displayAllied ? sf::Color(120, 200, 110, byteAlpha) : sf::Color(210, 140, 80, byteAlpha);
-    sf::Color edgeClr = displayAllied ? sf::Color(120, 200, 110, 0) : sf::Color(210, 140, 80, 0);
+    float lineHalfW = 150.f * alpha;
+    sf::Color lineClr = bannerAllied ? sf::Color(120, 200, 110, byteAlpha) : sf::Color(210, 140, 80, byteAlpha);
+    sf::Color edgeClr = bannerAllied ? sf::Color(120, 200, 110, 0) : sf::Color(210, 140, 80, 0);
 
     sf::Vertex line[] = {
-        sf::Vertex(sf::Vector2f(640.f - lineHalfW, centerY + 28.f), edgeClr),
-        sf::Vertex(sf::Vector2f(640.f, centerY + 28.f), lineClr),
-        sf::Vertex(sf::Vector2f(640.f + lineHalfW, centerY + 28.f), edgeClr)
+        sf::Vertex(sf::Vector2f(640.f - lineHalfW, centerY + 30.f), edgeClr),
+        sf::Vertex(sf::Vector2f(640.f, centerY + 30.f), lineClr),
+        sf::Vertex(sf::Vector2f(640.f + lineHalfW, centerY + 30.f), edgeClr)
     };
     window.draw(line, 3, sf::LinesStrip);
 }
 
-void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX) {
+void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry) {
     if (!fontLoaded) return;
 
     window.setView(letterboxView);
 
-    window.draw(mapOverlay);
-    window.draw(parchmentBg);
-    window.draw(parchmentBorderOuter);
-    window.draw(parchmentBorderInner);
+    sf::RectangleShape backdrop(sf::Vector2f(1280.f, 720.f));
+    backdrop.setFillColor(sf::Color(12, 10, 8, 225));
+    window.draw(backdrop);
 
-    if (!compassRays.empty()) {
-        window.draw(compassRays.data(), compassRays.size(), sf::Lines);
-    }
-    if (!coastOutline.empty()) {
-        window.draw(coastOutline.data(), coastOutline.size(), sf::Lines);
-    }
-    if (!channelOutline.empty()) {
-        window.draw(channelOutline.data(), channelOutline.size(), sf::Lines);
-    }
-    if (!scandiOutline.empty()) {
-        window.draw(scandiOutline.data(), scandiOutline.size(), sf::Lines);
-    }
+    window.draw(mapOuterVellum);
+    window.draw(mapInnerVellum);
+    window.draw(mapInnerBorder);
 
-    sf::Text header("BRITANNIA ET MARE SEPTENTRIONALE", font, 14);
+    if (!rhumbLines.empty()) window.draw(rhumbLines.data(), rhumbLines.size(), sf::Lines);
+    if (!seaWaves.empty()) window.draw(seaWaves.data(), seaWaves.size(), sf::Lines);
+
+    window.draw(frankiaCoast);
+    window.draw(scandiCoast);
+    window.draw(irelandCoast);
+    window.draw(britainCoast);
+
+    sf::Text header("BRITANNIA ET PARTES SEPTENTRIONALES", font, 15);
     header.setStyle(sf::Text::Bold);
-    header.setFillColor(sf::Color(220, 180, 100));
-    header.setPosition(200.f, 75.f);
+    header.setFillColor(sf::Color(65, 42, 20));
+    sf::FloatRect hb = header.getLocalBounds();
+    header.setOrigin(hb.left + hb.width / 2.f, hb.top + hb.height / 2.f);
+    header.setPosition(640.f, 85.f);
     window.draw(header);
 
-    sf::Text sub("Anno Domini DCCCLXXVIII  •  Alfred Rex Anglo-Saxonum", font, 10);
+    sf::Text sub("AD 878 • REGNA ANGLO-SAXONUM ET DANELAGH", font, 10);
     sub.setStyle(sf::Text::Italic);
-    sub.setFillColor(sf::Color(150, 125, 95));
-    sub.setPosition(200.f, 96.f);
+    sub.setFillColor(sf::Color(120, 85, 50));
+    sf::FloatRect sb = sub.getLocalBounds();
+    sub.setOrigin(sb.left + sb.width / 2.f, sb.top + sb.height / 2.f);
+    sub.setPosition(640.f, 104.f);
     window.draw(sub);
 
-    sf::Text legend("Green: Allied Realm   |   Rust: Danelaw / March   |   Gold: Current Presence", font, 9);
-    legend.setFillColor(sf::Color(135, 115, 90));
-    legend.setPosition(200.f, 115.f);
-    window.draw(legend);
+    sf::Text seaLatin1("OCEANUS GERMANICUS", font, 11);
+    seaLatin1.setFillColor(sf::Color(80, 110, 125));
+    seaLatin1.setPosition(620.f, 300.f);
+    window.draw(seaLatin1);
 
-    sf::Text sea1("OCEANUS GERMANICUS", font, 10);
-    sea1.setFillColor(sf::Color(80, 65, 45));
-    sea1.setPosition(630.f, 320.f);
-    window.draw(sea1);
+    sf::Text seaLatin2("MARE HIBERNICUM", font, 10);
+    seaLatin2.setFillColor(sf::Color(80, 110, 125));
+    seaLatin2.setPosition(250.f, 380.f);
+    window.draw(seaLatin2);
 
-    sf::Text sea2("MARE HIBERNICUM", font, 10);
-    sea2.setFillColor(sf::Color(80, 65, 45));
-    sea2.setPosition(240.f, 360.f);
-    window.draw(sea2);
+    sf::Text fraText("REGNUM FRANCORUM", font, 11);
+    fraText.setFillColor(sf::Color(105, 80, 55));
+    fraText.setPosition(430.f, 625.f);
+    window.draw(fraText);
 
-    sf::Text frankia("REGNUM FRANCORUM", font, 10);
-    frankia.setFillColor(sf::Color(90, 72, 50));
-    frankia.setPosition(320.f, 625.f);
-    window.draw(frankia);
+    sf::Text scaText("NORDRVEGR", font, 11);
+    scaText.setFillColor(sf::Color(95, 80, 60));
+    scaText.setPosition(770.f, 105.f);
+    window.draw(scaText);
 
-    sf::Text scandi("NORDRVEGR", font, 10);
-    scandi.setFillColor(sf::Color(95, 80, 60));
-    scandi.setPosition(720.f, 100.f);
-    window.draw(scandi);
-
-    for (size_t i = 0; i < settlements.size(); ++i) {
-        const auto& st = settlements[i];
-        bool isExplored = (maxExploredX >= st.borderLeftX && minExploredX <= st.borderRightX);
-        bool isCurrent = (playerX >= st.borderLeftX && playerX <= st.borderRightX);
+    for (size_t i = 0; i < realSettlements.size(); ++i) {
+        const auto& rs = realSettlements[i];
+        bool isExplored = (maxExploredX >= rs.borderLeftX && minExploredX <= rs.borderRightX);
+        bool isCurrent = (playerX >= rs.borderLeftX && playerX <= rs.borderRightX);
 
         if (!isExplored) {
-            sf::CircleShape shroud(14.f, 4);
-            shroud.setOrigin(14.f, 14.f);
-            shroud.setPosition(st.mapCoord);
-            shroud.setFillColor(sf::Color(18, 14, 11, 230));
-            window.draw(shroud);
+            sf::CircleShape fog(15.f, 6);
+            fog.setOrigin(15.f, 15.f);
+            fog.setPosition(rs.mapCoord);
+            fog.setFillColor(sf::Color(160, 140, 115, 240));
+            window.draw(fog);
             continue;
         }
 
-        if (i + 1 < settlements.size()) {
-            const auto& nextSt = settlements[i + 1];
-            bool nextExplored = (maxExploredX >= nextSt.borderLeftX && minExploredX <= nextSt.borderRightX);
+        if (i + 1 < realSettlements.size()) {
+            const auto& nextRs = realSettlements[i + 1];
+            bool nextExplored = (maxExploredX >= nextRs.borderLeftX && minExploredX <= nextRs.borderRightX);
             if (nextExplored) {
-                sf::Vertex trail[] = {
-                    sf::Vertex(st.mapCoord, sf::Color(140, 105, 55, 110)),
-                    sf::Vertex(nextSt.mapCoord, sf::Color(140, 105, 55, 110))
+                sf::Vertex road[] = {
+                    sf::Vertex(rs.mapCoord, sf::Color(145, 100, 50, 140)),
+                    sf::Vertex(nextRs.mapCoord, sf::Color(145, 100, 50, 140))
                 };
-                window.draw(trail, 2, sf::Lines);
+                window.draw(road, 2, sf::Lines);
             }
         }
 
-        sf::CircleShape node(isCurrent ? 6.f : 3.5f);
-        node.setOrigin(node.getRadius(), node.getRadius());
-        node.setPosition(st.mapCoord);
+        float r = isCurrent ? 6.f : 3.5f;
+        sf::CircleShape pin(r);
+        pin.setOrigin(r, r);
+        pin.setPosition(rs.mapCoord);
 
         if (isCurrent) {
-            node.setFillColor(sf::Color(255, 220, 75));
-            node.setOutlineColor(sf::Color(255, 255, 255));
-            node.setOutlineThickness(2.f);
-        } else if (st.isAlliedWithWessex) {
-            node.setFillColor(sf::Color(115, 195, 105));
-            node.setOutlineColor(sf::Color(15, 25, 15));
-            node.setOutlineThickness(1.f);
-        } else {
-            node.setFillColor(sf::Color(210, 120, 70));
-            node.setOutlineColor(sf::Color(25, 15, 10));
-            node.setOutlineThickness(1.f);
-        }
-        window.draw(node);
+            float pulse = 1.0f + 0.35f * std::sin(pulseTime * 5.0f);
+            sf::CircleShape halo(r * 2.4f * pulse);
+            halo.setOrigin(halo.getRadius(), halo.getRadius());
+            halo.setPosition(rs.mapCoord);
+            halo.setFillColor(sf::Color(210, 150, 40, 75));
+            window.draw(halo);
 
-        sf::Text townLabel(st.historicalName, font, isCurrent ? 11 : 9);
-        townLabel.setStyle(isCurrent ? sf::Text::Bold : sf::Text::Regular);
-        townLabel.setFillColor(isCurrent ? sf::Color(255, 235, 160) : sf::Color(205, 185, 155));
-        townLabel.setOutlineColor(sf::Color::Black);
-        townLabel.setOutlineThickness(1.f);
-        townLabel.setPosition(st.mapCoord.x + 8.f, st.mapCoord.y - 7.f);
-        window.draw(townLabel);
+            pin.setFillColor(sf::Color(245, 195, 50));
+            pin.setOutlineColor(sf::Color(35, 20, 10));
+            pin.setOutlineThickness(1.5f);
+        } else if (rs.isAllied) {
+            pin.setFillColor(sf::Color(75, 140, 70));
+            pin.setOutlineColor(sf::Color(25, 45, 20));
+            pin.setOutlineThickness(1.f);
+        } else {
+            pin.setFillColor(sf::Color(185, 75, 50));
+            pin.setOutlineColor(sf::Color(45, 20, 15));
+            pin.setOutlineThickness(1.f);
+        }
+        window.draw(pin);
+
+        sf::Text nameLbl(rs.historicalName, font, isCurrent ? 11 : 9);
+        nameLbl.setStyle(isCurrent ? sf::Text::Bold : sf::Text::Regular);
+        nameLbl.setFillColor(isCurrent ? sf::Color(40, 25, 10) : sf::Color(70, 50, 35));
+        nameLbl.setPosition(rs.mapCoord.x + 8.f, rs.mapCoord.y - 7.f);
+        window.draw(nameLbl);
     }
+
+    sf::Text legend("Green: Allied Realm   |   Rust: Danelaw / Marches   |   Gold: Current Presence   |   [TAB / ESC] Close", font, 10);
+    legend.setFillColor(sf::Color(95, 70, 45));
+    sf::FloatRect legB = legend.getLocalBounds();
+    legend.setOrigin(legB.left + legB.width / 2.f, legB.top + legB.height / 2.f);
+    legend.setPosition(640.f, 634.f);
+    window.draw(legend);
 }
 
-bool SettlementSystem::canFreelyPass(float playerX) const {
-    for (const auto& s : settlements) {
-        if (playerX >= s.borderLeftX && playerX <= s.borderRightX) {
-            return s.isAlliedWithWessex;
+const RealSettlement* SettlementSystem::getActiveSettlement() const {
+    if (activeSettlementIdx >= 0 && activeSettlementIdx < static_cast<int>(realSettlements.size())) {
+        return &realSettlements[activeSettlementIdx];
+    }
+    return nullptr;
+}
+
+void SettlementSystem::syncWithWorld(sim::SimulationRegistry& registry) {
+    syncDynamicVillages(registry);
+}
+
+void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX) {
+    sim::SimulationRegistry dummy;
+    drawWorldMap(window, letterboxView, playerX, dummy);
+}
+
+const RealSettlement* SettlementSystem::getSettlementAt(float x) const {
+    for (const auto& s : realSettlements) {
+        if (x >= s.borderLeftX && x <= s.borderRightX) {
+            return &s;
         }
     }
-    return false;
+    return nullptr;
+}
+
+const RealSettlement* SettlementSystem::getSettlementByVillageId(sim::VillageID id) const {
+    for (const auto& s : realSettlements) {
+        if (s.villageId == id) {
+            return &s;
+        }
+    }
+    return nullptr;
+}
+
+bool SettlementSystem::canFreelyPass(float x) const {
+    const RealSettlement* s = getSettlementAt(x);
+    return s ? s->isAllied : false;
 }

@@ -1,7 +1,7 @@
 # Build directory (where you run make/cmake)
 build/
 
-assets/
+assets/*
 
 src/core/Game.cpp
 

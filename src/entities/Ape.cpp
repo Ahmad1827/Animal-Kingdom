@@ -262,6 +262,17 @@ void Ape::update(float dt) {
 }
 
 void Ape::draw(sf::RenderTarget& target) {
+    float laneShadowYOffset = (depthLane == sim::DepthLane::Background) ? -145.f : (depthLane == sim::DepthLane::Midground ? 0.f : 16.f);
+    float laneShadowScale = (depthLane == sim::DepthLane::Background) ? 0.70f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
+    float footX = bounds.left + bounds.width * 0.5f;
+    float footY = bounds.top + bounds.height + laneShadowYOffset;
+
+    sf::CircleShape shadow(18.f * laneShadowScale);
+    shadow.setScale(1.0f, 0.32f);
+    shadow.setOrigin(18.f * laneShadowScale, 18.f * laneShadowScale);
+    shadow.setPosition(footX, footY - 2.f);
+    shadow.setFillColor(sf::Color(0, 0, 0, 110));
+    target.draw(shadow);
     target.draw(sprite);
 
     sf::Vector2f center = sprite.getPosition();

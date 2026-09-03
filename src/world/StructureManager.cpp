@@ -21,6 +21,15 @@ void StructureManager::drawSpriteAnchored(sf::RenderTarget& target, const sf::In
     target.draw(sprite);
 }
 
+static void drawGroundShadow(sf::RenderTarget& target, float x, float y, float radiusX, float radiusY, sf::Uint8 alpha = 100) {
+    sf::CircleShape shadow(radiusX);
+    shadow.setScale(1.0f, radiusY / radiusX);
+    shadow.setOrigin(radiusX, radiusX);
+    shadow.setPosition(x, y);
+    shadow.setFillColor(sf::Color(0, 0, 0, alpha));
+    target.draw(shadow);
+}
+
 static void drawEmptyPlot(sf::RenderTarget& target, const sim::StructureData& s, float groundY) {
     sf::RectangleShape plotBase(sf::Vector2f(130.f, 6.f));
     plotBase.setOrigin(65.f, 3.f);
@@ -77,7 +86,7 @@ void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::Village
     float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
     float viewWidth = view.getSize().x + 800.f;
 
-    float yardTopY = groundY - 245.f;
+    float yardTopY = groundY - 185.f;
     float yardBottomY = groundY - 14.f;
     float yardH = yardBottomY - yardTopY;
 
@@ -123,7 +132,7 @@ void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::Vil
     float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
     float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 400.f;
 
-    float rearFenceBaseY = groundY - 240.f;
+    float rearFenceBaseY = groundY - 180.f;
     float fenceScale = 0.30f;
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
     sf::Color fenceBgColor(180, 185, 200, 245);
@@ -207,56 +216,25 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
         if (v.centerX + 3500.f < viewBounds.left || v.centerX - 3500.f > viewBounds.left + viewBounds.width) continue;
 
         float groundY = world ? world->getTerrainHeight(v.centerX) : 500.0f;
-        float yardY = groundY - 145.f;
+        float yardY = groundY - 130.f;
 
-        drawSpriteAnchored(target, rectVillageHut, v.centerX - 560.f, yardY, 0.72f);
-        drawSpriteAnchored(target, rectFirePit, v.centerX - 410.f, yardY, 0.68f);
-        drawSpriteAnchored(target, rectFxFire, v.centerX - 410.f, yardY - 4.f, 0.68f);
+        float leftHutX = v.centerX - 470.f;
+        drawGroundShadow(target, leftHutX, yardY, 110.f, 22.f, 95);
+        drawSpriteAnchored(target, rectVillageHut, leftHutX, yardY, 0.72f);
 
-        drawSpriteAnchored(target, rectFirePit, v.centerX + 310.f, yardY, 0.68f);
-        drawSpriteAnchored(target, rectFxFire, v.centerX + 310.f, yardY - 4.f, 0.68f);
-        drawSpriteAnchored(target, rectLookpostBamboo, v.centerX + 530.f, yardY, 0.78f);
-    }
+        float leftFireX = v.centerX - 370.f;
+        drawGroundShadow(target, leftFireX, yardY, 45.f, 12.f, 85);
+        drawSpriteAnchored(target, rectFirePit, leftFireX, yardY, 0.65f);
+        drawSpriteAnchored(target, rectFxFire, leftFireX, yardY - 4.f, 0.65f);
 
-    for (auto& pair : registry.getAllStructures()) {
-        sim::StructureData& s = pair.second;
-        if (s.worldX < viewBounds.left - 800.f || s.worldX > viewBounds.left + viewBounds.width + 800.f) continue;
+        float rightScaffoldX = v.centerX + 480.f;
+        drawGroundShadow(target, rightScaffoldX, yardY, 115.f, 24.f, 95);
+        drawSpriteAnchored(target, rectLookpostBamboo, rightScaffoldX, yardY, 0.78f);
 
-        float groundY = world ? world->getTerrainHeight(s.worldX) : 500.0f;
-        float yardY = groundY - 145.f;
-
-        sim::VillageData* v = registry.getVillage(s.villageId);
-        sim::VillageData fallbackVillage;
-        if (!v) v = &fallbackVillage;
-
-        if (!s.isFinished) {
-            if (s.type == sim::StructureType::WatchPlatform || s.type == sim::StructureType::Watchtower ||
-                s.type == sim::StructureType::BuilderHut || s.type == sim::StructureType::Nest ||
-                s.type == sim::StructureType::StorageHut) {
-                drawConstructionSite(target, s, yardY);
-            }
-        } else {
-            switch (s.type) {
-                case sim::StructureType::WatchPlatform:
-                case sim::StructureType::Watchtower:
-                    drawWatchPlatform(target, s, *v, yardY);
-                    break;
-                case sim::StructureType::BuilderHut:
-                    drawBuilderHut(target, s, *v, yardY);
-                    break;
-                case sim::StructureType::Nest:
-                    drawNest(target, s, *v, yardY);
-                    break;
-                case sim::StructureType::StorageHut:
-                    drawStorageHut(target, s, *v, yardY);
-                    break;
-                case sim::StructureType::Bonfire:
-                    drawBonfire(target, s, *v, yardY);
-                    break;
-                default:
-                    break;
-            }
-        }
+        float rightFireX = v.centerX + 370.f;
+        drawGroundShadow(target, rightFireX, yardY, 45.f, 12.f, 85);
+        drawSpriteAnchored(target, rectFirePit, rightFireX, yardY, 0.65f);
+        drawSpriteAnchored(target, rectFxFire, rightFireX, yardY - 4.f, 0.65f);
     }
 }
 
@@ -355,6 +333,8 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
 }
 
 void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
+    drawGroundShadow(target, s.worldX, groundY - 6.f, 320.f, 44.f, 120);
+
     if (villageTexture && villageTexture->getSize().x > 0) {
         drawSpriteAnchored(target, rectCenterBuilding, s.worldX, groundY, 1.0f);
         drawSpriteAnchored(target, rectFxFire, s.worldX - 44.f, groundY - 2.f, 0.88f);
@@ -460,7 +440,7 @@ void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::St
     skull.setOutlineColor(sf::Color(22, 22, 22));
     skull.setOutlineThickness(3.f);
     target.draw(skull);
-}
+}   
 
 void StructureManager::drawThrone(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
@@ -486,6 +466,8 @@ void StructureManager::drawThrone(sf::RenderTarget& target, const sim::Structure
 }
 
 void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    drawGroundShadow(target, s.worldX, groundY - 4.f, 95.f, 14.f, 100);
+
     if (villageTexture && villageTexture->getSize().x > 0) {
         drawSpriteAnchored(target, rectToolRack, s.worldX, groundY, 1.0f);
         return;
@@ -571,6 +553,8 @@ void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::Structu
 }
 
 void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
+    drawGroundShadow(target, s.worldX, groundY - 4.f, 105.f, 16.f, 100);
+
     if (villageTexture && villageTexture->getSize().x > 0) {
         if (s.type == sim::StructureType::WoodPile) {
             drawSpriteAnchored(target, rectMeetingHollowLog, s.worldX, groundY, 1.0f);

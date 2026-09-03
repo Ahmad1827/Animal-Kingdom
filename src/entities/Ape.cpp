@@ -5,7 +5,15 @@
 
 sf::Texture Ape::masterSpriteSheet;
 bool Ape::newTexturesLoaded = false;
+float Ape::globalShadowShearX = 0.f;
+float Ape::globalShadowProjY = 0.2f;
+sf::Color Ape::globalShadowColor = sf::Color(10, 14, 22, 100);
 
+void Ape::setGlobalShadowParams(float shearX, float projY, sf::Color color) {
+    globalShadowShearX = shearX;
+    globalShadowProjY = projY;
+    globalShadowColor = color;
+}
 Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer) 
     : texture(texture), 
       animator(&sprite),
@@ -262,24 +270,33 @@ void Ape::update(float dt) {
 }
 
 void Ape::draw(sf::RenderTarget& target) {
-    float laneShadowYOffset = (depthLane == sim::DepthLane::Background) ? -145.f : (depthLane == sim::DepthLane::Midground ? 0.f : 16.f);
-    float laneShadowScale = (depthLane == sim::DepthLane::Background) ? 0.70f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
-    float footX = bounds.left + bounds.width * 0.5f;
-    float footY = bounds.top + bounds.height + laneShadowYOffset;
+    float footY = sprite.getPosition().y;
+    float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.70f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);
 
-    sf::CircleShape shadow(18.f * laneShadowScale);
-    shadow.setScale(1.0f, 0.32f);
-    shadow.setOrigin(18.f * laneShadowScale, 18.f * laneShadowScale);
-    shadow.setPosition(footX, footY - 2.f);
-    shadow.setFillColor(sf::Color(0, 0, 0, 110));
-    target.draw(shadow);
+    sf::Transform shadowProj(
+        1.f, -globalShadowShearX, globalShadowShearX * footY,
+        0.f, -globalShadowProjY,  (1.f + globalShadowProjY) * footY,
+        0.f, 0.f,                 1.f
+    );
+
+    sf::Sprite shadowSpr = sprite;
+    shadowSpr.setColor(globalShadowColor);
+    target.draw(shadowSpr, shadowProj);
+
+    sf::CircleShape contactShadow(16.f * laneScaleMultiplier);
+    contactShadow.setScale(1.0f, 0.28f);
+    contactShadow.setOrigin(16.f * laneScaleMultiplier, 16.f * laneScaleMultiplier);
+    contactShadow.setPosition(sprite.getPosition().x, footY - 2.f);
+    contactShadow.setFillColor(sf::Color(0, 0, 0, globalShadowColor.a));
+    target.draw(contactShadow);
+
     target.draw(sprite);
 
     sf::Vector2f center = sprite.getPosition();
     center.y -= sprite.getGlobalBounds().height / 2.f;
-    
     float facingDir = facingRight ? 1.f : -1.f;
-    float laneScaleMultiplier = (depthLane == sim::DepthLane::Background) ? 0.72f : (depthLane == sim::DepthLane::Midground ? 0.95f : 1.15f);    if (isKing) {
+
+    if (isKing) {
         sf::ConvexShape crown(3);
         crown.setPoint(0, sf::Vector2f(-14.f * laneScaleMultiplier, 0.f));
         crown.setPoint(1, sf::Vector2f(14.f * laneScaleMultiplier, 0.f));

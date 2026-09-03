@@ -22,6 +22,7 @@ public:
     void setCarriedItem(int itemType);
     void setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amount, bool king);
     void setDepthLane(sim::DepthLane lane);
+    static void setGlobalShadowParams(float shearX, float projY, sf::Color color);
     sim::DepthLane getDepthLane() const { return depthLane; }
     
     sf::Vector2f getPosition() const;
@@ -40,6 +41,10 @@ private:
     sf::Texture& texture;
     Animator animator;
     LandingDetector landingDetector;
+
+    static float globalShadowShearX;
+    static float globalShadowProjY;
+    static sf::Color globalShadowColor;
     
     sf::FloatRect bounds;
     sf::Vector2f velocity;

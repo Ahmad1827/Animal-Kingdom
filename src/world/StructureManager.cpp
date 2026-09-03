@@ -17,6 +17,26 @@ void StructureManager::drawSpriteAnchored(sf::RenderTarget& target, const sf::In
     sprite.setOrigin(static_cast<float>(rect.width) * 0.5f, static_cast<float>(rect.height));
     sprite.setPosition(x, y);
     sprite.setScale(scale, scale);
+
+    if (enableShadows && rect != rectFxFire && rect != rectFxSmoke) {
+        sf::Sprite shadowSpr = sprite;
+        shadowSpr.setColor(shadowColor);
+        sf::Transform shadowProj(
+            1.f, -shadowShearX, shadowShearX * y,
+            0.f, -shadowProjY,  (1.f + shadowProjY) * y,
+            0.f, 0.f,           1.f
+        );
+        target.draw(shadowSpr, shadowProj);
+
+        float contactW = static_cast<float>(rect.width) * scale * 0.45f;
+        sf::CircleShape contact(contactW);
+        contact.setScale(1.0f, 0.22f);
+        contact.setOrigin(contactW, contactW);
+        contact.setPosition(x, y - 2.f);
+        contact.setFillColor(sf::Color(0, 0, 0, shadowColor.a));
+        target.draw(contact);
+    }
+
     sprite.setColor(color);
     target.draw(sprite);
 }
@@ -898,4 +918,10 @@ void StructureManager::setGroundTexture(const sf::Texture& tex) {
 
 void StructureManager::setRearLawnTexture(const sf::Texture& tex) {
     rearLawnTexture = &tex;
+}
+
+void StructureManager::setShadowParams(float shearX, float projY, sf::Color color) {
+    shadowShearX = shearX;
+    shadowProjY = projY;
+    shadowColor = color;
 }

@@ -30,6 +30,10 @@ private:
     const sf::IntRect rectFxSmoke          = sf::IntRect(1148, 4794, 68,  91);
     const sf::Texture* groundTexture = nullptr;
     const sf::Texture* rearLawnTexture = nullptr;
+    float shadowShearX = 0.f;
+    float shadowProjY = 0.2f;
+    sf::Color shadowColor = sf::Color(10, 14, 22, 100);
+    bool enableShadows = true;
     void drawSpriteAnchored(sf::RenderTarget& target, const sf::IntRect& rect, float x, float y, float scale, sf::Color color = sf::Color::White);
 
 public:
@@ -38,7 +42,7 @@ public:
     const sf::Texture* getTexture() const { return villageTexture; }
 
     void update(float dt, sim::SimulationRegistry& registry);
-
+    void setShadowParams(float shearX, float projY, sf::Color color);
     void draw(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
     void drawBackgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);
     void drawMidgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds);

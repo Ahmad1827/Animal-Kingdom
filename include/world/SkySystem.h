@@ -2,6 +2,13 @@
 #include <SFML/Graphics.hpp>
 #include <vector>
 
+enum class SkyWeather {
+    Clear,
+    Scattered,
+    Cloudy,
+    Overcast
+};
+
 struct Star {
     sf::Vector2f position;
     float baseBrightness;
@@ -9,52 +16,70 @@ struct Star {
     float size;
 };
 
-struct CloudTier {
+struct CloudSegment {
+    sf::Vector2f offset;
+    sf::Vector2f size;
+};
+
+struct ProceduralCloud {
     sf::Vector2f position;
-    float speed;
+    float speedMultiplier;
     float scale;
-    sf::Color tint;
-    sf::IntRect spriteRect;
+    float layerDepth;
+    std::vector<CloudSegment> segments;
 };
 
 struct SkyPalette {
     sf::Color zenith;
     sf::Color midSky;
+    sf::Color lowerSky;
     sf::Color horizon;
     sf::Color sunTint;
-    sf::Color ambientLight;
+    sf::Color sunGlow;
+    sf::Color moonTint;
+    sf::Color cloudTop;
+    sf::Color cloudMid;
+    sf::Color cloudBase;
 };
 
 class SkySystem {
 private:
-    std::vector<Star> stars;
-    std::vector<CloudTier> clouds;
-    sf::VertexArray skyBands;
-    sf::Texture ditherPattern;
+    float skyWidth = 1280.f;
+    float skyHeight = 540.f;
+    float totalTime = 0.f;
 
-    sf::CircleShape sunShape;
-    sf::CircleShape sunHalo;
-    sf::CircleShape moonShape;
-    sf::CircleShape moonCrescentCut;
+    SkyWeather currentWeather = SkyWeather::Scattered;
+    SkyWeather targetWeather = SkyWeather::Cloudy;
+    float weatherTransition = 1.0f;
+    float weatherTimer = 0.f;
+    float cloudDensity = 0.45f;
+
+    std::vector<Star> stars;
+    std::vector<ProceduralCloud> backgroundClouds;
+    std::vector<ProceduralCloud> foregroundClouds;
+
+    sf::VertexArray skyBands;
+    sf::VertexArray starVertices;
 
     SkyPalette dayPalette;
     SkyPalette sunsetPalette;
     SkyPalette nightPalette;
     SkyPalette dawnPalette;
-
-    float skyWidth = 1280.f;
-    float skyHeight = 500.f;
-    float starTime = 0.f;
+    SkyPalette overcastPalette;
 
     sf::Color lerpColor(const sf::Color& a, const sf::Color& b, float t) const;
-    SkyPalette evaluateCurrentPalette(float timeOfDay) const;
+    SkyPalette getBasePalette(float timeOfDay) const;
+    SkyPalette evaluatePalette(float timeOfDay) const;
+    void generateCloudCluster(std::vector<ProceduralCloud>& layer, float startX, float layerDepth);
+    void updateWeather(float dt);
 
 public:
     SkySystem();
     void init(float width, float height, int starCount);
+    void setWeather(SkyWeather weather);
     void update(float dt, float timeOfDay, float cameraX);
     void drawSky(sf::RenderTarget& target, float timeOfDay, float cameraX);
     void drawCelestials(sf::RenderTarget& target, float timeOfDay, float cameraX);
     void drawStars(sf::RenderTarget& target, float timeOfDay);
-    void drawClouds(sf::RenderTarget& target, const sf::Texture* cloudTexture);
+    void drawClouds(sf::RenderTarget& target, float timeOfDay, float cameraX);
 };

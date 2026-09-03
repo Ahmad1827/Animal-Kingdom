@@ -4,8 +4,8 @@
 #include <cmath>
 
 CameraManager::CameraManager(sf::Vector2f size) {
-    currentZoom = 2.15f;
-    targetZoom = 2.15f;
+    currentZoom = 1.45f;
+    targetZoom = 1.45f;
 
     view.setSize(size.x * currentZoom, size.y * currentZoom);
     view.setCenter(0.f, 0.f);
@@ -60,7 +60,7 @@ void CameraManager::update(float dt, const sf::Vector2f& targetPos, const sf::Ve
 
     sf::Vector2f idealPos = anchorPos;
     idealPos.x += lookAheadOffset.x;
-    idealPos.y = anchorPos.y - 45.f;
+    idealPos.y = anchorPos.y - 25.f;
 
     float currentLerpX = tuning.baseLerpX + (speedRatio * 1.5f);
     float currentLerpY = tuning.baseLerpY;

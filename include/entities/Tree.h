@@ -68,7 +68,12 @@ private:
     void appendOctagon(sf::VertexArray& mesh, const sf::Vector2f& center, float radius, sf::Color color);
     void setupVariant(int variant, sf::Texture& fallbackTex);
 
+    static float globalShadowShearX;
+    static float globalShadowProjY;
+    static sf::Color globalShadowColor;
+
 public:
+    static void setGlobalShadowParams(float shearX, float projY, sf::Color color);
     static sf::Texture& getVariantTexture(int variant, sf::Texture& fallbackTex);
     static sf::Texture& getJungleGroundTexture(sf::Texture& fallbackTex);
 

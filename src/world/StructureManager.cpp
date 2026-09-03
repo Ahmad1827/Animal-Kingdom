@@ -98,7 +98,7 @@ void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::Village
     float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
     float viewWidth = view.getSize().x + 800.f;
 
-    float yardTopY = groundY - 185.f;
+    float yardTopY = groundY - 228.f;
     float yardBottomY = groundY - 14.f;
     float yardH = yardBottomY - yardTopY;
 
@@ -144,7 +144,7 @@ void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::Vil
     float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
     float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 400.f;
 
-    float rearFenceBaseY = groundY - 180.f;
+    float rearFenceBaseY = groundY - 223.f;
     float fenceScale = 0.30f;
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
     sf::Color fenceBgColor(180, 185, 200, 245);

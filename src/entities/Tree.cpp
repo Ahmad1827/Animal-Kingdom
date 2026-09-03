@@ -5,6 +5,16 @@
 #include <algorithm>
 #include <iostream>
 
+float Tree::globalShadowShearX = 0.f;
+float Tree::globalShadowProjY = 0.2f;
+sf::Color Tree::globalShadowColor = sf::Color(10, 14, 22, 100);
+
+void Tree::setGlobalShadowParams(float shearX, float projY, sf::Color color) {
+    globalShadowShearX = shearX;
+    globalShadowProjY = projY;
+    globalShadowColor = color;
+}
+
 sf::Texture& Tree::getVariantTexture(int variant, sf::Texture& fallbackTex) {
     static sf::Texture textures[5];
     static bool loaded[5] = {false, false, false, false, false};
@@ -228,6 +238,20 @@ void Tree::drawGeometry(sf::RenderTarget& target, const sf::FloatRect&, Profiler
 
     sf::Sprite drawnTrunk = trunkSprite;
     drawnTrunk.setColor(sf::Color(255, 255, 255, alpha));
+    float baseY = worldY;
+
+    sf::Transform shadowProj(
+        1.f, -globalShadowShearX, globalShadowShearX * baseY,
+        0.f, -globalShadowProjY,  (1.f + globalShadowProjY) * baseY,
+        0.f, 0.f,                 1.f
+    );
+
+    sf::Sprite shadowSpr = trunkSprite;
+    sf::Color sColor = globalShadowColor;
+    sColor.a = static_cast<sf::Uint8>(sColor.a * (alpha / 255.f));
+    shadowSpr.setColor(sColor);
+
+    target.draw(shadowSpr, shadowProj * states.transform);
     target.draw(drawnTrunk, states);
     profiler.drawCalls++;
 

@@ -366,16 +366,36 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
             float groundY = getTerrainHeight(leftEdge);
 
             if (villageTexture && villageTexture->getSize().x > 0) {
+                float lookpostGroundY = getTerrainHeight(leftEdge + 360.f);
+
                 sf::Sprite lookpost(*villageTexture, rectLookpost);
                 lookpost.setOrigin(static_cast<float>(rectLookpost.width) * 0.5f, static_cast<float>(rectLookpost.height));
-                lookpost.setPosition(leftEdge + 360.f, groundY);
+                lookpost.setPosition(leftEdge + 360.f, lookpostGroundY);
                 lookpost.setScale(0.82f, 0.82f);
+
+                sf::Transform lookpostShadowProj(
+                    1.f, -shadowShearX, shadowShearX * lookpostGroundY,
+                    0.f, -shadowProjY,  (1.f + shadowProjY) * lookpostGroundY,
+                    0.f, 0.f,           1.f
+                );
+                sf::Sprite lookpostShadow = lookpost;
+                lookpostShadow.setColor(shadowColor);
+                target.draw(lookpostShadow, lookpostShadowProj);
                 target.draw(lookpost);
 
                 sf::Sprite totem(*villageTexture, rectBorderMonument);
                 totem.setOrigin(static_cast<float>(rectBorderMonument.width) * 0.5f, static_cast<float>(rectBorderMonument.height));
                 totem.setPosition(leftEdge, groundY);
                 totem.setScale(0.48f, 0.48f);
+
+                sf::Transform totemShadowProj(
+                    1.f, -shadowShearX, shadowShearX * groundY,
+                    0.f, -shadowProjY,  (1.f + shadowProjY) * groundY,
+                    0.f, 0.f,           1.f
+                );
+                sf::Sprite totemShadow = totem;
+                totemShadow.setColor(shadowColor);
+                target.draw(totemShadow, totemShadowProj);
                 target.draw(totem);
             } else {
                 sf::RectangleShape pole(sf::Vector2f(6.f, 120.f));
@@ -404,16 +424,36 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
             float groundY = getTerrainHeight(rightEdge);
 
             if (villageTexture && villageTexture->getSize().x > 0) {
+                float lookpostGroundY = getTerrainHeight(rightEdge - 360.f);
+
                 sf::Sprite lookpost(*villageTexture, rectLookpost);
                 lookpost.setOrigin(static_cast<float>(rectLookpost.width) * 0.5f, static_cast<float>(rectLookpost.height));
-                lookpost.setPosition(rightEdge - 360.f, groundY);
+                lookpost.setPosition(rightEdge - 360.f, lookpostGroundY);
                 lookpost.setScale(0.82f, 0.82f);
+
+                sf::Transform lookpostShadowProj(
+                    1.f, -shadowShearX, shadowShearX * lookpostGroundY,
+                    0.f, -shadowProjY,  (1.f + shadowProjY) * lookpostGroundY,
+                    0.f, 0.f,           1.f
+                );
+                sf::Sprite lookpostShadow = lookpost;
+                lookpostShadow.setColor(shadowColor);
+                target.draw(lookpostShadow, lookpostShadowProj);
                 target.draw(lookpost);
 
                 sf::Sprite totem(*villageTexture, rectBorderMonument);
                 totem.setOrigin(static_cast<float>(rectBorderMonument.width) * 0.5f, static_cast<float>(rectBorderMonument.height));
                 totem.setPosition(rightEdge, groundY);
                 totem.setScale(0.48f, 0.48f);
+
+                sf::Transform totemShadowProj(
+                    1.f, -shadowShearX, shadowShearX * groundY,
+                    0.f, -shadowProjY,  (1.f + shadowProjY) * groundY,
+                    0.f, 0.f,           1.f
+                );
+                sf::Sprite totemShadow = totem;
+                totemShadow.setColor(shadowColor);
+                target.draw(totemShadow, totemShadowProj);
                 target.draw(totem);
             } else {
                 sf::RectangleShape pole(sf::Vector2f(6.f, 120.f));
@@ -450,4 +490,10 @@ bool WorldManager::harvestTree(int treeId) {
 
 bool WorldManager::harvestTreeNear(float worldX, float radius) {
     return chunkManager ? chunkManager->harvestTreeNear(worldX, radius) : false;
+}
+
+void WorldManager::setShadowParams(float shearX, float projY, sf::Color color) {
+    shadowShearX = shearX;
+    shadowProjY = projY;
+    shadowColor = color;
 }

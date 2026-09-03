@@ -28,6 +28,9 @@ private:
 
     const sf::IntRect rectBorderMonument = sf::IntRect(1070, 1423, 224, 666);
     const sf::IntRect rectLookpost       = sf::IntRect(1832, 1430, 275, 659);
+    float shadowShearX = 0.f;
+    float shadowProjY = 0.2f;
+    sf::Color shadowColor = sf::Color(10, 14, 22, 100);
 
     void syncVineOwnership();
 
@@ -36,7 +39,8 @@ public:
 
     void setVillageTexture(const sf::Texture& tex) { villageTexture = &tex; }
     const sf::Texture* getTexture() const { return villageTexture; }
-
+    void setShadowParams(float shearX, float projY, sf::Color color);
+    
     void update(float dt, const sf::FloatRect& preloadBounds, const sf::FloatRect& unloadBounds, ProfilerStats& profiler);
     void updateSway(float dt, const sf::FloatRect& viewBounds, const sf::Vector2f& windVector);
 

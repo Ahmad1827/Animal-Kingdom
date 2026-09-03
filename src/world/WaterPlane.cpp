@@ -57,7 +57,7 @@ void WaterPlane::draw(sf::RenderTarget& target,
 
     if (!submerged) {
         drawReflection(target, sceneTexture, surfaceY, w, h);
-        drawSurfaceLine(target, surfaceY, w, skyTint);
+        //drawSurfaceLine(target, surfaceY, w, skyTint);
         drawSparkles(target, surfaceY, w, h, cameraView, skyTint);
     }
 

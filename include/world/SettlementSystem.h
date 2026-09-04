@@ -56,8 +56,8 @@ private:
     sf::ConvexShape miniIreland;
 
     float pulseTime = 0.f;
-    float westCoastX = -20800.f;
-    float eastCoastX = 220000.f;
+    float westCoastX = -32800.f;
+    float eastCoastX = 368000.f;
 
     void buildAuthenticMapGeometry();
     void syncDynamicVillages(sim::SimulationRegistry& registry);

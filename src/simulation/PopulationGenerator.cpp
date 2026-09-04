@@ -324,19 +324,19 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
     };
 
     std::vector<VillageBlueprint> route = {
-        {10,  10, "Cornwallum",    "Kernow (Tintagel)", -18000.f, sf::Color(90, 160, 150), true},
-        {20,  1,  "Wessex",        "Hamwic",             18000.f, sf::Color(145, 180, 75),  false},
-        {30,  1,  "Wessex",        "Readingas",          36000.f, sf::Color(145, 180, 75),  false},
-        {40,  1,  "Wessex",        "Lundenburh",         54000.f, sf::Color(145, 180, 75),  false},
-        {50,  20, "East Anglia",   "Theodford",          72000.f, sf::Color(190, 110, 60),  true},
-        {60,  30, "Mercia",        "Tamworthig",         90000.f, sf::Color(70, 120, 180),  true},
-        {70,  30, "Mercia",        "Legaceaster",       108000.f, sf::Color(70, 120, 180),  false},
-        {80,  40, "Five Boroughs", "Lindcylene",        126000.f, sf::Color(180, 60, 50),   true},
-        {90,  50, "Jorvik",        "Jorvik",            144000.f, sf::Color(160, 45, 45),   true},
-        {100, 60, "Northumbria",   "Dunholm",           162000.f, sf::Color(90, 100, 150),  true},
-        {110, 60, "Northumbria",   "Bebbanburg",        180000.f, sf::Color(90, 100, 150),  false},
-        {120, 70, "Alba",          "Dun Eideann",       198000.f, sf::Color(130, 90, 140),  true},
-        {130, 70, "Alba",          "Sgain",             216000.f, sf::Color(130, 90, 140),  false}
+        {10,  10, "Cornwallum",    "Kernow (Tintagel)", -30000.f, sf::Color(90, 160, 150), true},
+        {20,  1,  "Wessex",        "Hamwic",             30000.f, sf::Color(145, 180, 75),  false},
+        {30,  1,  "Wessex",        "Readingas",          60000.f, sf::Color(145, 180, 75),  false},
+        {40,  1,  "Wessex",        "Lundenburh",         90000.f, sf::Color(145, 180, 75),  false},
+        {50,  20, "East Anglia",   "Theodford",         120000.f, sf::Color(190, 110, 60),  true},
+        {60,  30, "Mercia",        "Tamworthig",        150000.f, sf::Color(70, 120, 180),  true},
+        {70,  30, "Mercia",        "Legaceaster",       180000.f, sf::Color(70, 120, 180),  false},
+        {80,  40, "Five Boroughs", "Lindcylene",        210000.f, sf::Color(180, 60, 50),   true},
+        {90,  50, "Jorvik",        "Jorvik",            240000.f, sf::Color(160, 45, 45),   true},
+        {100, 60, "Northumbria",   "Dunholm",           270000.f, sf::Color(90, 100, 150),  true},
+        {110, 60, "Northumbria",   "Bebbanburg",        300000.f, sf::Color(90, 100, 150),  false},
+        {120, 70, "Alba",          "Dun Eideann",       330000.f, sf::Color(130, 90, 140),  true},
+        {130, 70, "Alba",          "Sgain",             360000.f, sf::Color(130, 90, 140),  false}
     };
 
     std::vector<std::string> names = {"Spear", "Fang", "Goro", "Kala", "Kerchak", "Terk", "Ash", "Buck", "Brutus", "Goliath"};

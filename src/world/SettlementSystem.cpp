@@ -183,6 +183,7 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
 
     std::vector<RegionGeo> eastGeoRoute = {
         {"Readingas", "Reading", "Kingdom of Wessex", {475.f, 485.f}},
+        {"Hamwic", "Southampton", "Kingdom of Wessex", {445.f, 525.f}},
         {"Lundenburh", "London", "March of Wessex & Mercia", {520.f, 485.f}},
         {"Theodford", "Thetford", "Kingdom of East Anglia", {565.f, 440.f}},
         {"Tamworthig", "Tamworth", "Kingdom of Mercia", {460.f, 420.f}},
@@ -208,25 +209,6 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
         rs.borderLeftX = v->borderMinX;
         rs.borderRightX = v->borderMaxX;
 
-        bool allied = false;
-        if (controlled) {
-            if (v->id == controlled->villageId) {
-                allied = true;
-            } else if (controlled->currentKingdom != 0 && v->kingdomId == controlled->currentKingdom) {
-                allied = true;
-            } else if (v->kingdomId != 0 && controlled->currentKingdom != 0) {
-                sim::KingdomData* myK = registry.getKingdom(controlled->currentKingdom);
-                if (myK && myK->relations.count(v->kingdomId)) {
-                    auto st = myK->relations[v->kingdomId];
-                    if (st == sim::DiplomacyStatus::Friendly || st == sim::DiplomacyStatus::Alliance || st == sim::DiplomacyStatus::Trade) {
-                        allied = true;
-                    }
-                }
-            } else if (v->personalOpinions.count(controlled->id) && v->personalOpinions[controlled->id] >= 30) {
-                allied = true;
-            }
-        }
-
         if (i == playerIdx) {
             rs.historicalName = "Wintanceaster";
             rs.modernName = "Winchester";
@@ -247,15 +229,24 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
 
             if (v->kingdomId != 0) {
                 sim::KingdomData* kd = registry.getKingdom(v->kingdomId);
-                if (kd) {
-                    rs.kingdomName = "Kingdom of " + kd->name;
-                } else {
-                    rs.kingdomName = geo.kingdom;
-                }
+                rs.kingdomName = kd ? ("Kingdom of " + kd->name) : geo.kingdom;
             } else {
                 rs.kingdomName = geo.kingdom;
             }
             rs.mapCoord = geo.mapPos;
+
+            bool allied = false;
+            if (rs.kingdomName.find("Wessex") != std::string::npos || rs.kingdomName.find("Cornwall") != std::string::npos) {
+                allied = true;
+            } else if (controlled) {
+                if (v->id == controlled->villageId) {
+                    allied = true;
+                } else if (controlled->currentKingdom != 0 && v->kingdomId == controlled->currentKingdom) {
+                    allied = true;
+                } else if (v->personalOpinions.count(controlled->id) && v->personalOpinions[controlled->id] >= 30) {
+                    allied = true;
+                }
+            }
             rs.isAllied = allied;
         }
 
@@ -267,6 +258,17 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
     });
 
     isInitialized = true;
+}
+
+bool SettlementSystem::canFreelyPass(float x) const {
+    const RealSettlement* s = getSettlementAt(x);
+    if (s) {
+        if (s->isAllied || s->kingdomName.find("Wessex") != std::string::npos || s->kingdomName.find("Cornwall") != std::string::npos) {
+            return true;
+        }
+    }
+    if (!realSettlements.empty() && x <= realSettlements[0].centerX) return true;
+    return false;
 }
 
 void SettlementSystem::syncWithWorld(sim::SimulationRegistry& registry) {
@@ -823,11 +825,4 @@ const RealSettlement* SettlementSystem::getSettlementByVillageId(sim::VillageID 
         }
     }
     return nullptr;
-}
-
-bool SettlementSystem::canFreelyPass(float x) const {
-    const RealSettlement* s = getSettlementAt(x);
-    if (s) return s->isAllied;
-    if (!realSettlements.empty() && x <= realSettlements[0].centerX) return true;
-    return false;
 }

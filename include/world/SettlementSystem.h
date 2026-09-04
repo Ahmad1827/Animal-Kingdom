@@ -56,7 +56,8 @@ private:
     sf::ConvexShape miniIreland;
 
     float pulseTime = 0.f;
-    float westCoastX = -7200.f;
+    float westCoastX = -20800.f;
+    float eastCoastX = 220000.f;
 
     void buildAuthenticMapGeometry();
     void syncDynamicVillages(sim::SimulationRegistry& registry);
@@ -74,6 +75,7 @@ public:
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }
+    float getEastCoastLimit() const { return eastCoastX; }
     const RealSettlement* getActiveSettlement() const;
     const RealSettlement* getSettlementAt(float x) const;
     const RealSettlement* getSettlementByVillageId(sim::VillageID id) const;

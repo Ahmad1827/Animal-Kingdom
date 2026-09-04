@@ -154,8 +154,9 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     std::vector<Trait> allTraits = {Trait::Brave, Trait::Strategic, Trait::Honorable, Trait::Charismatic, Trait::Hardworking, Trait::Clever};
 
     VillageData pVillage;
-    pVillage.id = IDGenerator::generateVillageID();
-    pVillage.name = "First Tree";
+    pVillage.id = 1;
+    pVillage.kingdomId = 1;
+    pVillage.name = "Wintanceaster";
     pVillage.identity = VillageIdentity::Balanced;
     pVillage.homeChunkX = 0;
     pVillage.centerX = SettlementLayout::getPlayerCenterX();
@@ -189,8 +190,8 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     spawnBaseStructures(registry, pVillage);
 
     DynastyData dyn;
-    dyn.id = IDGenerator::generateDynastyID();
-    dyn.name = "Kong";
+    dyn.id = 1;
+    dyn.name = "House of Wessex";
     dyn.wealth = 100;
     dyn.prestige = 80;
     dyn.legitimacy = 100;
@@ -206,6 +207,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     founder.amberCount = 8;
     founder.maxAmber = 40;
     founder.currentJob = Job::Idle;
+    founder.currentKingdom = 1;
 
     ApeData spouse = createRandomApe(worldSeed + 1001, dyn.id, pVillage.id, names, allTraits, worldSeed);
     spouse.name = "Maya";
@@ -219,6 +221,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     spouse.spouseId = founder.id;
     founder.spouseId = spouse.id;
     spouse.currentJob = Job::Idle;
+    spouse.currentKingdom = 1;
 
     ApeData child = createRandomApe(worldSeed + 1002, dyn.id, pVillage.id, names, allTraits, worldSeed);
     child.name = "Tano";
@@ -232,6 +235,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     child.fatherId = founder.id;
     child.motherId = spouse.id;
     child.currentJob = Job::Idle;
+    child.currentKingdom = 1;
 
     ApeData sibling = createRandomApe(worldSeed + 1003, dyn.id, pVillage.id, names, allTraits, worldSeed);
     sibling.name = "Boro";
@@ -243,6 +247,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     sibling.homeY = sibling.worldY;
     sibling.isMainApe = true;
     sibling.currentJob = Job::Guard;
+    sibling.currentKingdom = 1;
 
     ApeData worker1 = createRandomApe(worldSeed + 1004, 0, pVillage.id, names, allTraits, worldSeed);
     worker1.name = "Aldo";
@@ -253,6 +258,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     worker1.homeY = worker1.worldY;
     worker1.isMainApe = false;
     worker1.currentJob = Job::Guard;
+    worker1.currentKingdom = 1;
 
     ApeData worker2 = createRandomApe(worldSeed + 1005, 0, pVillage.id, names, allTraits, worldSeed);
     worker2.name = "Maurice";
@@ -263,6 +269,7 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
     worker2.homeY = worker2.worldY;
     worker2.isMainApe = false;
     worker2.currentJob = Job::Idle;
+    worker2.currentKingdom = 1;
 
     founder.children.push_back(child.id);
     spouse.children.push_back(child.id);
@@ -289,37 +296,74 @@ EntityID PopulationGenerator::generatePlayerDynasty(SimulationRegistry& registry
 
     spawnNodes(registry, pVillage.centerX, worldSeed);
 
+    KingdomData wessex;
+    wessex.id = 1;
+    wessex.name = "Wessex";
+    wessex.leaderDynastyId = dyn.id;
+    wessex.currentKingId = founder.id;
+    wessex.capitalVillageId = pVillage.id;
+    wessex.controlledVillages = {pVillage.id};
+    wessex.color = sf::Color(145, 180, 75);
+    wessex.territoryMinX = pVillage.borderMinX;
+    wessex.territoryMaxX = pVillage.borderMaxX;
+    wessex.permittedApes.insert(founder.id);
+    registry.registerKingdom(wessex);
+
     return founder.id;
 }
 
 void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_t worldSeed) {
+    struct VillageBlueprint {
+        VillageID vId;
+        KingdomID kId;
+        std::string kingdomName;
+        std::string name;
+        float worldX;
+        sf::Color kingdomColor;
+        bool isCapital;
+    };
+
+    std::vector<VillageBlueprint> route = {
+        {10,  10, "Cornwallum",    "Kernow (Tintagel)", -18000.f, sf::Color(90, 160, 150), true},
+        {20,  1,  "Wessex",        "Hamwic",             18000.f, sf::Color(145, 180, 75),  false},
+        {30,  1,  "Wessex",        "Readingas",          36000.f, sf::Color(145, 180, 75),  false},
+        {40,  1,  "Wessex",        "Lundenburh",         54000.f, sf::Color(145, 180, 75),  false},
+        {50,  20, "East Anglia",   "Theodford",          72000.f, sf::Color(190, 110, 60),  true},
+        {60,  30, "Mercia",        "Tamworthig",         90000.f, sf::Color(70, 120, 180),  true},
+        {70,  30, "Mercia",        "Legaceaster",       108000.f, sf::Color(70, 120, 180),  false},
+        {80,  40, "Five Boroughs", "Lindcylene",        126000.f, sf::Color(180, 60, 50),   true},
+        {90,  50, "Jorvik",        "Jorvik",            144000.f, sf::Color(160, 45, 45),   true},
+        {100, 60, "Northumbria",   "Dunholm",           162000.f, sf::Color(90, 100, 150),  true},
+        {110, 60, "Northumbria",   "Bebbanburg",        180000.f, sf::Color(90, 100, 150),  false},
+        {120, 70, "Alba",          "Dun Eideann",       198000.f, sf::Color(130, 90, 140),  true},
+        {130, 70, "Alba",          "Sgain",             216000.f, sf::Color(130, 90, 140),  false}
+    };
+
     std::vector<std::string> names = {"Spear", "Fang", "Goro", "Kala", "Kerchak", "Terk", "Ash", "Buck", "Brutus", "Goliath"};
     std::vector<Trait> allTraits = {Trait::Brave, Trait::Coward, Trait::Greedy, Trait::Cruel, Trait::Lazy, Trait::Strategic, Trait::Aggressive};
-    std::vector<VillageIdentity> identities = {VillageIdentity::Aggressive, VillageIdentity::FoodRich, VillageIdentity::StoneFocused, VillageIdentity::WoodFocused, VillageIdentity::Peaceful};
 
-    uint32_t popSeed = worldSeed;
-    std::vector<float> centers = SettlementLayout::getVillageCenters(worldSeed);
+    EntityID playerApeId = registry.getControlledApe();
 
-    for (size_t v = 0; v < centers.size(); ++v) {
+    for (const auto& bp : route) {
         VillageData village;
-        village.id = IDGenerator::generateVillageID();
-        village.name = "Tribe of " + names[v % names.size()];
-        village.identity = identities[v % identities.size()];
-
-        village.centerX = centers[v];
+        village.id = bp.vId;
+        village.kingdomId = bp.kId;
+        village.name = bp.name;
+        village.identity = VillageIdentity::Balanced;
+        village.centerX = bp.worldX;
         village.homeChunkX = static_cast<int>(std::floor((village.centerX - 1000.f) / 2000.f));
         village.centerY = 500.0f;
         village.throneX = village.centerX;
         village.tier = SettlementTier::FirePit;
         village.isGatheringActive = false;
-        village.amber = 5;
-        village.food = 40;
-        village.wood = 20;
-        village.stone = 10;
-        village.maxAmber = 50;
-        village.maxFood = 60;
-        village.maxWood = 40;
-        village.maxStone = 20;
+        village.amber = 10;
+        village.food = 60;
+        village.wood = 40;
+        village.stone = 20;
+        village.maxAmber = 60;
+        village.maxFood = 100;
+        village.maxWood = 80;
+        village.maxStone = 40;
         village.toolsAxe = 0;
         village.toolsSpear = 1;
         village.availableAxeSlots = 0;
@@ -332,12 +376,16 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
         village.borderMaxX = eastWallX + WALL_TO_BORDER_OFFSET;
         village.territoryRadius = std::max(village.borderMaxX - village.centerX, village.centerX - village.borderMinX);
 
+        if (playerApeId != 0 && (bp.kId == 1 || bp.kId == 10)) {
+            village.permittedApes.insert(playerApeId);
+        }
+
         spawnBaseStructures(registry, village);
 
-        int pop = SeedManager::getRandomInt(popSeed, 5, 8);
+        int pop = 6;
         for (int i = 0; i < pop; ++i) {
-            ApeData ape = createRandomApe(worldSeed + (static_cast<uint32_t>(v) * 1000) + i, 0, village.id, names, allTraits, worldSeed);
-            ape.isMainApe = (i < 3);
+            ApeData ape = createRandomApe(worldSeed + (static_cast<uint32_t>(bp.vId) * 1000) + i, 0, village.id, names, allTraits, worldSeed);
+            ape.currentKingdom = bp.kId;
 
             float xOffset = 0.f;
             if (i == 0) {
@@ -354,9 +402,6 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
             } else if (i == 3) {
                 ape.currentJob = Job::Forage;
                 xOffset = 700.f;
-            } else if (i == 4) {
-                ape.currentJob = Job::Idle;
-                xOffset = -700.f;
             } else {
                 ape.currentJob = Job::Socialize;
                 xOffset = (i % 2 == 0 ? 180.f : -180.f);
@@ -370,8 +415,34 @@ void PopulationGenerator::generateVillages(SimulationRegistry& registry, uint32_
             village.members.push_back(ape.id);
             registry.registerApe(ape);
         }
+
         registry.registerVillage(village);
         spawnNodes(registry, village.centerX, worldSeed);
+
+        KingdomData* kd = registry.getKingdom(bp.kId);
+        if (!kd) {
+            KingdomData newK;
+            newK.id = bp.kId;
+            newK.name = bp.kingdomName;
+            newK.capitalVillageId = village.id;
+            newK.currentKingId = village.leaderId;
+            newK.controlledVillages.push_back(village.id);
+            newK.territoryMinX = village.borderMinX;
+            newK.territoryMaxX = village.borderMaxX;
+            newK.color = bp.kingdomColor;
+            if (playerApeId != 0 && (bp.kId == 1 || bp.kId == 10)) {
+                newK.permittedApes.insert(playerApeId);
+            }
+            registry.registerKingdom(newK);
+        } else {
+            kd->controlledVillages.push_back(village.id);
+            kd->territoryMinX = std::min(kd->territoryMinX, village.borderMinX);
+            kd->territoryMaxX = std::max(kd->territoryMaxX, village.borderMaxX);
+            if (bp.isCapital) {
+                kd->capitalVillageId = village.id;
+                kd->currentKingId = village.leaderId;
+            }
+        }
     }
 }
 

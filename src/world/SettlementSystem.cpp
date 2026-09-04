@@ -110,25 +110,25 @@ void SettlementSystem::buildAuthenticMapGeometry() {
     addWave(250.f, 280.f);
     addWave(310.f, 350.f);
 
-    miniFrameOuter.setSize(sf::Vector2f(280.f, 205.f));
-    miniFrameOuter.setPosition(980.f, 16.f);
+    miniFrameOuter.setSize(sf::Vector2f(276.f, 200.f));
+    miniFrameOuter.setPosition(984.f, 16.f);
     miniFrameOuter.setFillColor(sf::Color(220, 204, 172));
     miniFrameOuter.setOutlineColor(sf::Color(44, 28, 16));
     miniFrameOuter.setOutlineThickness(2.5f);
 
-    miniFrameInner.setSize(sf::Vector2f(272.f, 197.f));
-    miniFrameInner.setPosition(984.f, 20.f);
+    miniFrameInner.setSize(sf::Vector2f(268.f, 192.f));
+    miniFrameInner.setPosition(988.f, 20.f);
     miniFrameInner.setFillColor(sf::Color::Transparent);
     miniFrameInner.setOutlineColor(sf::Color(135, 95, 45));
     miniFrameInner.setOutlineThickness(1.f);
 
-    miniSea.setSize(sf::Vector2f(266.f, 150.f));
-    miniSea.setPosition(987.f, 42.f);
+    miniSea.setSize(sf::Vector2f(260.f, 142.f));
+    miniSea.setPosition(992.f, 42.f);
     miniSea.setFillColor(sf::Color(186, 204, 208, 190));
 
-    sf::Vector2f miniCenter(1120.f, 117.f);
-    sf::Vector2f mapCenter(378.f, 342.f);
-    float miniScale = 0.23f;
+    sf::Vector2f miniCenter(1122.f, 114.f);
+    sf::Vector2f mapCenter(377.5f, 342.5f);
+    float miniScale = 0.20f;
 
     miniBritain.setPointCount(britPts.size());
     for (size_t i = 0; i < britPts.size(); ++i) {
@@ -164,91 +164,71 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
     });
 
     sim::ApeData* controlled = registry.getApe(registry.getControlledApe());
-    sim::VillageID playerVid = (controlled && controlled->villageId != 0) ? controlled->villageId : sorted.front()->id;
 
-    size_t playerIdx = 0;
-    for (size_t i = 0; i < sorted.size(); ++i) {
-        if (sorted[i]->id == playerVid) {
-            playerIdx = i;
-            break;
-        }
-    }
-
-    struct RegionGeo {
-        std::string hist;
-        std::string modern;
-        std::string kingdom;
-        sf::Vector2f mapPos;
+    auto getMapPos = [](const std::string& name) -> sf::Vector2f {
+        if (name.find("Kernow") != std::string::npos) return {295.f, 560.f};
+        if (name.find("Wintanceaster") != std::string::npos) return {430.f, 510.f};
+        if (name.find("Hamwic") != std::string::npos) return {435.f, 540.f};
+        if (name.find("Readingas") != std::string::npos) return {470.f, 495.f};
+        if (name.find("Lundenburh") != std::string::npos) return {510.f, 490.f};
+        if (name.find("Theodford") != std::string::npos) return {555.f, 445.f};
+        if (name.find("Tamworthig") != std::string::npos) return {465.f, 420.f};
+        if (name.find("Legaceaster") != std::string::npos) return {395.f, 385.f};
+        if (name.find("Lindcylene") != std::string::npos) return {515.f, 390.f};
+        if (name.find("Jorvik") != std::string::npos) return {490.f, 340.f};
+        if (name.find("Dunholm") != std::string::npos) return {470.f, 285.f};
+        if (name.find("Bebbanburg") != std::string::npos) return {475.f, 235.f};
+        if (name.find("Dun Eideann") != std::string::npos) return {440.f, 195.f};
+        if (name.find("Sgain") != std::string::npos) return {430.f, 160.f};
+        return {450.f, 350.f};
     };
 
-    std::vector<RegionGeo> eastGeoRoute = {
-        {"Readingas", "Reading", "Kingdom of Wessex", {475.f, 485.f}},
-        {"Hamwic", "Southampton", "Kingdom of Wessex", {445.f, 525.f}},
-        {"Lundenburh", "London", "March of Wessex & Mercia", {520.f, 485.f}},
-        {"Theodford", "Thetford", "Kingdom of East Anglia", {565.f, 440.f}},
-        {"Tamworthig", "Tamworth", "Kingdom of Mercia", {460.f, 420.f}},
-        {"Legaceaster", "Chester", "March of Wales", {390.f, 385.f}},
-        {"Lindcylene", "Lincoln", "Five Boroughs of Danelaw", {515.f, 390.f}},
-        {"Jorvik", "York", "Kingdom of Jorvik", {490.f, 340.f}},
-        {"Dunholm", "Durham", "Kingdom of Northumbria", {470.f, 285.f}},
-        {"Bebbanburg", "Bamburgh", "Kingdom of Bernicia", {475.f, 235.f}},
-        {"Dun Eideann", "Edinburgh", "Kingdom of Alba", {440.f, 195.f}},
-        {"Sgain", "Scone", "Kingdom of Alba", {430.f, 165.f}}
+    auto getModernName = [](const std::string& name) -> std::string {
+        if (name.find("Kernow") != std::string::npos) return "Cornwall";
+        if (name.find("Wintanceaster") != std::string::npos) return "Winchester";
+        if (name.find("Hamwic") != std::string::npos) return "Southampton";
+        if (name.find("Readingas") != std::string::npos) return "Reading";
+        if (name.find("Lundenburh") != std::string::npos) return "London";
+        if (name.find("Theodford") != std::string::npos) return "Thetford";
+        if (name.find("Tamworthig") != std::string::npos) return "Tamworth";
+        if (name.find("Legaceaster") != std::string::npos) return "Chester";
+        if (name.find("Lindcylene") != std::string::npos) return "Lincoln";
+        if (name.find("Jorvik") != std::string::npos) return "York";
+        if (name.find("Dunholm") != std::string::npos) return "Durham";
+        if (name.find("Bebbanburg") != std::string::npos) return "Bamburgh";
+        if (name.find("Dun Eideann") != std::string::npos) return "Edinburgh";
+        if (name.find("Sgain") != std::string::npos) return "Scone";
+        return name;
     };
 
-    westCoastX = sorted.front()->borderMinX;
+    westCoastX = sorted.front()->borderMinX - 800.f;
+    eastCoastX = sorted.back()->borderMaxX + 800.f;
 
-    size_t eastCounter = 0;
-    for (size_t i = 0; i < sorted.size(); ++i) {
-        sim::VillageData* v = sorted[i];
-
+    for (sim::VillageData* v : sorted) {
         RealSettlement rs;
         rs.villageId = v->id;
         rs.kingdomId = v->kingdomId;
         rs.centerX = v->centerX;
         rs.borderLeftX = v->borderMinX;
         rs.borderRightX = v->borderMaxX;
+        rs.historicalName = v->name;
+        rs.modernName = getModernName(v->name);
+        rs.mapCoord = getMapPos(v->name);
 
-        if (i == playerIdx) {
-            rs.historicalName = "Wintanceaster";
-            rs.modernName = "Winchester";
-            rs.kingdomName = "Kingdom of Wessex";
-            rs.mapCoord = sf::Vector2f(430.f, 510.f);
-            rs.isAllied = true;
-        } else if (i < playerIdx) {
-            rs.historicalName = "Kernow (Tintagel)";
-            rs.modernName = "Cornwall";
-            rs.kingdomName = "Kingdom of Cornwallum";
-            rs.mapCoord = sf::Vector2f(300.f, 560.f);
-            rs.isAllied = true;
-        } else {
-            RegionGeo geo = eastGeoRoute[eastCounter % eastGeoRoute.size()];
-            eastCounter++;
-            rs.historicalName = geo.hist;
-            rs.modernName = geo.modern;
+        sim::KingdomData* kd = registry.getKingdom(v->kingdomId);
+        rs.kingdomName = kd ? ("Kingdom of " + kd->name) : "Wilderness";
 
-            if (v->kingdomId != 0) {
-                sim::KingdomData* kd = registry.getKingdom(v->kingdomId);
-                rs.kingdomName = kd ? ("Kingdom of " + kd->name) : geo.kingdom;
-            } else {
-                rs.kingdomName = geo.kingdom;
-            }
-            rs.mapCoord = geo.mapPos;
-
-            bool allied = false;
-            if (rs.kingdomName.find("Wessex") != std::string::npos || rs.kingdomName.find("Cornwall") != std::string::npos) {
+        bool allied = false;
+        if (rs.kingdomName.find("Wessex") != std::string::npos || rs.kingdomName.find("Cornwall") != std::string::npos) {
+            allied = true;
+        } else if (controlled) {
+            if (v->id == controlled->villageId || (controlled->currentKingdom != 0 && v->kingdomId == controlled->currentKingdom)) {
                 allied = true;
-            } else if (controlled) {
-                if (v->id == controlled->villageId) {
-                    allied = true;
-                } else if (controlled->currentKingdom != 0 && v->kingdomId == controlled->currentKingdom) {
-                    allied = true;
-                } else if (v->personalOpinions.count(controlled->id) && v->personalOpinions[controlled->id] >= 30) {
-                    allied = true;
-                }
+            } else if (v->personalOpinions.count(controlled->id) && v->personalOpinions[controlled->id] >= 30) {
+                allied = true;
             }
-            rs.isAllied = allied;
         }
+        rs.isAllied = allied;
 
         realSettlements.push_back(rs);
     }
@@ -258,17 +238,6 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
     });
 
     isInitialized = true;
-}
-
-bool SettlementSystem::canFreelyPass(float x) const {
-    const RealSettlement* s = getSettlementAt(x);
-    if (s) {
-        if (s->isAllied || s->kingdomName.find("Wessex") != std::string::npos || s->kingdomName.find("Cornwall") != std::string::npos) {
-            return true;
-        }
-    }
-    if (!realSettlements.empty() && x <= realSettlements[0].centerX) return true;
-    return false;
 }
 
 void SettlementSystem::syncWithWorld(sim::SimulationRegistry& registry) {
@@ -408,162 +377,147 @@ void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxV
 }
 
 void SettlementSystem::drawCoast(sf::RenderTarget& rt, const sf::FloatRect& viewBounds, float groundY, float timeOfDay, const sf::Texture* skyTex, const sf::View* cameraView) {
-    float cliffX = westCoastX;
-    if (viewBounds.left > cliffX + 350.f) return;
+    auto renderCoastSide = [&](float cliffX, bool isWest) {
+        if (isWest && viewBounds.left > cliffX + 350.f) return;
+        if (!isWest && viewBounds.left + viewBounds.width < cliffX - 350.f) return;
 
-    float seaLevelY = groundY + 12.f;
-    float seaBottomY = viewBounds.top + viewBounds.height + 400.f;
-    float farLeftX = viewBounds.left - 400.f;
+        float seaLevelY = groundY + 12.f;
+        float seaBottomY = viewBounds.top + viewBounds.height + 400.f;
 
-    if (skyTex && cameraView) {
-        sf::Vector2i sCliff = rt.mapCoordsToPixel(sf::Vector2f(cliffX, 0.f), *cameraView);
-        float screenCliffX = static_cast<float>(sCliff.x);
-        sf::Vector2i sSea = rt.mapCoordsToPixel(sf::Vector2f(0.f, seaLevelY), *cameraView);
-        float screenSeaY = static_cast<float>(sSea.y);
+        if (skyTex && cameraView) {
+            sf::Vector2i sCliff = rt.mapCoordsToPixel(sf::Vector2f(cliffX, 0.f), *cameraView);
+            float screenCliffX = static_cast<float>(sCliff.x);
+            sf::Vector2i sSea = rt.mapCoordsToPixel(sf::Vector2f(0.f, seaLevelY), *cameraView);
+            float screenSeaY = static_cast<float>(sSea.y);
 
-        if (screenCliffX > 0.f) {
             rt.setView(rt.getDefaultView());
-            int skyW = static_cast<int>(std::clamp(screenCliffX, 0.f, 1280.f));
+            int skyStartX = isWest ? 0 : static_cast<int>(std::clamp(screenCliffX, 0.f, 1280.f));
+            int skyW = isWest ? static_cast<int>(std::clamp(screenCliffX, 0.f, 1280.f)) : static_cast<int>(1280.f - skyStartX);
             int skyH = static_cast<int>(std::clamp(screenSeaY, 0.f, 720.f));
 
             if (skyW > 0 && skyH > 0) {
                 sf::Sprite cleanSky(*skyTex);
-                cleanSky.setTextureRect(sf::IntRect(0, 0, skyW, skyH));
-                cleanSky.setPosition(0.f, 0.f);
+                cleanSky.setTextureRect(sf::IntRect(skyStartX, 0, skyW, skyH));
+                cleanSky.setPosition(static_cast<float>(skyStartX), 0.f);
                 rt.draw(cleanSky);
             }
             rt.setView(*cameraView);
         }
-    }
 
-    sf::Color waterTop;
-    sf::Color waterBottom;
-    float t24 = timeOfDay * 24.0f;
-    if (t24 >= 6.f && t24 < 18.f) {
-        waterTop = sf::Color(32, 68, 92, 255);
-        waterBottom = sf::Color(10, 22, 34, 255);
-    } else if ((t24 >= 4.5f && t24 < 6.f) || (t24 >= 18.f && t24 < 20.f)) {
-        waterTop = sf::Color(48, 38, 58, 255);
-        waterBottom = sf::Color(14, 12, 24, 255);
-    } else {
-        waterTop = sf::Color(14, 22, 32, 255);
-        waterBottom = sf::Color(6, 10, 18, 255);
-    }
-
-    sf::VertexArray oceanBody(sf::Quads, 4);
-    oceanBody[0] = sf::Vertex(sf::Vector2f(farLeftX, seaLevelY), waterTop);
-    oceanBody[1] = sf::Vertex(sf::Vector2f(cliffX, seaLevelY), waterTop);
-    oceanBody[2] = sf::Vertex(sf::Vector2f(cliffX, seaBottomY), waterBottom);
-    oceanBody[3] = sf::Vertex(sf::Vector2f(farLeftX, seaBottomY), waterBottom);
-    rt.draw(oceanBody);
-
-    auto drawSeaStack = [&](float sx, float sy, float sw, float sh) {
-        sf::ConvexShape stack(5);
-        stack.setPoint(0, sf::Vector2f(sx, sy));
-        stack.setPoint(1, sf::Vector2f(sx + sw * 0.45f, sy - sh));
-        stack.setPoint(2, sf::Vector2f(sx + sw * 0.7f, sy - sh * 0.85f));
-        stack.setPoint(3, sf::Vector2f(sx + sw, sy));
-        stack.setPoint(4, sf::Vector2f(sx + sw * 0.5f, sy + 15.f));
-        stack.setFillColor(sf::Color(35, 42, 48));
-        stack.setOutlineColor(sf::Color(20, 24, 28));
-        stack.setOutlineThickness(1.f);
-        rt.draw(stack);
-
-        sf::Vertex foam[] = {
-            sf::Vertex(sf::Vector2f(sx - 10.f, sy + 2.f), sf::Color(180, 220, 235, 180)),
-            sf::Vertex(sf::Vector2f(sx + sw + 10.f, sy + 2.f), sf::Color(180, 220, 235, 180))
-        };
-        rt.draw(foam, 2, sf::Lines);
-    };
-
-    drawSeaStack(cliffX - 580.f, seaLevelY + 8.f, 95.f, 65.f);
-    drawSeaStack(cliffX - 1100.f, seaLevelY + 5.f, 130.f, 90.f);
-    drawSeaStack(cliffX - 1650.f, seaLevelY + 2.f, 180.f, 110.f);
-
-    for (int w = 0; w < 7; ++w) {
-        float wy = seaLevelY + 4.f + w * 28.f;
-        sf::VertexArray waveStrip(sf::TriangleStrip);
-        for (float wx = farLeftX; wx <= cliffX; wx += 24.f) {
-            float undulation = std::sin(pulseTime * (1.8f + w * 0.35f) + wx * 0.012f + w * 1.6f) * (3.f + w * 1.6f);
-            sf::Uint8 fAlpha = static_cast<sf::Uint8>(std::clamp(210 - w * 15, 30, 240));
-            sf::Uint8 wAlpha = static_cast<sf::Uint8>(std::clamp(170 - w * 10, 20, 220));
-
-            waveStrip.append(sf::Vertex(sf::Vector2f(wx, wy + undulation), sf::Color(215, 240, 252, fAlpha)));
-            waveStrip.append(sf::Vertex(sf::Vector2f(wx, wy + undulation + 6.f + w * 1.2f), sf::Color(22, 54, 78, wAlpha)));
+        sf::Color waterTop;
+        sf::Color waterBottom;
+        float t24 = timeOfDay * 24.0f;
+        if (t24 >= 6.f && t24 < 18.f) {
+            waterTop = sf::Color(32, 68, 92, 255);
+            waterBottom = sf::Color(10, 22, 34, 255);
+        } else if ((t24 >= 4.5f && t24 < 6.f) || (t24 >= 18.f && t24 < 20.f)) {
+            waterTop = sf::Color(48, 38, 58, 255);
+            waterBottom = sf::Color(14, 12, 24, 255);
+        } else {
+            waterTop = sf::Color(14, 22, 32, 255);
+            waterBottom = sf::Color(6, 10, 18, 255);
         }
-        rt.draw(waveStrip);
-    }
 
-    sf::ConvexShape cliffFace(6);
-    cliffFace.setPoint(0, sf::Vector2f(cliffX, groundY));
-    cliffFace.setPoint(1, sf::Vector2f(cliffX - 30.f, groundY + 60.f));
-    cliffFace.setPoint(2, sf::Vector2f(cliffX - 15.f, groundY + 160.f));
-    cliffFace.setPoint(3, sf::Vector2f(cliffX - 45.f, seaBottomY));
-    cliffFace.setPoint(4, sf::Vector2f(cliffX, seaBottomY));
-    cliffFace.setPoint(5, sf::Vector2f(cliffX, groundY));
-    cliffFace.setFillColor(sf::Color(38, 34, 32));
-    cliffFace.setOutlineColor(sf::Color(20, 18, 16));
-    cliffFace.setOutlineThickness(1.5f);
-    rt.draw(cliffFace);
+        float oceanOuterX = isWest ? (viewBounds.left - 400.f) : (viewBounds.left + viewBounds.width + 400.f);
 
-    sf::RectangleShape mossFringe(sf::Vector2f(28.f, 6.f));
-    mossFringe.setPosition(cliffX - 6.f, groundY);
-    mossFringe.setFillColor(sf::Color(82, 105, 48));
-    rt.draw(mossFringe);
+        sf::VertexArray oceanBody(sf::Quads, 4);
+        oceanBody[0] = sf::Vertex(sf::Vector2f(isWest ? oceanOuterX : cliffX, seaLevelY), waterTop);
+        oceanBody[1] = sf::Vertex(sf::Vector2f(isWest ? cliffX : oceanOuterX, seaLevelY), waterTop);
+        oceanBody[2] = sf::Vertex(sf::Vector2f(isWest ? cliffX : oceanOuterX, seaBottomY), waterBottom);
+        oceanBody[3] = sf::Vertex(sf::Vector2f(isWest ? oceanOuterX : cliffX, seaBottomY), waterBottom);
+        rt.draw(oceanBody);
 
-    float surfPulse = 1.0f + 0.35f * std::sin(pulseTime * 4.2f);
-    for (int b = 0; b < 3; ++b) {
-        float by = seaLevelY + 15.f + b * 45.f;
-        sf::CircleShape breaker(16.f * surfPulse, 8);
-        breaker.setOrigin(16.f * surfPulse, 16.f * surfPulse);
-        breaker.setPosition(cliffX - 15.f - b * 8.f, by);
-        breaker.setFillColor(sf::Color(230, 248, 255, 175));
-        rt.draw(breaker);
-    }
+        auto drawSeaStack = [&](float sx, float sy, float sw, float sh) {
+            sf::ConvexShape stack(5);
+            stack.setPoint(0, sf::Vector2f(sx, sy));
+            stack.setPoint(1, sf::Vector2f(sx + sw * 0.45f, sy - sh));
+            stack.setPoint(2, sf::Vector2f(sx + sw * 0.7f, sy - sh * 0.85f));
+            stack.setPoint(3, sf::Vector2f(sx + sw, sy));
+            stack.setPoint(4, sf::Vector2f(sx + sw * 0.5f, sy + 15.f));
+            stack.setFillColor(sf::Color(35, 42, 48));
+            stack.setOutlineColor(sf::Color(20, 24, 28));
+            stack.setOutlineThickness(1.f);
+            rt.draw(stack);
 
-    sf::RectangleShape monolith(sf::Vector2f(16.f, 54.f));
-    monolith.setOrigin(8.f, 54.f);
-    monolith.setPosition(cliffX + 45.f, groundY);
-    monolith.setFillColor(sf::Color(58, 54, 50));
-    monolith.setOutlineColor(sf::Color(24, 22, 20));
-    monolith.setOutlineThickness(1.5f);
-    rt.draw(monolith);
-
-    if (fontLoaded) {
-        sf::Text markerLbl("OCEANUS ATLANTICUS", font, 11);
-        markerLbl.setStyle(sf::Text::Bold);
-        markerLbl.setFillColor(sf::Color(240, 215, 140));
-        markerLbl.setOutlineColor(sf::Color(0, 0, 0, 220));
-        markerLbl.setOutlineThickness(1.5f);
-        sf::FloatRect mb = markerLbl.getLocalBounds();
-        markerLbl.setOrigin(mb.left + mb.width / 2.f, mb.top + mb.height);
-        markerLbl.setPosition(cliffX + 45.f, groundY - 62.f);
-        rt.draw(markerLbl);
-
-        sf::Text landsEnd("BELERION - LAND'S END", font, 9);
-        landsEnd.setFillColor(sf::Color(190, 180, 160));
-        landsEnd.setOutlineColor(sf::Color(0, 0, 0, 220));
-        landsEnd.setOutlineThickness(1.2f);
-        sf::FloatRect lb = landsEnd.getLocalBounds();
-        landsEnd.setOrigin(lb.left + lb.width / 2.f, lb.top + lb.height);
-        landsEnd.setPosition(cliffX + 45.f, groundY - 78.f);
-        rt.draw(landsEnd);
-    }
-
-    auto drawGull = [&](float gx, float gy) {
-        sf::Vertex wings[] = {
-            sf::Vertex(sf::Vector2f(gx - 8.f, gy + 3.f), sf::Color(235, 240, 245, 200)),
-            sf::Vertex(sf::Vector2f(gx, gy), sf::Color(235, 240, 245, 220)),
-            sf::Vertex(sf::Vector2f(gx, gy), sf::Color(235, 240, 245, 220)),
-            sf::Vertex(sf::Vector2f(gx + 8.f, gy + 3.f), sf::Color(235, 240, 245, 200))
+            sf::Vertex foam[] = {
+                sf::Vertex(sf::Vector2f(sx - 10.f, sy + 2.f), sf::Color(180, 220, 235, 180)),
+                sf::Vertex(sf::Vector2f(sx + sw + 10.f, sy + 2.f), sf::Color(180, 220, 235, 180))
+            };
+            rt.draw(foam, 2, sf::Lines);
         };
-        rt.draw(wings, 4, sf::Lines);
+
+        float dir = isWest ? -1.f : 1.f;
+        drawSeaStack(cliffX + dir * 580.f, seaLevelY + 8.f, 95.f, 65.f);
+        drawSeaStack(cliffX + dir * 1100.f, seaLevelY + 5.f, 130.f, 90.f);
+
+        for (int w = 0; w < 7; ++w) {
+            float wy = seaLevelY + 4.f + w * 28.f;
+            sf::VertexArray waveStrip(sf::TriangleStrip);
+            float startX = isWest ? oceanOuterX : cliffX;
+            float endX = isWest ? cliffX : oceanOuterX;
+            for (float wx = startX; wx <= endX; wx += 24.f) {
+                float undulation = std::sin(pulseTime * (1.8f + w * 0.35f) + wx * 0.012f + w * 1.6f) * (3.f + w * 1.6f);
+                sf::Uint8 fAlpha = static_cast<sf::Uint8>(std::clamp(210 - w * 15, 30, 240));
+                sf::Uint8 wAlpha = static_cast<sf::Uint8>(std::clamp(170 - w * 10, 20, 220));
+
+                waveStrip.append(sf::Vertex(sf::Vector2f(wx, wy + undulation), sf::Color(215, 240, 252, fAlpha)));
+                waveStrip.append(sf::Vertex(sf::Vector2f(wx, wy + undulation + 6.f + w * 1.2f), sf::Color(22, 54, 78, wAlpha)));
+            }
+            rt.draw(waveStrip);
+        }
+
+        sf::ConvexShape cliffFace(6);
+        cliffFace.setPoint(0, sf::Vector2f(cliffX, groundY));
+        cliffFace.setPoint(1, sf::Vector2f(cliffX + dir * 30.f, groundY + 60.f));
+        cliffFace.setPoint(2, sf::Vector2f(cliffX + dir * 15.f, groundY + 160.f));
+        cliffFace.setPoint(3, sf::Vector2f(cliffX + dir * 45.f, seaBottomY));
+        cliffFace.setPoint(4, sf::Vector2f(cliffX, seaBottomY));
+        cliffFace.setPoint(5, sf::Vector2f(cliffX, groundY));
+        cliffFace.setFillColor(sf::Color(38, 34, 32));
+        cliffFace.setOutlineColor(sf::Color(20, 18, 16));
+        cliffFace.setOutlineThickness(1.5f);
+        rt.draw(cliffFace);
+
+        sf::RectangleShape mossFringe(sf::Vector2f(28.f, 6.f));
+        mossFringe.setPosition(isWest ? (cliffX - 6.f) : (cliffX - 22.f), groundY);
+        mossFringe.setFillColor(sf::Color(82, 105, 48));
+        rt.draw(mossFringe);
+
+        sf::RectangleShape monolith(sf::Vector2f(16.f, 54.f));
+        monolith.setOrigin(8.f, 54.f);
+        monolith.setPosition(cliffX - dir * 45.f, groundY);
+        monolith.setFillColor(sf::Color(58, 54, 50));
+        monolith.setOutlineColor(sf::Color(24, 22, 20));
+        monolith.setOutlineThickness(1.5f);
+        rt.draw(monolith);
+
+        if (fontLoaded) {
+            std::string title = isWest ? "OCEANUS ATLANTICUS" : "MARE SEPTENTRIONALE";
+            std::string sub = isWest ? "BELERION - LAND'S END" : "CALEDONIA - NORTH REACH";
+
+            sf::Text markerLbl(title, font, 11);
+            markerLbl.setStyle(sf::Text::Bold);
+            markerLbl.setFillColor(sf::Color(240, 215, 140));
+            markerLbl.setOutlineColor(sf::Color(0, 0, 0, 220));
+            markerLbl.setOutlineThickness(1.5f);
+            sf::FloatRect mb = markerLbl.getLocalBounds();
+            markerLbl.setOrigin(mb.left + mb.width / 2.f, mb.top + mb.height);
+            markerLbl.setPosition(cliffX - dir * 45.f, groundY - 62.f);
+            rt.draw(markerLbl);
+
+            sf::Text landsEnd(sub, font, 9);
+            landsEnd.setFillColor(sf::Color(190, 180, 160));
+            landsEnd.setOutlineColor(sf::Color(0, 0, 0, 220));
+            landsEnd.setOutlineThickness(1.2f);
+            sf::FloatRect lb = landsEnd.getLocalBounds();
+            landsEnd.setOrigin(lb.left + lb.width / 2.f, lb.top + lb.height);
+            landsEnd.setPosition(cliffX - dir * 45.f, groundY - 78.f);
+            rt.draw(landsEnd);
+        }
     };
 
-    float gullT = std::fmod(pulseTime * 28.f, 900.f);
-    drawGull(cliffX - 220.f - gullT, seaLevelY - 140.f + std::sin(pulseTime * 2.f) * 6.f);
-    drawGull(cliffX - 360.f - gullT, seaLevelY - 160.f + std::cos(pulseTime * 2.5f) * 5.f);
-    drawGull(cliffX - 160.f - gullT, seaLevelY - 180.f + std::sin(pulseTime * 1.8f) * 4.f);
+    renderCoastSide(westCoastX, true);
+    renderCoastSide(eastCoastX, false);
 }
 
 sf::Vector2f SettlementSystem::getPlayerMapCoord(float playerX) const {
@@ -581,7 +535,7 @@ sf::Vector2f SettlementSystem::getPlayerMapCoord(float playerX) const {
             );
         }
     }
-    return realSettlements.front().mapCoord;
+    return realSettlements.back().mapCoord;
 }
 
 void SettlementSystem::drawMinimap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry) {
@@ -607,9 +561,9 @@ void SettlementSystem::drawMinimap(sf::RenderWindow& window, const sf::View& let
     tabPrompt.setPosition(1175.f, 26.f);
     window.draw(tabPrompt);
 
-    sf::Vector2f miniCenter(1120.f, 117.f);
-    sf::Vector2f mapCenter(378.f, 342.f);
-    float miniScale = 0.23f;
+    sf::Vector2f miniCenter(1122.f, 114.f);
+    sf::Vector2f mapCenter(377.5f, 342.5f);
+    float miniScale = 0.20f;
 
     for (size_t i = 0; i < realSettlements.size(); ++i) {
         const auto& rs = realSettlements[i];
@@ -646,14 +600,14 @@ void SettlementSystem::drawMinimap(sf::RenderWindow& window, const sf::View& let
     const RealSettlement* curr = getActiveSettlement();
     if (curr) locName = curr->historicalName;
 
-    sf::RectangleShape bar(sf::Vector2f(266.f, 18.f));
-    bar.setPosition(987.f, 196.f);
+    sf::RectangleShape bar(sf::Vector2f(260.f, 18.f));
+    bar.setPosition(992.f, 184.f);
     bar.setFillColor(sf::Color(44, 30, 18, 240));
     window.draw(bar);
 
     sf::Text locText("Pos: " + locName, font, 9);
     locText.setFillColor(sf::Color(245, 225, 160));
-    locText.setPosition(993.f, 198.f);
+    locText.setPosition(998.f, 186.f);
     window.draw(locText);
 }
 
@@ -825,4 +779,15 @@ const RealSettlement* SettlementSystem::getSettlementByVillageId(sim::VillageID 
         }
     }
     return nullptr;
+}
+
+bool SettlementSystem::canFreelyPass(float x) const {
+    const RealSettlement* s = getSettlementAt(x);
+    if (s) {
+        if (s->isAllied || s->kingdomName.find("Wessex") != std::string::npos || s->kingdomName.find("Cornwall") != std::string::npos) {
+            return true;
+        }
+    }
+    if (!realSettlements.empty() && x <= realSettlements[0].centerX) return true;
+    return false;
 }

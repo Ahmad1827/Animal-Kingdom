@@ -110,25 +110,25 @@ void SettlementSystem::buildAuthenticMapGeometry() {
     addWave(250.f, 280.f);
     addWave(310.f, 350.f);
 
-    miniFrameOuter.setSize(sf::Vector2f(276.f, 200.f));
-    miniFrameOuter.setPosition(984.f, 16.f);
+    miniFrameOuter.setSize(sf::Vector2f(280.f, 205.f));
+    miniFrameOuter.setPosition(980.f, 16.f);
     miniFrameOuter.setFillColor(sf::Color(220, 204, 172));
     miniFrameOuter.setOutlineColor(sf::Color(44, 28, 16));
     miniFrameOuter.setOutlineThickness(2.5f);
 
-    miniFrameInner.setSize(sf::Vector2f(268.f, 192.f));
-    miniFrameInner.setPosition(988.f, 20.f);
+    miniFrameInner.setSize(sf::Vector2f(272.f, 197.f));
+    miniFrameInner.setPosition(984.f, 20.f);
     miniFrameInner.setFillColor(sf::Color::Transparent);
     miniFrameInner.setOutlineColor(sf::Color(135, 95, 45));
     miniFrameInner.setOutlineThickness(1.f);
 
-    miniSea.setSize(sf::Vector2f(260.f, 142.f));
-    miniSea.setPosition(992.f, 42.f);
+    miniSea.setSize(sf::Vector2f(266.f, 150.f));
+    miniSea.setPosition(987.f, 42.f);
     miniSea.setFillColor(sf::Color(186, 204, 208, 190));
 
-    sf::Vector2f miniCenter(1122.f, 114.f);
-    sf::Vector2f mapCenter(377.5f, 342.5f);
-    float miniScale = 0.20f;
+    sf::Vector2f miniCenter(1120.f, 117.f);
+    sf::Vector2f mapCenter(378.f, 342.f);
+    float miniScale = 0.23f;
 
     miniBritain.setPointCount(britPts.size());
     for (size_t i = 0; i < britPts.size(); ++i) {
@@ -150,33 +150,11 @@ void SettlementSystem::buildAuthenticMapGeometry() {
 }
 
 void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
-    struct HistProfile {
-        std::string hist;
-        std::string modern;
-        std::string kingdom;
-        bool allied;
-        sf::Vector2f mapPos;
-    };
-
-    std::vector<HistProfile> eastwardProfiles = {
-        {"Readingas", "Reading", "Royal Wessex Burh", true, {475.f, 485.f}},
-        {"Lundenburh", "London", "March of Wessex & Mercia", true, {520.f, 485.f}},
-        {"Theodford", "Thetford", "Kingdom of East Anglia", false, {565.f, 440.f}},
-        {"Tamworthig", "Tamworth", "Kingdom of Mercia", true, {460.f, 420.f}},
-        {"Legaceaster", "Chester", "March of Wales", false, {390.f, 385.f}},
-        {"Lindcylene", "Lincoln", "Five Boroughs of Danelaw", false, {515.f, 390.f}},
-        {"Jorvik", "York", "Kingdom of Jorvik", false, {490.f, 340.f}},
-        {"Dunholm", "Durham", "Kingdom of Northumbria", false, {470.f, 285.f}},
-        {"Bebbanburg", "Bamburgh", "Kingdom of Bernicia", false, {475.f, 235.f}},
-        {"Dun Eideann", "Edinburgh", "Kingdom of Alba", false, {440.f, 195.f}},
-        {"Sgain", "Scone", "Kingdom of Alba", false, {430.f, 165.f}},
-        {"Hrossey Sound", "Orkney Coast", "Norse Jarldom", false, {445.f, 110.f}},
-        {"Kaupang Fjord", "Skagerrak Reach", "Viking Shore to Scandinavia", false, {780.f, 115.f}}
-    };
-
     realSettlements.clear();
 
     auto allVillages = registry.getAllVillages();
+    if (allVillages.empty()) return;
+
     std::vector<sim::VillageData*> sorted;
     for (auto& pair : allVillages) {
         sorted.push_back(&pair.second);
@@ -186,7 +164,7 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
     });
 
     sim::ApeData* controlled = registry.getApe(registry.getControlledApe());
-    sim::VillageID playerVid = (controlled && controlled->villageId != 0) ? controlled->villageId : 1;
+    sim::VillageID playerVid = (controlled && controlled->villageId != 0) ? controlled->villageId : sorted.front()->id;
 
     size_t playerIdx = 0;
     for (size_t i = 0; i < sorted.size(); ++i) {
@@ -196,112 +174,92 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
         }
     }
 
-    sim::VillageData* winchesterVillage = sorted.empty() ? nullptr : sorted[playerIdx];
-    float winchesterCenterX = winchesterVillage ? winchesterVillage->centerX : 0.f;
-    float winchesterBorderMin = winchesterVillage ? winchesterVillage->borderMinX : (winchesterCenterX - 1600.f);
-    float winchesterBorderMax = winchesterVillage ? winchesterVillage->borderMaxX : (winchesterCenterX + 1600.f);
+    struct RegionGeo {
+        std::string hist;
+        std::string modern;
+        std::string kingdom;
+        sf::Vector2f mapPos;
+    };
 
-    float cornwallSpan = 2600.f;
-    float cornwallBorderRight = winchesterBorderMin;
-    float cornwallBorderLeft = cornwallBorderRight - cornwallSpan;
-    float cornwallCenterX = (cornwallBorderLeft + cornwallBorderRight) * 0.5f;
+    std::vector<RegionGeo> eastGeoRoute = {
+        {"Readingas", "Reading", "Kingdom of Wessex", {475.f, 485.f}},
+        {"Lundenburh", "London", "March of Wessex & Mercia", {520.f, 485.f}},
+        {"Theodford", "Thetford", "Kingdom of East Anglia", {565.f, 440.f}},
+        {"Tamworthig", "Tamworth", "Kingdom of Mercia", {460.f, 420.f}},
+        {"Legaceaster", "Chester", "March of Wales", {390.f, 385.f}},
+        {"Lindcylene", "Lincoln", "Five Boroughs of Danelaw", {515.f, 390.f}},
+        {"Jorvik", "York", "Kingdom of Jorvik", {490.f, 340.f}},
+        {"Dunholm", "Durham", "Kingdom of Northumbria", {470.f, 285.f}},
+        {"Bebbanburg", "Bamburgh", "Kingdom of Bernicia", {475.f, 235.f}},
+        {"Dun Eideann", "Edinburgh", "Kingdom of Alba", {440.f, 195.f}},
+        {"Sgain", "Scone", "Kingdom of Alba", {430.f, 165.f}}
+    };
 
-    float coastSpan = 2000.f;
-    float coastBorderRight = cornwallBorderLeft;
-    float coastBorderLeft = coastBorderRight - coastSpan;
-    float coastCenterX = (coastBorderLeft + coastBorderRight) * 0.5f;
+    westCoastX = sorted.front()->borderMinX;
 
-    westCoastX = coastBorderLeft + 400.f;
+    size_t eastCounter = 0;
+    for (size_t i = 0; i < sorted.size(); ++i) {
+        sim::VillageData* v = sorted[i];
 
-    RealSettlement oceanCoast;
-    oceanCoast.villageId = 9991;
-    oceanCoast.kingdomId = 9990;
-    oceanCoast.centerX = coastCenterX;
-    oceanCoast.borderLeftX = coastBorderLeft;
-    oceanCoast.borderRightX = coastBorderRight;
-    oceanCoast.historicalName = "Belerion Coast";
-    oceanCoast.modernName = "Land's End Shore";
-    oceanCoast.kingdomName = "Kingdom of Cornwallum";
-    oceanCoast.isAllied = true;
-    oceanCoast.mapCoord = sf::Vector2f(260.f, 575.f);
-    realSettlements.push_back(oceanCoast);
+        RealSettlement rs;
+        rs.villageId = v->id;
+        rs.kingdomId = v->kingdomId;
+        rs.centerX = v->centerX;
+        rs.borderLeftX = v->borderMinX;
+        rs.borderRightX = v->borderMaxX;
 
-    RealSettlement cornwallum;
-    cornwallum.villageId = 9990;
-    cornwallum.kingdomId = 9990;
-    cornwallum.centerX = cornwallCenterX;
-    cornwallum.borderLeftX = cornwallBorderLeft;
-    cornwallum.borderRightX = cornwallBorderRight;
-    cornwallum.historicalName = "Kernow (Tintagel)";
-    cornwallum.modernName = "Cornwall";
-    cornwallum.kingdomName = "Kingdom of Cornwallum";
-    cornwallum.isAllied = true;
-    cornwallum.mapCoord = sf::Vector2f(320.f, 545.f);
-    realSettlements.push_back(cornwallum);
-
-    if (winchesterVillage) {
-        RealSettlement winchester;
-        winchester.villageId = winchesterVillage->id;
-        winchester.kingdomId = winchesterVillage->kingdomId;
-        winchester.centerX = winchesterCenterX;
-        winchester.borderLeftX = winchesterBorderMin;
-        winchester.borderRightX = winchesterBorderMax;
-        winchester.historicalName = "Wintanceaster";
-        winchester.modernName = "Winchester";
-        winchester.kingdomName = "Kingdom of Wessex";
-        winchester.isAllied = true;
-        winchester.mapCoord = sf::Vector2f(430.f, 510.f);
-        realSettlements.push_back(winchester);
-
-        for (auto* v : sorted) {
-            if (v->centerX < winchesterCenterX) {
-                v->kingdomId = 9990;
-                v->name = "Cornish Enclave";
-                if (controlled) v->permittedApes.insert(controlled->id);
+        bool allied = false;
+        if (controlled) {
+            if (v->id == controlled->villageId) {
+                allied = true;
+            } else if (controlled->currentKingdom != 0 && v->kingdomId == controlled->currentKingdom) {
+                allied = true;
+            } else if (v->kingdomId != 0 && controlled->currentKingdom != 0) {
+                sim::KingdomData* myK = registry.getKingdom(controlled->currentKingdom);
+                if (myK && myK->relations.count(v->kingdomId)) {
+                    auto st = myK->relations[v->kingdomId];
+                    if (st == sim::DiplomacyStatus::Friendly || st == sim::DiplomacyStatus::Alliance || st == sim::DiplomacyStatus::Trade) {
+                        allied = true;
+                    }
+                }
+            } else if (v->personalOpinions.count(controlled->id) && v->personalOpinions[controlled->id] >= 30) {
+                allied = true;
             }
         }
 
-        size_t profileCursor = 0;
-        for (size_t i = 0; i < sorted.size(); ++i) {
-            sim::VillageData* v = sorted[i];
-            if (v->centerX <= winchesterCenterX) continue;
+        if (i == playerIdx) {
+            rs.historicalName = "Wintanceaster";
+            rs.modernName = "Winchester";
+            rs.kingdomName = "Kingdom of Wessex";
+            rs.mapCoord = sf::Vector2f(430.f, 510.f);
+            rs.isAllied = true;
+        } else if (i < playerIdx) {
+            rs.historicalName = "Kernow (Tintagel)";
+            rs.modernName = "Cornwall";
+            rs.kingdomName = "Kingdom of Cornwallum";
+            rs.mapCoord = sf::Vector2f(300.f, 560.f);
+            rs.isAllied = true;
+        } else {
+            RegionGeo geo = eastGeoRoute[eastCounter % eastGeoRoute.size()];
+            eastCounter++;
+            rs.historicalName = geo.hist;
+            rs.modernName = geo.modern;
 
-            HistProfile hp = eastwardProfiles[profileCursor % eastwardProfiles.size()];
-            profileCursor++;
-
-            RealSettlement rs;
-            rs.villageId = v->id;
-            rs.kingdomId = v->kingdomId;
-            rs.centerX = v->centerX;
-            rs.borderLeftX = v->borderMinX;
-            rs.borderRightX = v->borderMaxX;
-            rs.historicalName = hp.hist;
-            rs.modernName = hp.modern;
-            rs.kingdomName = hp.kingdom;
-            rs.isAllied = hp.allied;
-            rs.mapCoord = hp.mapPos;
-            realSettlements.push_back(rs);
+            if (v->kingdomId != 0) {
+                sim::KingdomData* kd = registry.getKingdom(v->kingdomId);
+                if (kd) {
+                    rs.kingdomName = "Kingdom of " + kd->name;
+                } else {
+                    rs.kingdomName = geo.kingdom;
+                }
+            } else {
+                rs.kingdomName = geo.kingdom;
+            }
+            rs.mapCoord = geo.mapPos;
+            rs.isAllied = allied;
         }
 
-        float lastX = realSettlements.back().borderRightX + 1600.f;
-        while (profileCursor < eastwardProfiles.size()) {
-            HistProfile hp = eastwardProfiles[profileCursor];
-            RealSettlement rs;
-            rs.villageId = 0;
-            rs.kingdomId = 0;
-            rs.centerX = lastX;
-            rs.borderLeftX = lastX - 1400.f;
-            rs.borderRightX = lastX + 1400.f;
-            rs.historicalName = hp.hist;
-            rs.modernName = hp.modern;
-            rs.kingdomName = hp.kingdom;
-            rs.isAllied = hp.allied;
-            rs.mapCoord = hp.mapPos;
-            realSettlements.push_back(rs);
-
-            lastX += 3000.f;
-            profileCursor++;
-        }
+        realSettlements.push_back(rs);
     }
 
     std::sort(realSettlements.begin(), realSettlements.end(), [](const RealSettlement& a, const RealSettlement& b) {
@@ -316,7 +274,7 @@ void SettlementSystem::syncWithWorld(sim::SimulationRegistry& registry) {
 }
 
 void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& registry) {
-    if (!isInitialized || realSettlements.empty()) {
+    if (!isInitialized || realSettlements.size() != registry.getAllVillages().size()) {
         syncDynamicVillages(registry);
     }
 
@@ -447,36 +405,37 @@ void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxV
     window.draw(line, 3, sf::LinesStrip);
 }
 
-void SettlementSystem::drawCoast(sf::RenderTarget& rt, const sf::FloatRect& viewBounds, float groundY, float timeOfDay, const sf::Texture* skyTex, const sf::View& cameraView) {
+void SettlementSystem::drawCoast(sf::RenderTarget& rt, const sf::FloatRect& viewBounds, float groundY, float timeOfDay, const sf::Texture* skyTex, const sf::View* cameraView) {
     float cliffX = westCoastX;
     if (viewBounds.left > cliffX + 350.f) return;
-
-    sf::Vector2i sCliff = rt.mapCoordsToPixel(sf::Vector2f(cliffX, 0.f), cameraView);
-    float screenCliffX = static_cast<float>(sCliff.x);
-    sf::Vector2i sSea = rt.mapCoordsToPixel(sf::Vector2f(0.f, groundY + 12.f), cameraView);
-    float screenSeaY = static_cast<float>(sSea.y);
-
-    if (screenCliffX > 0.f && skyTex) {
-        rt.setView(rt.getDefaultView());
-        int skyW = static_cast<int>(std::clamp(screenCliffX, 0.f, 1280.f));
-        int skyH = static_cast<int>(std::clamp(screenSeaY + 2.f, 0.f, 720.f));
-
-        if (skyW > 0 && skyH > 0) {
-            sf::Sprite cleanSky(*skyTex);
-            cleanSky.setTextureRect(sf::IntRect(0, 0, skyW, skyH));
-            cleanSky.setPosition(0.f, 0.f);
-            rt.draw(cleanSky);
-        }
-        rt.setView(cameraView);
-    }
 
     float seaLevelY = groundY + 12.f;
     float seaBottomY = viewBounds.top + viewBounds.height + 400.f;
     float farLeftX = viewBounds.left - 400.f;
 
+    if (skyTex && cameraView) {
+        sf::Vector2i sCliff = rt.mapCoordsToPixel(sf::Vector2f(cliffX, 0.f), *cameraView);
+        float screenCliffX = static_cast<float>(sCliff.x);
+        sf::Vector2i sSea = rt.mapCoordsToPixel(sf::Vector2f(0.f, seaLevelY), *cameraView);
+        float screenSeaY = static_cast<float>(sSea.y);
+
+        if (screenCliffX > 0.f) {
+            rt.setView(rt.getDefaultView());
+            int skyW = static_cast<int>(std::clamp(screenCliffX, 0.f, 1280.f));
+            int skyH = static_cast<int>(std::clamp(screenSeaY, 0.f, 720.f));
+
+            if (skyW > 0 && skyH > 0) {
+                sf::Sprite cleanSky(*skyTex);
+                cleanSky.setTextureRect(sf::IntRect(0, 0, skyW, skyH));
+                cleanSky.setPosition(0.f, 0.f);
+                rt.draw(cleanSky);
+            }
+            rt.setView(*cameraView);
+        }
+    }
+
     sf::Color waterTop;
     sf::Color waterBottom;
-
     float t24 = timeOfDay * 24.0f;
     if (t24 >= 6.f && t24 < 18.f) {
         waterTop = sf::Color(32, 68, 92, 255);
@@ -522,7 +481,7 @@ void SettlementSystem::drawCoast(sf::RenderTarget& rt, const sf::FloatRect& view
     for (int w = 0; w < 7; ++w) {
         float wy = seaLevelY + 4.f + w * 28.f;
         sf::VertexArray waveStrip(sf::TriangleStrip);
-        for (float wx = farLeftX; wx <= cliffX - 4.f; wx += 24.f) {
+        for (float wx = farLeftX; wx <= cliffX; wx += 24.f) {
             float undulation = std::sin(pulseTime * (1.8f + w * 0.35f) + wx * 0.012f + w * 1.6f) * (3.f + w * 1.6f);
             sf::Uint8 fAlpha = static_cast<sf::Uint8>(std::clamp(210 - w * 15, 30, 240));
             sf::Uint8 wAlpha = static_cast<sf::Uint8>(std::clamp(170 - w * 10, 20, 220));
@@ -646,9 +605,9 @@ void SettlementSystem::drawMinimap(sf::RenderWindow& window, const sf::View& let
     tabPrompt.setPosition(1175.f, 26.f);
     window.draw(tabPrompt);
 
-    sf::Vector2f miniCenter(1122.f, 114.f);
-    sf::Vector2f mapCenter(377.5f, 342.5f);
-    float miniScale = 0.20f;
+    sf::Vector2f miniCenter(1120.f, 117.f);
+    sf::Vector2f mapCenter(378.f, 342.f);
+    float miniScale = 0.23f;
 
     for (size_t i = 0; i < realSettlements.size(); ++i) {
         const auto& rs = realSettlements[i];
@@ -685,14 +644,14 @@ void SettlementSystem::drawMinimap(sf::RenderWindow& window, const sf::View& let
     const RealSettlement* curr = getActiveSettlement();
     if (curr) locName = curr->historicalName;
 
-    sf::RectangleShape bar(sf::Vector2f(260.f, 18.f));
-    bar.setPosition(992.f, 184.f);
+    sf::RectangleShape bar(sf::Vector2f(266.f, 18.f));
+    bar.setPosition(987.f, 196.f);
     bar.setFillColor(sf::Color(44, 30, 18, 240));
     window.draw(bar);
 
     sf::Text locText("Pos: " + locName, font, 9);
     locText.setFillColor(sf::Color(245, 225, 160));
-    locText.setPosition(998.f, 186.f);
+    locText.setPosition(993.f, 198.f);
     window.draw(locText);
 }
 
@@ -869,6 +828,6 @@ const RealSettlement* SettlementSystem::getSettlementByVillageId(sim::VillageID 
 bool SettlementSystem::canFreelyPass(float x) const {
     const RealSettlement* s = getSettlementAt(x);
     if (s) return s->isAllied;
-    if (!realSettlements.empty() && x <= realSettlements[2].centerX) return true;
+    if (!realSettlements.empty() && x <= realSettlements[0].centerX) return true;
     return false;
 }

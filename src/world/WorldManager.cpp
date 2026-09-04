@@ -98,60 +98,7 @@ void WorldManager::draw(sf::RenderTarget& target, const sf::FloatRect& viewBound
 }
 
 void WorldManager::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
-    float groundY = FLAT_GROUND_Y;
-    float startX = std::floor(viewBounds.left / 280.f) * 280.f;
-    float endX = viewBounds.left + viewBounds.width + 280.f;
-
-    for (float tx = startX; tx <= endX; tx += 280.f) {
-        float h = 340.f + std::abs(std::sin(tx * 0.003f)) * 140.f;
-        float w = 48.f + std::abs(std::cos(tx * 0.005f)) * 26.f;
-
-        sf::RectangleShape silTrunk(sf::Vector2f(w, h));
-        silTrunk.setOrigin(w * 0.5f, h);
-        silTrunk.setPosition(tx, groundY - 10.f);
-        silTrunk.setFillColor(sf::Color(22, 28, 24, 215));
-        target.draw(silTrunk);
-
-        sf::CircleShape silCanopy(w * 2.2f);
-        silCanopy.setOrigin(w * 2.2f, w * 2.2f);
-        silCanopy.setPosition(tx, groundY - h);
-        silCanopy.setFillColor(sf::Color(16, 22, 18, 200));
-        target.draw(silCanopy);
-    }
-
-    for (float rx = startX + 120.f; rx <= endX; rx += 560.f) {
-        float rScale = 0.5f + std::abs(std::sin(rx * 0.01f)) * 0.5f;
-        sf::ConvexShape rock(6);
-        rock.setPoint(0, sf::Vector2f(0.f, 0.f));
-        rock.setPoint(1, sf::Vector2f(45.f * rScale, -35.f * rScale));
-        rock.setPoint(2, sf::Vector2f(110.f * rScale, -45.f * rScale));
-        rock.setPoint(3, sf::Vector2f(165.f * rScale, -20.f * rScale));
-        rock.setPoint(4, sf::Vector2f(180.f * rScale, 0.f));
-        rock.setPoint(5, sf::Vector2f(90.f * rScale, 15.f * rScale));
-        rock.setPosition(rx, groundY - 8.f);
-        rock.setFillColor(sf::Color(35, 42, 36, 230));
-        rock.setOutlineColor(sf::Color(18, 22, 18, 255));
-        rock.setOutlineThickness(1.5f);
-        target.draw(rock);
-
-        sf::RectangleShape fallenLog(sf::Vector2f(140.f * rScale, 16.f * rScale));
-        fallenLog.setOrigin(0.f, 16.f * rScale);
-        fallenLog.setPosition(rx + 90.f, groundY - 4.f);
-        fallenLog.setRotation(-4.f);
-        fallenLog.setFillColor(sf::Color(44, 32, 22, 240));
-        fallenLog.setOutlineColor(sf::Color(20, 14, 10));
-        fallenLog.setOutlineThickness(1.f);
-        target.draw(fallenLog);
-    }
-
     chunkManager->drawBackground(target, viewBounds, showFoliage, profiler, tileset);
-
-    sf::VertexArray canopyHaze(sf::Quads, 4);
-    canopyHaze[0] = sf::Vertex(sf::Vector2f(viewBounds.left - 50.f, viewBounds.top - 50.f), sf::Color(12, 18, 14, 175));
-    canopyHaze[1] = sf::Vertex(sf::Vector2f(viewBounds.left + viewBounds.width + 50.f, viewBounds.top - 50.f), sf::Color(12, 18, 14, 175));
-    canopyHaze[2] = sf::Vertex(sf::Vector2f(viewBounds.left + viewBounds.width + 50.f, groundY - 60.f), sf::Color(12, 18, 14, 0));
-    canopyHaze[3] = sf::Vertex(sf::Vector2f(viewBounds.left - 50.f, groundY - 60.f), sf::Color(12, 18, 14, 0));
-    target.draw(canopyHaze);
 }
 
 void WorldManager::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {

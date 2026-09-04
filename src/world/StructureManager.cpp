@@ -209,16 +209,12 @@ void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::V
     }
 }
 
-void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
+void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
     if (!groundTexture || groundTexture->getSize().x == 0) return;
 
     sf::View view = target.getView();
-    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 100.f;
-    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 100.f;
-
-    float drawStart = std::max(viewLeft, village.borderMinX);
-    float drawEnd = std::min(viewRight, village.borderMaxX);
-    if (drawStart >= drawEnd) return;
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
+    float viewWidth = view.getSize().x + 800.f;
 
     float texW = static_cast<float>(groundTexture->getSize().x);
     float texH = static_cast<float>(groundTexture->getSize().y);
@@ -229,9 +225,10 @@ void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::Villag
 
     float stepW = std::floor(texW * scale);
     if (stepW <= 0.f) stepW = 100.f;
-    float startX = std::floor(drawStart / stepW) * stepW;
+    float startX = std::floor(viewLeft / stepW) * stepW;
+    float endX = viewLeft + viewWidth;
 
-    for (float x = startX; x < drawEnd; x += stepW) {
+    for (float x = startX; x < endX; x += stepW) {
         sf::Sprite spr(*groundTexture);
         spr.setScale(scale, scale);
         spr.setPosition(x, topY);
@@ -243,17 +240,21 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
     drawRearLawn(target, village, groundY);
     drawRearPalisade(target, village, groundY);
     drawMiddlePalisade(target, village, groundY);
-    drawFrontRoad(target, village, groundY);
 }
 
 void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
+    float defaultGroundY = world ? world->getTerrainHeight(viewBounds.left + viewBounds.width * 0.5f) : 500.f;
+    sim::VillageData dummy;
+    drawFrontRoad(target, dummy, defaultGroundY);
+
     for (const auto& pair : registry.getAllVillages()) {
         const sim::VillageData& village = pair.second;
         if (village.borderMaxX < viewBounds.left || village.borderMinX > viewBounds.left + viewBounds.width) {
             continue;
         }
         float groundY = world ? world->getTerrainHeight(village.centerX) : 500.f;
-        drawSettlementFootprint(target, village, groundY);
+        drawRearLawn(target, village, groundY);
+        drawRearPalisade(target, village, groundY);
     }
 }
 

@@ -114,10 +114,14 @@ void StructureManager::drawMeetingGround(sf::RenderTarget& target, float worldX,
     }
 }
 
-void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
+void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     sf::View view = target.getView();
-    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
-    float viewWidth = view.getSize().x + 800.f;
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 100.f;
+    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 100.f;
+
+    float drawStart = std::max(viewLeft, village.borderMinX);
+    float drawEnd = std::min(viewRight, village.borderMaxX);
+    if (drawStart >= drawEnd) return;
 
     float yardTopY = groundY - 228.f;
     float yardBottomY = groundY - 14.f;
@@ -131,59 +135,63 @@ void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::Village
         float stepW = std::floor(texW * scale);
         if (stepW <= 0.f) stepW = 100.f;
 
-        float startX = std::floor(viewLeft / stepW) * stepW;
-        float endX = viewLeft + viewWidth;
-
-        for (float x = startX; x < endX; x += stepW) {
+        float startX = std::floor(drawStart / stepW) * stepW;
+        for (float x = startX; x < drawEnd; x += stepW) {
             sf::Sprite spr(*rearLawnTexture);
             spr.setScale(scale, scale);
             spr.setPosition(x, yardTopY);
             target.draw(spr);
         }
     } else {
-        sf::RectangleShape rearLawn(sf::Vector2f(viewWidth, yardH));
-        rearLawn.setPosition(viewLeft, yardTopY);
+        sf::RectangleShape rearLawn(sf::Vector2f(drawEnd - drawStart, yardH));
+        rearLawn.setPosition(drawStart, yardTopY);
         rearLawn.setFillColor(sf::Color(30, 56, 26));
         target.draw(rearLawn);
 
-        sf::RectangleShape midLawn(sf::Vector2f(viewWidth, yardH * 0.55f));
-        midLawn.setPosition(viewLeft, yardTopY + (yardH * 0.45f));
+        sf::RectangleShape midLawn(sf::Vector2f(drawEnd - drawStart, yardH * 0.55f));
+        midLawn.setPosition(drawStart, yardTopY + (yardH * 0.45f));
         midLawn.setFillColor(sf::Color(44, 78, 36));
         target.draw(midLawn);
 
-        sf::RectangleShape rearGrassTrim(sf::Vector2f(viewWidth, 6.f));
-        rearGrassTrim.setPosition(viewLeft, yardTopY);
+        sf::RectangleShape rearGrassTrim(sf::Vector2f(drawEnd - drawStart, 6.f));
+        rearGrassTrim.setPosition(drawStart, yardTopY);
         rearGrassTrim.setFillColor(sf::Color(78, 146, 52));
         target.draw(rearGrassTrim);
     }
 }
 
-void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
+void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     if (!villageTexture || villageTexture->getSize().x == 0) return;
 
     sf::View view = target.getView();
-    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
-    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 400.f;
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 100.f;
+    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 100.f;
+
+    float drawStart = std::max(viewLeft, village.borderMinX);
+    float drawEnd = std::min(viewRight, village.borderMaxX);
+    if (drawStart >= drawEnd) return;
 
     float rearFenceBaseY = groundY - 223.f;
     float fenceScale = 0.30f;
     float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
     sf::Color fenceBgColor(180, 185, 200, 245);
 
-    float startX = std::floor(viewLeft / stepW) * stepW;
-    for (float fx = startX; fx < viewRight; fx += stepW) {
+    float startX = std::floor(drawStart / stepW) * stepW;
+    for (float fx = startX; fx < drawEnd; fx += stepW) {
         drawSpriteAnchored(target, rectPalisadeMiddle, fx, rearFenceBaseY, fenceScale, fenceBgColor);
     }
 }
-
-
 
 void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     if (!villageTexture || villageTexture->getSize().x == 0) return;
 
     sf::View view = target.getView();
-    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
-    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 400.f;
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 100.f;
+    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 100.f;
+
+    float drawStart = std::max(viewLeft, village.borderMinX);
+    float drawEnd = std::min(viewRight, village.borderMaxX);
+    if (drawStart >= drawEnd) return;
 
     float midFenceBaseY = groundY - 14.f;
     float fenceScale = 0.58f;
@@ -191,10 +199,9 @@ void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::V
     sf::Color fenceColor(230, 230, 235, 255);
 
     float lodgeHalfWidth = 240.f;
-    float startX = std::floor(viewLeft / stepW) * stepW;
+    float startX = std::floor(drawStart / stepW) * stepW;
 
-    for (float fx = startX; fx < viewRight; fx += stepW) {
-        // Leave an opening for the Clan Lodge door
+    for (float fx = startX; fx < drawEnd; fx += stepW) {
         if (fx >= village.centerX - lodgeHalfWidth && fx <= village.centerX + lodgeHalfWidth) {
             continue;
         }
@@ -202,12 +209,16 @@ void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::V
     }
 }
 
-void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
+void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     if (!groundTexture || groundTexture->getSize().x == 0) return;
 
     sf::View view = target.getView();
-    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
-    float viewWidth = view.getSize().x + 800.f;
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 100.f;
+    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 100.f;
+
+    float drawStart = std::max(viewLeft, village.borderMinX);
+    float drawEnd = std::min(viewRight, village.borderMaxX);
+    if (drawStart >= drawEnd) return;
 
     float texW = static_cast<float>(groundTexture->getSize().x);
     float texH = static_cast<float>(groundTexture->getSize().y);
@@ -218,17 +229,15 @@ void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::Villag
 
     float stepW = std::floor(texW * scale);
     if (stepW <= 0.f) stepW = 100.f;
-    float startX = std::floor(viewLeft / stepW) * stepW;
-    float endX = viewLeft + viewWidth;
+    float startX = std::floor(drawStart / stepW) * stepW;
 
-    for (float x = startX; x < endX; x += stepW) {
+    for (float x = startX; x < drawEnd; x += stepW) {
         sf::Sprite spr(*groundTexture);
         spr.setScale(scale, scale);
         spr.setPosition(x, topY);
         target.draw(spr);
     }
 }
-
 
 void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
     drawRearLawn(target, village, groundY);
@@ -240,33 +249,39 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
 void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
     for (const auto& pair : registry.getAllVillages()) {
         const sim::VillageData& village = pair.second;
+        if (village.borderMaxX < viewBounds.left || village.borderMinX > viewBounds.left + viewBounds.width) {
+            continue;
+        }
         float groundY = world ? world->getTerrainHeight(village.centerX) : 500.f;
-
         drawSettlementFootprint(target, village, groundY);
-        drawRearLawn(target, village, groundY);
-        drawRearPalisade(target, village, groundY);
     }
 }
 
 void StructureManager::drawMidgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
     for (const auto& pair : registry.getAllVillages()) {
         const sim::VillageData& village = pair.second;
-        float groundY = world ? world->getTerrainHeight(village.centerX) : 500.f;
+        if (village.borderMaxX < viewBounds.left || village.borderMinX > viewBounds.left + viewBounds.width) {
+            continue;
+        }
 
+        float groundY = world ? world->getTerrainHeight(village.centerX) : 500.f;
         drawMiddlePalisade(target, village, groundY);
 
         for (const auto& spair : registry.getAllStructures()) {
             const sim::StructureData& s = spair.second;
             if (s.villageId != village.id) continue;
+            if (s.worldX < viewBounds.left - 400.f || s.worldX > viewBounds.left + viewBounds.width + 400.f) continue;
 
             if (s.type == sim::StructureType::ToolRack) {
                 drawToolRack(target, s, village, groundY);
-            } else if (s.type == sim::StructureType::StonePile) {
+            } else if (s.type == sim::StructureType::StonePile || s.type == sim::StructureType::WoodPile) {
                 drawStockpileProps(target, s, village, groundY);
             } else if (s.type == sim::StructureType::WatchPlatform) {
                 drawWatchPlatform(target, s, village, groundY);
             } else if (s.type == sim::StructureType::VillageCenter) {
                 drawVillageCenter(target, s, village, groundY);
+            } else if (s.type == sim::StructureType::EmptyPlot) {
+                drawEmptyPlot(target, s, groundY);
             }
         }
     }
@@ -545,8 +560,7 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
 
                     sf::CircleShape skullTop(14.f, 6);
                     skullTop.setOrigin(14.f, 14.f);
-                    float topOffsetX = v.expandingSideRight ? 26.f : -26.f;
-                    skullTop.setPosition(mover->worldX + topOffsetX, groundY - 75.f);
+                    skullTop.setPosition(mover->worldX + (v.expandingSideRight ? 26.f : -26.f), groundY - 75.f);
                     skullTop.setFillColor(sf::Color(220, 180, 80));
                     skullTop.setOutlineColor(sf::Color(24, 14, 6));
                     skullTop.setOutlineThickness(2.f);
@@ -556,13 +570,11 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
         }
     }
 }
-  
 
 void StructureManager::drawThrone(sf::RenderTarget&, const sim::StructureData&, const sim::VillageData&, float) {
 }
 
 void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
-
     if (villageTexture && villageTexture->getSize().x > 0) {
         drawSpriteAnchored(target, rectToolRack, s.worldX, groundY, 1.0f);
         return;
@@ -648,7 +660,6 @@ void StructureManager::drawToolRack(sf::RenderTarget& target, const sim::Structu
 }
 
 void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
-
     if (villageTexture && villageTexture->getSize().x > 0) {
         if (s.type == sim::StructureType::WoodPile) {
             drawSpriteAnchored(target, rectMeetingHollowLog, s.worldX, groundY, 1.0f);
@@ -1005,7 +1016,6 @@ void StructureManager::setTier2Visual(const std::string& textureKey, const sf::I
     tier2Visual.spriteRect = rect;
     tier2Visual.scale = scale;
 }
-
 
 bool StructureManager::handleModalClick(const sf::Vector2f& uiCoords, sim::VillageData& village, sim::SimulationRegistry& registry) {
     if (!upgradeModalOpen) return false;

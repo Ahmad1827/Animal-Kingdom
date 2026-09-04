@@ -1,4 +1,5 @@
 #include "world/NPCManager.h"
+#include "world/WorldManager.h"
 #include "simulation/ApeBehaviorSystem.h"
 #include <cmath>
 #include <algorithm>
@@ -16,6 +17,14 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
 
         sim::VillageData* village = registry.getVillage(data.villageId);
         if (village) {
+            if (data.depthLane == sim::DepthLane::Midground) {
+                if (data.id % 2 == 0) {
+                    data.depthLane = sim::DepthLane::Foreground;
+                } else if (data.id % 3 == 0) {
+                    data.depthLane = sim::DepthLane::Background;
+                }
+            }
+
             sim::ApeBehaviorSystem::updateApeRoleRoutine(data, *village, registry, dt, timeOfDay);
         }
 
@@ -58,7 +67,7 @@ void NPCManager::drawLane(sf::RenderTarget& target, sim::DepthLane lane, const s
     for (const auto& pair : activeNPCs) {
         const sim::ApeData* d = const_cast<sim::SimulationRegistry&>(registry).getApe(pair.first);
         if (d && d->depthLane == lane) {
-            pair.second->draw(target);
+            pair.second->draw(target); 
         }
     }
 }

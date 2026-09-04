@@ -13,6 +13,34 @@ static inline bool treeIsStanding(TreeHarvestState s) {
            s == TreeHarvestState::BeingHarvested;
 }
 
+static std::vector<sf::Texture> s_fixedTreeTextures;
+static bool s_fixedTreesLoaded = false;
+
+static void ensureFixedTreesLoaded() {
+    if (s_fixedTreesLoaded) return;
+    s_fixedTreesLoaded = true;
+
+    for (int i = 1; i <= 5; ++i) {
+        std::string filename = "TREEFIXED_" + std::to_string(i) + ".png";
+        std::vector<std::string> searchPaths = {
+            filename,
+            "assets/" + filename,
+            "assets/textures/" + filename,
+            "assets/sprites/" + filename,
+            "assets/environment/" + filename
+        };
+
+        sf::Texture tex;
+        for (const auto& path : searchPaths) {
+            if (tex.loadFromFile(path)) {
+                tex.setSmooth(false);
+                s_fixedTreeTextures.push_back(tex);
+                break;
+            }
+        }
+    }
+}
+
 WorldManager::WorldManager(uint32_t seed, sf::Texture& decorTex) : swayTime(0.f) {
     chunkManager = std::make_unique<ChunkManager>(seed, decorTex);
 }
@@ -97,8 +125,60 @@ void WorldManager::draw(sf::RenderTarget& target, const sf::FloatRect& viewBound
     chunkManager->drawGeometry(target, viewBounds, dummyProfiler);
 }
 
-void WorldManager::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset) const {
+void WorldManager::drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset, const sim::SimulationRegistry* registry) const {
     chunkManager->drawBackground(target, viewBounds, showFoliage, profiler, tileset);
+
+    ensureFixedTreesLoaded();
+
+    if (!s_fixedTreeTextures.empty()) {
+        auto isInsideVillage = [&](float x) -> bool {
+            if (!registry) return false;
+            for (const auto& pair : const_cast<sim::SimulationRegistry*>(registry)->getAllVillages()) {
+                if (x >= pair.second.borderMinX && x <= pair.second.borderMaxX) {
+                    return true;
+                }
+            }
+            return false;
+        };
+
+        float groundY = FLAT_GROUND_Y;
+        float step = 140.f;
+        float startX = std::floor((viewBounds.left - 250.f) / step) * step;
+        float endX = viewBounds.left + viewBounds.width + 250.f;
+
+        for (float tx = startX; tx <= endX; tx += step) {
+            uint32_t h = static_cast<uint32_t>(std::abs(static_cast<int>(tx * 19.f + 733.f)));
+            float jitter = static_cast<float>(h % 60) - 30.f;
+            float treeX = tx + jitter;
+
+            if (isInsideVillage(treeX)) continue;
+
+            size_t backTexIdx = (h >> 2) % s_fixedTreeTextures.size();
+            const sf::Texture& backTex = s_fixedTreeTextures[backTexIdx];
+            sf::Sprite backTree(backTex);
+            backTree.setOrigin(static_cast<float>(backTex.getSize().x) * 0.5f, static_cast<float>(backTex.getSize().y));
+            backTree.setPosition(treeX + 35.f, groundY - 45.f);
+            backTree.setScale(0.85f, 0.85f);
+            backTree.setColor(sf::Color(55, 68, 62, 210));
+            target.draw(backTree);
+
+            size_t frontTexIdx = h % s_fixedTreeTextures.size();
+            const sf::Texture& frontTex = s_fixedTreeTextures[frontTexIdx];
+            sf::Sprite frontTree(frontTex);
+            frontTree.setOrigin(static_cast<float>(frontTex.getSize().x) * 0.5f, static_cast<float>(frontTex.getSize().y));
+            frontTree.setPosition(treeX, groundY - 18.f);
+            frontTree.setScale(1.02f, 1.02f);
+            frontTree.setColor(sf::Color(105, 125, 112, 245));
+            target.draw(frontTree);
+        }
+
+        sf::VertexArray canopy(sf::Quads, 4);
+        canopy[0] = sf::Vertex(sf::Vector2f(viewBounds.left - 50.f, viewBounds.top - 50.f), sf::Color(10, 16, 12, 135));
+        canopy[1] = sf::Vertex(sf::Vector2f(viewBounds.left + viewBounds.width + 50.f, viewBounds.top - 50.f), sf::Color(10, 16, 12, 135));
+        canopy[2] = sf::Vertex(sf::Vector2f(viewBounds.left + viewBounds.width + 50.f, groundY - 60.f), sf::Color(10, 16, 12, 0));
+        canopy[3] = sf::Vertex(sf::Vector2f(viewBounds.left - 50.f, groundY - 60.f), sf::Color(10, 16, 12, 0));
+        target.draw(canopy);
+    }
 }
 
 void WorldManager::drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const {

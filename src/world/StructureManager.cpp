@@ -114,49 +114,32 @@ void StructureManager::drawMeetingGround(sf::RenderTarget& target, float worldX,
     }
 }
 
-void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
-    sf::View view = target.getView();
-    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 100.f;
-    float viewRight = view.getCenter().x + view.getSize().x * 0.5f + 100.f;
+void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::VillageData&, float groundY) {
+    if (!rearLawnTexture || rearLawnTexture->getSize().x == 0) return;
 
-    float drawStart = std::max(viewLeft, village.borderMinX);
-    float drawEnd = std::min(viewRight, village.borderMaxX);
-    if (drawStart >= drawEnd) return;
+    sf::View view = target.getView();
+    float viewLeft = view.getCenter().x - view.getSize().x * 0.5f - 400.f;
+    float viewWidth = view.getSize().x + 800.f;
 
     float yardTopY = groundY - 228.f;
     float yardBottomY = groundY - 14.f;
     float yardH = yardBottomY - yardTopY;
 
-    if (rearLawnTexture && rearLawnTexture->getSize().x > 0) {
-        float texW = static_cast<float>(rearLawnTexture->getSize().x);
-        float texH = static_cast<float>(rearLawnTexture->getSize().y);
+    float texW = static_cast<float>(rearLawnTexture->getSize().x);
+    float texH = static_cast<float>(rearLawnTexture->getSize().y);
 
-        float scale = yardH / texH;
-        float stepW = std::floor(texW * scale);
-        if (stepW <= 0.f) stepW = 100.f;
+    float scale = yardH / texH;
+    float stepW = std::floor(texW * scale);
+    if (stepW <= 0.f) stepW = 100.f;
 
-        float startX = std::floor(drawStart / stepW) * stepW;
-        for (float x = startX; x < drawEnd; x += stepW) {
-            sf::Sprite spr(*rearLawnTexture);
-            spr.setScale(scale, scale);
-            spr.setPosition(x, yardTopY);
-            target.draw(spr);
-        }
-    } else {
-        sf::RectangleShape rearLawn(sf::Vector2f(drawEnd - drawStart, yardH));
-        rearLawn.setPosition(drawStart, yardTopY);
-        rearLawn.setFillColor(sf::Color(30, 56, 26));
-        target.draw(rearLawn);
+    float startX = std::floor(viewLeft / stepW) * stepW;
+    float endX = viewLeft + viewWidth;
 
-        sf::RectangleShape midLawn(sf::Vector2f(drawEnd - drawStart, yardH * 0.55f));
-        midLawn.setPosition(drawStart, yardTopY + (yardH * 0.45f));
-        midLawn.setFillColor(sf::Color(44, 78, 36));
-        target.draw(midLawn);
-
-        sf::RectangleShape rearGrassTrim(sf::Vector2f(drawEnd - drawStart, 6.f));
-        rearGrassTrim.setPosition(drawStart, yardTopY);
-        rearGrassTrim.setFillColor(sf::Color(78, 146, 52));
-        target.draw(rearGrassTrim);
+    for (float x = startX; x < endX; x += stepW) {
+        sf::Sprite spr(*rearLawnTexture);
+        spr.setScale(scale, scale);
+        spr.setPosition(x, yardTopY);
+        target.draw(spr);
     }
 }
 
@@ -237,7 +220,6 @@ void StructureManager::drawFrontRoad(sf::RenderTarget& target, const sim::Villag
 }
 
 void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
-    drawRearLawn(target, village, groundY);
     drawRearPalisade(target, village, groundY);
     drawMiddlePalisade(target, village, groundY);
 }
@@ -245,6 +227,7 @@ void StructureManager::drawSettlementFootprint(sf::RenderTarget& target, const s
 void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::SimulationRegistry& registry, WorldManager* world, const sf::FloatRect& viewBounds) {
     float defaultGroundY = world ? world->getTerrainHeight(viewBounds.left + viewBounds.width * 0.5f) : 500.f;
     sim::VillageData dummy;
+    drawRearLawn(target, dummy, defaultGroundY);
     drawFrontRoad(target, dummy, defaultGroundY);
 
     for (const auto& pair : registry.getAllVillages()) {
@@ -253,7 +236,6 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
             continue;
         }
         float groundY = world ? world->getTerrainHeight(village.centerX) : 500.f;
-        drawRearLawn(target, village, groundY);
         drawRearPalisade(target, village, groundY);
     }
 }

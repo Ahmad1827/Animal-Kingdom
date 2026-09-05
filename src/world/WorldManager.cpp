@@ -54,12 +54,14 @@ static std::string resolveTreeAsset(const std::string& filename) {
     return "";
 }
 
+static const int kForestTreeIndices[] = { 1, 2 };
+ 
 static void ensureFixedTreesLoaded() {
     if (s_fixedTreesLoaded) return;
     s_fixedTreesLoaded = true;
-
-    for (int i = 1; i <= 5; ++i) {
-        std::string filename = "TREEFIXED_" + std::to_string(i) + ".png";
+ 
+    for (int idx : kForestTreeIndices) {
+        std::string filename = "TREEFIXED_" + std::to_string(idx) + ".png";
         std::string path = resolveTreeAsset(filename);
         if (!path.empty()) {
             sf::Texture tex;

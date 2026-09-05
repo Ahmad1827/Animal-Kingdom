@@ -46,6 +46,7 @@ public:
 
     void draw(sf::RenderTarget& target, const sf::FloatRect& viewBounds) const;
     void drawBackground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, bool showFoliage, ProfilerStats& profiler, sf::Texture& tileset, const sim::SimulationRegistry* registry = nullptr) const;
+    void drawMidground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, const sim::SimulationRegistry* registry = nullptr) const;
     void drawForeground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, const sim::SimulationRegistry* registry = nullptr) const;
     void drawGeometry(sf::RenderTarget& target, const sf::FloatRect& viewBounds, ProfilerStats& profiler) const;
     void drawTerritoryMarkers(sf::RenderTarget& target, sim::SimulationRegistry& registry, const sf::FloatRect& viewBounds) const;

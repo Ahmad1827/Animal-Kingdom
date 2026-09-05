@@ -192,31 +192,6 @@ void WorldManager::drawBackground(sf::RenderTarget& target, const sf::FloatRect&
                 backTree.setColor(sf::Color(165, 185, 175, 230));
                 target.draw(backTree);
             }
-
-            uint32_t seedB = static_cast<uint32_t>(std::abs(static_cast<int>(tx * 131.f + 571.f)));
-            float jitterB = static_cast<float>(seedB % 90) - 45.f;
-            float treeXB = tx + 75.f + jitterB;
-
-            if (!isInsideVillage(treeXB)) {
-                size_t texIdxB = (seedB >> 1) % s_fixedTreeTextures.size();
-                const sf::Texture& texB = s_fixedTreeTextures[texIdxB];
-                sf::Sprite midTree(texB);
-                midTree.setOrigin(static_cast<float>(texB.getSize().x) * 0.5f, static_cast<float>(texB.getSize().y));
-                midTree.setPosition(treeXB, groundY - 24.f);
-                float scaleB = 1.10f + static_cast<float>(seedB % 25) / 100.f;
-                midTree.setScale((seedB % 2 == 0 ? scaleB : -scaleB), scaleB);
-                midTree.setColor(sf::Color(240, 245, 240, 255));
-                target.draw(midTree);
-
-                for (int r = -1; r <= 1; r += 2) {
-                    sf::RectangleShape root(sf::Vector2f(28.f, 6.f));
-                    root.setOrigin(14.f, 3.f);
-                    root.setPosition(treeXB + r * 25.f, groundY - 18.f);
-                    root.setRotation(r * 18.f);
-                    root.setFillColor(sf::Color(52, 38, 26, 210));
-                    target.draw(root);
-                }
-            }
         }
 
         float shadowStep = 80.f;
@@ -236,6 +211,53 @@ void WorldManager::drawBackground(sf::RenderTarget& target, const sf::FloatRect&
         canopy[2] = sf::Vertex(sf::Vector2f(viewBounds.left + viewBounds.width + 50.f, groundY - 140.f), sf::Color(14, 22, 16, 0));
         canopy[3] = sf::Vertex(sf::Vector2f(viewBounds.left - 50.f, groundY - 140.f), sf::Color(14, 22, 16, 0));
         target.draw(canopy);
+    }
+}
+
+void WorldManager::drawMidground(sf::RenderTarget& target, const sf::FloatRect& viewBounds, const sim::SimulationRegistry* registry) const {
+    ensureFixedTreesLoaded();
+    if (s_fixedTreeTextures.empty()) return;
+
+    auto isInsideVillage = [&](float x) -> bool {
+        if (!registry) return false;
+        for (const auto& pair : const_cast<sim::SimulationRegistry*>(registry)->getAllVillages()) {
+            if (x >= pair.second.borderMinX - 80.f && x <= pair.second.borderMaxX + 80.f) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    float groundY = FLAT_GROUND_Y;
+    float step = 260.f;
+    float startX = std::floor((viewBounds.left - 300.f) / step) * step;
+    float endX = viewBounds.left + viewBounds.width + 300.f;
+
+    for (float tx = startX; tx <= endX; tx += step) {
+        uint32_t seedB = static_cast<uint32_t>(std::abs(static_cast<int>(tx * 131.f + 571.f)));
+        float jitterB = static_cast<float>(seedB % 80) - 40.f;
+        float treeXB = tx + jitterB;
+
+        if (isInsideVillage(treeXB)) continue;
+
+        size_t texIdxB = (seedB >> 1) % s_fixedTreeTextures.size();
+        const sf::Texture& texB = s_fixedTreeTextures[texIdxB];
+        sf::Sprite midTree(texB);
+        midTree.setOrigin(static_cast<float>(texB.getSize().x) * 0.5f, static_cast<float>(texB.getSize().y));
+        midTree.setPosition(treeXB, groundY - 24.f);
+        float scaleB = 1.12f + static_cast<float>(seedB % 20) / 100.f;
+        midTree.setScale((seedB % 2 == 0 ? scaleB : -scaleB), scaleB);
+        midTree.setColor(sf::Color(215, 228, 222, 255));
+        target.draw(midTree);
+
+        for (int r = -1; r <= 1; r += 2) {
+            sf::RectangleShape root(sf::Vector2f(28.f, 6.f));
+            root.setOrigin(14.f, 3.f);
+            root.setPosition(treeXB + r * 25.f, groundY - 18.f);
+            root.setRotation(r * 18.f);
+            root.setFillColor(sf::Color(52, 38, 26, 210));
+            target.draw(root);
+        }
     }
 }
 

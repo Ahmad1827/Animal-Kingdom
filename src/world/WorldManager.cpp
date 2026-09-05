@@ -236,15 +236,85 @@ void WorldManager::drawBackgroundTrees(sf::RenderTarget& target, const sf::Float
         target.draw(backTree);
     }
  
-    float shadowStep = 80.f;
-    float sStartX = std::floor(viewBounds.left / shadowStep) * shadowStep;
-    float sEndX = viewBounds.left + viewBounds.width + shadowStep;
-    for (float sx = sStartX; sx <= sEndX; sx += shadowStep) {
-        if (isInsideVillage(sx)) continue;
-        sf::RectangleShape forestShadow(sf::Vector2f(shadowStep + 10.f, 340.f));
-        forestShadow.setPosition(sx, groundY - 215.f);
-        forestShadow.setFillColor(sf::Color(14, 24, 16, 70));
-        target.draw(forestShadow);
+    struct Span { float l; float r; };
+    std::vector<Span> villageSpans;
+    if (registry) {
+        for (const auto& pair : const_cast<sim::SimulationRegistry*>(registry)->getAllVillages()) {
+            float vl = pair.second.borderMinX - 80.f;
+            float vr = pair.second.borderMaxX + 80.f;
+            if (vr > viewBounds.left - 600.f && vl < viewBounds.left + viewBounds.width + 600.f) {
+                villageSpans.push_back({vl, vr});
+            }
+        }
+        std::sort(villageSpans.begin(), villageSpans.end(), [](const Span& a, const Span& b) {
+            return a.l < b.l;
+        });
+    }
+
+    float topY = groundY - 215.f;
+    float botY = groundY + 125.f;
+    float fadeDist = 600.f;
+    sf::Uint8 shadowAlpha = 70;
+
+    auto drawWildernessSpan = [&](float x1, float x2) {
+        float spanWidth = x2 - x1;
+        if (spanWidth <= 0.f) return;
+
+        if (spanWidth <= 2.f * fadeDist) {
+            float midX = x1 + spanWidth * 0.5f;
+            sf::Uint8 peakAlpha = static_cast<sf::Uint8>(shadowAlpha * (spanWidth / (2.f * fadeDist)));
+            
+            sf::Vertex q1[4] = {
+                sf::Vertex(sf::Vector2f(x1, topY), sf::Color(14, 24, 16, 0)),
+                sf::Vertex(sf::Vector2f(midX, topY), sf::Color(14, 24, 16, peakAlpha)),
+                sf::Vertex(sf::Vector2f(midX, botY), sf::Color(14, 24, 16, peakAlpha)),
+                sf::Vertex(sf::Vector2f(x1, botY), sf::Color(14, 24, 16, 0))
+            };
+            target.draw(q1, 4, sf::Quads);
+
+            sf::Vertex q2[4] = {
+                sf::Vertex(sf::Vector2f(midX, topY), sf::Color(14, 24, 16, peakAlpha)),
+                sf::Vertex(sf::Vector2f(x2, topY), sf::Color(14, 24, 16, 0)),
+                sf::Vertex(sf::Vector2f(x2, botY), sf::Color(14, 24, 16, 0)),
+                sf::Vertex(sf::Vector2f(midX, botY), sf::Color(14, 24, 16, peakAlpha))
+            };
+            target.draw(q2, 4, sf::Quads);
+        } else {
+            sf::Vertex leftFade[4] = {
+                sf::Vertex(sf::Vector2f(x1, topY), sf::Color(14, 24, 16, 0)),
+                sf::Vertex(sf::Vector2f(x1 + fadeDist, topY), sf::Color(14, 24, 16, shadowAlpha)),
+                sf::Vertex(sf::Vector2f(x1 + fadeDist, botY), sf::Color(14, 24, 16, shadowAlpha)),
+                sf::Vertex(sf::Vector2f(x1, botY), sf::Color(14, 24, 16, 0))
+            };
+            target.draw(leftFade, 4, sf::Quads);
+
+            sf::RectangleShape centerBody(sf::Vector2f(spanWidth - 2.f * fadeDist, botY - topY));
+            centerBody.setPosition(x1 + fadeDist, topY);
+            centerBody.setFillColor(sf::Color(14, 24, 16, shadowAlpha));
+            target.draw(centerBody);
+
+            sf::Vertex rightFade[4] = {
+                sf::Vertex(sf::Vector2f(x2 - fadeDist, topY), sf::Color(14, 24, 16, shadowAlpha)),
+                sf::Vertex(sf::Vector2f(x2, topY), sf::Color(14, 24, 16, 0)),
+                sf::Vertex(sf::Vector2f(x2, botY), sf::Color(14, 24, 16, 0)),
+                sf::Vertex(sf::Vector2f(x2 - fadeDist, botY), sf::Color(14, 24, 16, shadowAlpha))
+            };
+            target.draw(rightFade, 4, sf::Quads);
+        }
+    };
+
+    float curX = viewBounds.left - 600.f;
+    float maxX = viewBounds.left + viewBounds.width + 600.f;
+
+    for (const auto& vs : villageSpans) {
+        if (vs.l > curX) {
+            drawWildernessSpan(curX, std::min(vs.l, maxX));
+        }
+        curX = std::max(curX, vs.r);
+        if (curX >= maxX) break;
+    }
+    if (curX < maxX) {
+        drawWildernessSpan(curX, maxX);
     }
  
     sf::VertexArray canopy(sf::Quads, 4);

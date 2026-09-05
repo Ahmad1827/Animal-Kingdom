@@ -235,7 +235,7 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
     std::vector<Span> villageSpans;
     for (const auto& pair : registry.getAllVillages()) {
         const auto& v = pair.second;
-        if (v.borderMaxX > viewBounds.left - 50.f && v.borderMinX < viewBounds.left + viewBounds.width + 50.f) {
+        if (v.borderMaxX > viewBounds.left - 1500.f && v.borderMinX < viewBounds.left + viewBounds.width + 1500.f) {
             villageSpans.push_back({v.borderMinX, v.borderMaxX});
         }
     }
@@ -243,27 +243,49 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
         return a.l < b.l;
     });
 
-    float curX = viewBounds.left - 50.f;
-    float boundRight = viewBounds.left + viewBounds.width + 50.f;
+    float topY = defaultGroundY - 228.f;
+    float bottomY = defaultGroundY + 160.f;
+    float fadeLen = 1200.f;
+    sf::Uint8 maxAlpha = 135;
+
+    auto drawGradQuad = [&](float x1, float x2, sf::Uint8 a1, sf::Uint8 a2) {
+        if (x2 <= x1) return;
+        sf::Vertex quad[4];
+        quad[0] = sf::Vertex(sf::Vector2f(x1, topY), sf::Color(10, 18, 14, a1));
+        quad[1] = sf::Vertex(sf::Vector2f(x2, topY), sf::Color(10, 18, 14, a2));
+        quad[2] = sf::Vertex(sf::Vector2f(x2, bottomY), sf::Color(10, 18, 14, a2));
+        quad[3] = sf::Vertex(sf::Vector2f(x1, bottomY), sf::Color(10, 18, 14, a1));
+        target.draw(quad, 4, sf::Quads);
+    };
+
+    auto drawWildernessShadow = [&](float spanLeft, float spanRight) {
+        float spanW = spanRight - spanLeft;
+        if (spanW <= 0.f) return;
+
+        if (spanW <= 2.f * fadeLen) {
+            float midX = spanLeft + spanW * 0.5f;
+            sf::Uint8 peakAlpha = static_cast<sf::Uint8>(maxAlpha * (spanW / (2.f * fadeLen)));
+            drawGradQuad(spanLeft, midX, 0, peakAlpha);
+            drawGradQuad(midX, spanRight, peakAlpha, 0);
+        } else {
+            drawGradQuad(spanLeft, spanLeft + fadeLen, 0, maxAlpha);
+            drawGradQuad(spanLeft + fadeLen, spanRight - fadeLen, maxAlpha, maxAlpha);
+            drawGradQuad(spanRight - fadeLen, spanRight, maxAlpha, 0);
+        }
+    };
+
+    float curX = viewBounds.left - 1200.f;
+    float boundRight = viewBounds.left + viewBounds.width + 1200.f;
 
     for (const auto& vs : villageSpans) {
         if (vs.l > curX) {
-            float spanW = std::min(vs.l, boundRight) - curX;
-            if (spanW > 0.f) {
-                sf::RectangleShape shadow(sf::Vector2f(spanW, 390.f));
-                shadow.setPosition(curX, defaultGroundY - 228.f);
-                shadow.setFillColor(sf::Color(10, 18, 14, 120));
-                target.draw(shadow);
-            }
+            drawWildernessShadow(curX, vs.l);
         }
         curX = std::max(curX, vs.r);
         if (curX >= boundRight) break;
     }
     if (curX < boundRight) {
-        sf::RectangleShape shadow(sf::Vector2f(boundRight - curX, 390.f));
-        shadow.setPosition(curX, defaultGroundY - 228.f);
-        shadow.setFillColor(sf::Color(10, 18, 14, 120));
-        target.draw(shadow);
+        drawWildernessShadow(curX, boundRight);
     }
 
     for (const auto& pair : registry.getAllVillages()) {

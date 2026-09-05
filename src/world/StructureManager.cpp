@@ -2,6 +2,7 @@
 #include "world/WorldManager.h"
 #include <cmath>
 #include <algorithm>
+#include <vector>
 
 StructureManager::StructureManager() {}
 
@@ -229,6 +230,41 @@ void StructureManager::drawBackgroundStructures(sf::RenderTarget& target, sim::S
     sim::VillageData dummy;
     drawRearLawn(target, dummy, defaultGroundY);
     drawFrontRoad(target, dummy, defaultGroundY);
+
+    struct Span { float l; float r; };
+    std::vector<Span> villageSpans;
+    for (const auto& pair : registry.getAllVillages()) {
+        const auto& v = pair.second;
+        if (v.borderMaxX > viewBounds.left - 50.f && v.borderMinX < viewBounds.left + viewBounds.width + 50.f) {
+            villageSpans.push_back({v.borderMinX, v.borderMaxX});
+        }
+    }
+    std::sort(villageSpans.begin(), villageSpans.end(), [](const Span& a, const Span& b) {
+        return a.l < b.l;
+    });
+
+    float curX = viewBounds.left - 50.f;
+    float boundRight = viewBounds.left + viewBounds.width + 50.f;
+
+    for (const auto& vs : villageSpans) {
+        if (vs.l > curX) {
+            float spanW = std::min(vs.l, boundRight) - curX;
+            if (spanW > 0.f) {
+                sf::RectangleShape shadow(sf::Vector2f(spanW, 390.f));
+                shadow.setPosition(curX, defaultGroundY - 228.f);
+                shadow.setFillColor(sf::Color(10, 18, 14, 120));
+                target.draw(shadow);
+            }
+        }
+        curX = std::max(curX, vs.r);
+        if (curX >= boundRight) break;
+    }
+    if (curX < boundRight) {
+        sf::RectangleShape shadow(sf::Vector2f(boundRight - curX, 390.f));
+        shadow.setPosition(curX, defaultGroundY - 228.f);
+        shadow.setFillColor(sf::Color(10, 18, 14, 120));
+        target.draw(shadow);
+    }
 
     for (const auto& pair : registry.getAllVillages()) {
         const sim::VillageData& village = pair.second;

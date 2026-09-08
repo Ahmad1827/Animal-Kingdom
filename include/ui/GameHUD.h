@@ -31,6 +31,5 @@ private:
     int lastObservedAmber;
     sf::FloatRect timeButtonBounds[6];
 
-    void drawAmberHUD(sf::RenderWindow& window, const sim::ApeData* playerApe);
-    void drawTimeHUD(sf::RenderWindow& window, sim::SimulationManager* simManager);
+    void drawOrnatePanel(sf::RenderWindow& window, float x, float y, float w, float h);
 };

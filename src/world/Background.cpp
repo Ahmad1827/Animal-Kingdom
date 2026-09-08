@@ -150,3 +150,4 @@ void Background::drawDistant(sf::RenderTarget& target, float worldGroundY) {
 
 void Background::drawForeground(sf::RenderTarget&, float) {
 }
+//

@@ -60,7 +60,7 @@ void NPCApe::determineNextAction(sim::ApeData* data, float timeOfDay, sim::Simul
         float myX = physicalApe.getPosition().x;
         float targetX = data->travelDestinationX;
         float dist = std::abs(myX - targetX);
-        float stopDistance = 25.f;
+        float stopDistance = 35.f;
 
         if (dist > stopDistance) {
             intendedMoveX = (targetX > myX) ? 1.f : -1.f;
@@ -135,7 +135,9 @@ void NPCApe::applyPhysics(float dt, WorldManager* worldManager) {
 }
 
 void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, float timeOfDay, sim::SimulationRegistry& registry, sim::EntityID playerId) {
-    if (fontLoaded && data) {
+    if (!data) return;
+
+    if (fontLoaded) {
         nameText.setString(data->name);
         sf::FloatRect bounds = physicalApe.getBounds();
         sf::FloatRect textBounds = nameText.getLocalBounds();
@@ -144,14 +146,25 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
         nameText.setPosition(bounds.left + bounds.width / 2.f, headY - 6.f);
     }
 
-    if (!data) return;
     physicalApe.setDepthLane(data->depthLane);
+
+    if (dt <= 0.00001f) {
+        intendedMoveX = 0.f;
+        pauseTimer = 0.f;
+        physicalApe.setVelocity(0.f, 0.f);
+        if (physicalApe.getState() != ApeState::Working) {
+            physicalApe.setState(ApeState::Grounded);
+        }
+        physicalApe.update(0.f);
+        return;
+    }
+
     if (data->currentJob == sim::Job::Woodcutter && data->currentTargetNode != 0 && worldManager) {
         float myX = physicalApe.getPosition().x;
         float destX = (data->travelDestinationX != 0.f) ? data->travelDestinationX : myX;
         float distToDest = std::abs(myX - destX);
 
-        if (distToDest > 45.f) {
+        if (distToDest > 65.f) {
             physicalApe.setState(ApeState::Grounded);
             intendedMoveX = (destX > myX) ? 1.f : -1.f;
             workTimer = 0.f;
@@ -210,8 +223,27 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
         }
     }
 
+    float preX = physicalApe.getPosition().x;
     applyPhysics(dt, worldManager);
     physicalApe.update(dt);
+
+    float actualMoveX = std::abs(physicalApe.getPosition().x - preX);
+    if (intendedMoveX != 0.f && actualMoveX < 4.f * dt) {
+        pauseTimer += dt;
+        if (pauseTimer >= 0.75f) {
+            intendedMoveX = 0.f;
+            pauseTimer = 0.f;
+            data->hasTravelDestination = false;
+            physicalApe.setVelocity(0.f, physicalApe.getVelocity().y);
+            if (data->currentJob == sim::Job::Woodcutter && data->currentTargetNode != 0) {
+                physicalApe.setState(ApeState::Working);
+            } else {
+                physicalApe.setState(ApeState::Grounded);
+            }
+        }
+    } else {
+        pauseTimer = 0.f;
+    }
 
     data->worldX = physicalApe.getPosition().x;
     data->worldY = physicalApe.getPosition().y;
@@ -220,7 +252,4 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
 
 void NPCApe::draw(sf::RenderTarget& target) {
     physicalApe.draw(target);
-    if (fontLoaded) {
-        // target.draw(nameText);
-    }
 }

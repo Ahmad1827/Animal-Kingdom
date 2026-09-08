@@ -11,6 +11,16 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
     sim::EntityID controlledId = simManager.getControlledApe();
     auto& allApes = registry.getAllApes();
 
+    if (dt <= 0.00001f) {
+        for (auto& pair : activeNPCs) {
+            sim::ApeData* data = registry.getApe(pair.first);
+            if (data && data->alive && data->id != controlledId) {
+                pair.second->update(0.f, data, worldManager, timeOfDay, registry, controlledId);
+            }
+        }
+        return;
+    }
+
     for (auto& pair : allApes) {
         sim::ApeData& data = pair.second;
         if (!data.alive || data.id == controlledId) continue;

@@ -225,7 +225,12 @@ void NPCApe::update(float dt, sim::ApeData* data, WorldManager* worldManager, fl
 
     float preX = physicalApe.getPosition().x;
     applyPhysics(dt, worldManager);
-    physicalApe.update(dt);
+
+    float animDt = dt;
+    if (physicalApe.getState() == ApeState::Grounded && intendedMoveX == 0.f && std::abs(physicalApe.getVelocity().x) < 5.f) {
+        animDt = dt * 0.35f;
+    }
+    physicalApe.update(animDt);
 
     float actualMoveX = std::abs(physicalApe.getPosition().x - preX);
     if (intendedMoveX != 0.f && actualMoveX < 4.f * dt) {

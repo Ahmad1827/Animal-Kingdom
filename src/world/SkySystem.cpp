@@ -107,16 +107,16 @@ void SkySystem::init(float width, float height, int starCount) {
     backgroundClouds.clear();
     foregroundClouds.clear();
 
-    float spawnX = -200.f;
-    while (spawnX < skyWidth + 400.f) {
+    float spawnX = -1000.f;
+    while (spawnX < skyWidth + 300.f) {
         generateCloudCluster(backgroundClouds, spawnX, 0.3f);
-        spawnX += 180.f + static_cast<float>(std::rand() % 160);
+        spawnX += 200.f + static_cast<float>(std::rand() % 160);
     }
 
-    spawnX = -200.f;
-    while (spawnX < skyWidth + 400.f) {
+    spawnX = -1000.f;
+    while (spawnX < skyWidth + 300.f) {
         generateCloudCluster(foregroundClouds, spawnX, 0.8f);
-        spawnX += 240.f + static_cast<float>(std::rand() % 220);
+        spawnX += 280.f + static_cast<float>(std::rand() % 220);
     }
 
     const int bandCount = 18;
@@ -267,22 +267,15 @@ void SkySystem::update(float dt, float timeOfDay, float cameraX) {
 
     float baseWind = 9.5f;
 
-    auto updateLayer = [this, dt, baseWind](std::vector<ProceduralCloud>& list, float wrapMargin) {
-        for (auto& c : list) {
-            c.position.x += baseWind * c.speedMultiplier * dt;
-            if (c.position.x > skyWidth + wrapMargin) {
-                float minX = skyWidth;
-                for (const auto& other : list) {
-                    if (other.position.x < minX) minX = other.position.x;
-                }
-                c.position.x = std::min(-wrapMargin, minX - (180.f + (std::rand() % 160)));
-                c.position.y = 40.f + static_cast<float>(std::rand() % 160);
-            }
-        }
-    };
+    for (auto& c : backgroundClouds) {
+        c.position.x += baseWind * c.speedMultiplier * dt;
+        if (c.position.x > 50000.f) c.position.x = std::fmod(c.position.x, skyWidth + 1400.f);
+    }
 
-    updateLayer(backgroundClouds, 300.f);
-    updateLayer(foregroundClouds, 400.f);
+    for (auto& c : foregroundClouds) {
+        c.position.x += baseWind * c.speedMultiplier * dt;
+        if (c.position.x > 50000.f) c.position.x = std::fmod(c.position.x, skyWidth + 1400.f);
+    }
 }
 
 void SkySystem::drawSky(sf::RenderTarget& target, float timeOfDay, float cameraX) {
@@ -449,16 +442,19 @@ void SkySystem::drawClouds(sf::RenderTarget& target, float timeOfDay, float came
     if (cloudDensity <= 0.05f) return;
 
     SkyPalette pal = evaluatePalette(timeOfDay);
+    float leftBound = -1050.f;
+    float rightBound = skyWidth + 250.f;
+    float span = rightBound - leftBound;
+    float densityAlpha = std::clamp(cloudDensity * 1.25f, 0.15f, 1.0f);
 
     auto renderList = [&](const std::vector<ProceduralCloud>& list, float parallax, float alphaScale) {
-        size_t activeCount = static_cast<size_t>(list.size() * std::clamp(cloudDensity * 1.3f, 0.15f, 1.0f));
-        activeCount = std::min(activeCount, list.size());
-
-        for (size_t i = 0; i < activeCount; ++i) {
-            const auto& c = list[i];
+        for (const auto& c : list) {
             float rx = c.position.x - (cameraX * parallax);
-            rx = std::fmod(rx, skyWidth + 500.f);
-            if (rx < -450.f) rx += (skyWidth + 500.f);
+            float offset = std::fmod(rx - leftBound, span);
+            if (offset < 0.f) offset += span;
+            rx = leftBound + offset;
+
+            float finalAlpha = alphaScale * densityAlpha;
 
             for (const auto& seg : c.segments) {
                 sf::Vector2f sp = sf::Vector2f(rx + seg.offset.x, c.position.y + seg.offset.y);
@@ -467,7 +463,7 @@ void SkySystem::drawClouds(sf::RenderTarget& target, float timeOfDay, float came
                 baseRect.setOrigin(seg.size.x * 0.5f, seg.size.y * 0.5f);
                 baseRect.setPosition(sp.x, sp.y + seg.size.y * 0.22f);
                 sf::Color baseC = pal.cloudBase;
-                baseC.a = static_cast<sf::Uint8>(baseC.a * alphaScale);
+                baseC.a = static_cast<sf::Uint8>(baseC.a * finalAlpha);
                 baseRect.setFillColor(baseC);
                 target.draw(baseRect);
 
@@ -475,7 +471,7 @@ void SkySystem::drawClouds(sf::RenderTarget& target, float timeOfDay, float came
                 midRect.setOrigin(midRect.getSize().x * 0.5f, midRect.getSize().y * 0.5f);
                 midRect.setPosition(sp.x, sp.y);
                 sf::Color midC = pal.cloudMid;
-                midC.a = static_cast<sf::Uint8>(midC.a * alphaScale);
+                midC.a = static_cast<sf::Uint8>(midC.a * finalAlpha);
                 midRect.setFillColor(midC);
                 target.draw(midRect);
 
@@ -483,7 +479,7 @@ void SkySystem::drawClouds(sf::RenderTarget& target, float timeOfDay, float came
                 topRect.setOrigin(topRect.getSize().x * 0.5f, topRect.getSize().y * 0.5f);
                 topRect.setPosition(sp.x, sp.y - seg.size.y * 0.20f);
                 sf::Color topC = pal.cloudTop;
-                topC.a = static_cast<sf::Uint8>(topC.a * alphaScale);
+                topC.a = static_cast<sf::Uint8>(topC.a * finalAlpha);
                 topRect.setFillColor(topC);
                 target.draw(topRect);
             }

@@ -52,10 +52,17 @@ private:
     sf::RectangleShape mapOuterVellum;
     sf::RectangleShape mapInnerVellum;
     sf::RectangleShape mapInnerBorder;
-    sf::ConvexShape britainCoast;
-    sf::ConvexShape irelandCoast;
+
+    sf::ConvexShape cornwallShape;
+    sf::ConvexShape wessexShape;
+    sf::ConvexShape eastAngliaShape;
+    sf::ConvexShape merciaShape;
+    sf::ConvexShape northumbriaShape;
+    sf::ConvexShape albaShape;
+    sf::ConvexShape irelandShape;
     sf::ConvexShape frankiaCoast;
     sf::ConvexShape scandiCoast;
+
     std::vector<sf::Vertex> rhumbLines;
     std::vector<sf::Vertex> seaWaves;
 

@@ -93,6 +93,10 @@ private:
     MapLens currentLens = MapLens::Realms;
     sf::FloatRect lensTabBounds[4];
 
+    int targetMapMode = 0;
+    float miniAnimT = 0.f;
+    float expandAnimT = 0.f;
+
     void buildAuthenticMapGeometry();
     void buildOrganicCounties();
     void syncDynamicVillages(sim::SimulationRegistry& registry);
@@ -104,6 +108,7 @@ public:
     void syncWithWorld(sim::SimulationRegistry& registry);
     void update(float dt, float playerX, sim::SimulationRegistry& registry);
     void draw(sf::RenderWindow& window, const sf::View& letterboxView);
+    void drawMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry);
     void drawMinimap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry);
     void drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX);
     void drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry);
@@ -113,6 +118,9 @@ public:
     bool handleWorldMapInput(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView,
                              const std::function<void(const RealSettlement&, bool isKingdomLevel)>& onSettlementClicked,
                              const std::function<void(const RealSettlement&, sf::Vector2f, bool isKingdomLevel)>& onSettlementRightClicked = nullptr);
+
+    void setMapMode(int mode);
+    bool isExpandedInteractive() const { return expandAnimT > 0.80f; }
 
     void setMapLens(MapLens lens) { currentLens = lens; }
     MapLens getMapLens() const { return currentLens; }

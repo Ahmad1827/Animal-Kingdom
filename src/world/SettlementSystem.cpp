@@ -111,23 +111,14 @@ void SettlementSystem::buildOrganicCounties() {
 }
 
 void SettlementSystem::buildAuthenticMapGeometry() {
-    mapOuterVellum.setSize(sf::Vector2f(1060.f, 650.f));
-    mapOuterVellum.setOrigin(530.f, 325.f);
-    mapOuterVellum.setPosition(640.f, 360.f);
     mapOuterVellum.setFillColor(sf::Color(214, 196, 161));
     mapOuterVellum.setOutlineColor(sf::Color(44, 28, 16));
     mapOuterVellum.setOutlineThickness(4.f);
 
-    mapInnerVellum.setSize(sf::Vector2f(1036.f, 626.f));
-    mapInnerVellum.setOrigin(518.f, 313.f);
-    mapInnerVellum.setPosition(640.f, 360.f);
     mapInnerVellum.setFillColor(sf::Color(226, 210, 178));
     mapInnerVellum.setOutlineColor(sf::Color(135, 95, 45));
     mapInnerVellum.setOutlineThickness(2.f);
 
-    mapInnerBorder.setSize(sf::Vector2f(1016.f, 606.f));
-    mapInnerBorder.setOrigin(508.f, 303.f);
-    mapInnerBorder.setPosition(640.f, 360.f);
     mapInnerBorder.setFillColor(sf::Color(186, 204, 208, 170));
     mapInnerBorder.setOutlineColor(sf::Color(90, 65, 35));
     mapInnerBorder.setOutlineThickness(1.5f);
@@ -182,20 +173,21 @@ void SettlementSystem::buildAuthenticMapGeometry() {
     addWave(310.f, 360.f);
 
     miniFrameOuter.setSize(sf::Vector2f(276.f, 200.f));
-    miniFrameOuter.setPosition(984.f, 16.f);
     miniFrameOuter.setFillColor(sf::Color(220, 204, 172));
     miniFrameOuter.setOutlineColor(sf::Color(44, 28, 16));
     miniFrameOuter.setOutlineThickness(2.5f);
 
     miniFrameInner.setSize(sf::Vector2f(268.f, 192.f));
-    miniFrameInner.setPosition(988.f, 20.f);
     miniFrameInner.setFillColor(sf::Color::Transparent);
     miniFrameInner.setOutlineColor(sf::Color(135, 95, 45));
     miniFrameInner.setOutlineThickness(1.f);
 
     miniSea.setSize(sf::Vector2f(260.f, 142.f));
-    miniSea.setPosition(992.f, 42.f);
-    miniSea.setFillColor(sf::Color(186, 204, 208, 190));
+    miniSea.setFillColor(sf::Color(186, 204, 208, 240));
+}
+
+void SettlementSystem::setMapMode(int mode) {
+    targetMapMode = mode;
 }
 
 void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
@@ -275,6 +267,16 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
     if (!isInitialized || realSettlements.size() != registry.getAllVillages().size()) {
         syncDynamicVillages(registry);
     }
+
+    float targetMini = (targetMapMode != 0) ? 1.0f : 0.0f;
+    float targetExpand = (targetMapMode == 2) ? 1.0f : 0.0f;
+    float animSpeed = 9.0f;
+
+    miniAnimT += (targetMini - miniAnimT) * std::min(1.0f, dt * animSpeed);
+    expandAnimT += (targetExpand - expandAnimT) * std::min(1.0f, dt * animSpeed);
+
+    if (std::abs(targetMini - miniAnimT) < 0.002f) miniAnimT = targetMini;
+    if (std::abs(targetExpand - expandAnimT) < 0.002f) expandAnimT = targetExpand;
 
     if (!hasExplored) {
         minExploredX = playerX - 500.f;
@@ -377,42 +379,21 @@ sf::Vector2f SettlementSystem::getPlayerMapCoord(float playerX) const {
 }
 
 void SettlementSystem::drawMinimap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry) {
-    (void)registry;
-    if (!fontLoaded) return;
+    drawMap(window, letterboxView, playerX, registry);
+}
 
-    window.setView(letterboxView);
+void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX) {
+    sim::SimulationRegistry dummy;
+    drawMap(window, letterboxView, playerX, dummy);
+}
 
-    window.draw(miniFrameOuter);
-    window.draw(miniFrameInner);
-    window.draw(miniSea);
-
-    sf::Text miniTitle("MAP OF REALMS", font, 11);
-    miniTitle.setStyle(sf::Text::Bold);
-    miniTitle.setFillColor(sf::Color(65, 42, 20));
-    miniTitle.setPosition(996.f, 24.f);
-    window.draw(miniTitle);
-
-    sf::Text tabPrompt("[TAB] Enlarge", font, 9);
-    tabPrompt.setFillColor(sf::Color(115, 85, 50));
-    tabPrompt.setPosition(1175.f, 26.f);
-    window.draw(tabPrompt);
-
-    sf::Vector2f pMap = getPlayerMapCoord(playerX);
-    sf::Vector2f miniCenter(1122.f, 114.f);
-    sf::Vector2f mapCenterRef(377.5f, 342.5f);
-    float miniScale = 0.20f;
-    sf::Vector2f pMini = miniCenter + (pMap - mapCenterRef) * miniScale;
-
-    sf::CircleShape pin(3.f);
-    pin.setOrigin(3.f, 3.f);
-    pin.setPosition(pMini);
-    pin.setFillColor(sf::Color(255, 220, 50));
-    pin.setOutlineColor(sf::Color(30, 15, 5));
-    pin.setOutlineThickness(1.2f);
-    window.draw(pin);
+void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry) {
+    drawMap(window, letterboxView, playerX, registry);
 }
 
 bool SettlementSystem::handleMapLensInput(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView) {
+    if (expandAnimT < 0.70f) return false;
+
     if (event.type == sf::Event::KeyPressed) {
         if (event.key.code == sf::Keyboard::Q) { currentLens = MapLens::Realms; return true; }
         if (event.key.code == sf::Keyboard::W) { currentLens = MapLens::Diplomacy; return true; }
@@ -436,6 +417,8 @@ bool SettlementSystem::handleMapLensInput(const sf::Event& event, const sf::Rend
 bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView,
                                            const std::function<void(const RealSettlement&, bool isKingdomLevel)>& onSettlementClicked,
                                            const std::function<void(const RealSettlement&, sf::Vector2f, bool isKingdomLevel)>& onSettlementRightClicked) {
+    if (expandAnimT < 0.80f) return false;
+
     sf::FloatRect canvasRect(134.f, 108.f, 1012.f, 524.f);
     bool isKingdomLevel = (mapZoom > 0.85f);
 
@@ -540,18 +523,98 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
     return false;
 }
 
-void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX) {
-    sim::SimulationRegistry dummy;
-    drawWorldMap(window, letterboxView, playerX, dummy);
-}
-
-void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry) {
+void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry) {
     (void)registry;
     if (!fontLoaded) return;
+    if (miniAnimT < 0.005f && expandAnimT < 0.005f) return;
+
+    window.setView(letterboxView);
+
+    auto getKingdomBaseColor = [&](const std::string& kName) -> sf::Color {
+        if (kName.find("Wessex") != std::string::npos) return sf::Color(185, 55, 65);
+        if (kName.find("Mercia") != std::string::npos) return sf::Color(205, 115, 65);
+        if (kName.find("Northumbria") != std::string::npos) return sf::Color(155, 65, 95);
+        if (kName.find("Alba") != std::string::npos) return sf::Color(65, 105, 145);
+        if (kName.find("Cornwall") != std::string::npos) return sf::Color(155, 135, 75);
+        if (kName.find("East Anglia") != std::string::npos) return sf::Color(210, 160, 60);
+        if (kName.find("Ireland") != std::string::npos) return sf::Color(75, 135, 80);
+        return sf::Color(150, 140, 125);
+    };
+
+    if (expandAnimT <= 0.005f) {
+        float ySlide = (1.0f - miniAnimT) * -220.f;
+        sf::Vector2f originPos(984.f, 16.f + ySlide);
+
+        miniFrameOuter.setPosition(originPos);
+        miniFrameInner.setPosition(originPos.x + 4.f, originPos.y + 4.f);
+        miniSea.setPosition(originPos.x + 8.f, originPos.y + 26.f);
+
+        window.draw(miniFrameOuter);
+        window.draw(miniFrameInner);
+        window.draw(miniSea);
+
+        sf::Text miniTitle("MAP OF REALMS", font, 11);
+        miniTitle.setStyle(sf::Text::Bold);
+        miniTitle.setFillColor(sf::Color(65, 42, 20));
+        miniTitle.setPosition(originPos.x + 12.f, originPos.y + 8.f);
+        window.draw(miniTitle);
+
+        sf::Text tabPrompt("[TAB] Enlarge", font, 9);
+        tabPrompt.setFillColor(sf::Color(115, 85, 50));
+        tabPrompt.setPosition(originPos.x + 190.f, originPos.y + 10.f);
+        window.draw(tabPrompt);
+
+        sf::Vector2f miniCenter(originPos.x + 138.f, originPos.y + 98.f);
+        sf::Vector2f mapCenterRef(377.5f, 342.5f);
+        float miniScale = 0.20f;
+
+        for (const auto& c : counties) {
+            sf::ConvexShape miniC(c.points.size());
+            for (size_t p = 0; p < c.points.size(); ++p) {
+                sf::Vector2f pt = miniCenter + (c.points[p] - mapCenterRef) * miniScale;
+                miniC.setPoint(p, pt);
+            }
+            sf::Color col = getKingdomBaseColor(c.kingdomName);
+            miniC.setFillColor(col);
+            miniC.setOutlineColor(sf::Color(45, 28, 16, 170));
+            miniC.setOutlineThickness(0.7f);
+            window.draw(miniC);
+        }
+
+        for (const auto& rs : realSettlements) {
+            sf::Vector2f mDot = miniCenter + (rs.mapCoord - mapCenterRef) * miniScale;
+            sf::CircleShape dot(1.8f);
+            dot.setOrigin(1.8f, 1.8f);
+            dot.setPosition(mDot);
+            dot.setFillColor(sf::Color(250, 240, 210));
+            dot.setOutlineColor(sf::Color(30, 18, 10));
+            dot.setOutlineThickness(0.6f);
+            window.draw(dot);
+        }
+
+        sf::Vector2f pMap = getPlayerMapCoord(playerX);
+        sf::Vector2f pMini = miniCenter + (pMap - mapCenterRef) * miniScale;
+
+        float pulse = 1.0f + 0.35f * std::sin(pulseTime * 6.f);
+        sf::CircleShape aura(4.5f * pulse);
+        aura.setOrigin(aura.getRadius(), aura.getRadius());
+        aura.setPosition(pMini);
+        aura.setFillColor(sf::Color(230, 160, 30, 100));
+        window.draw(aura);
+
+        sf::CircleShape pin(2.8f);
+        pin.setOrigin(2.8f, 2.8f);
+        pin.setPosition(pMini);
+        pin.setFillColor(sf::Color(255, 220, 50));
+        pin.setOutlineColor(sf::Color(30, 15, 5));
+        pin.setOutlineThickness(1.f);
+        window.draw(pin);
+
+        return;
+    }
 
     const unsigned int canvasW = 1012;
     const unsigned int canvasH = 524;
-    sf::FloatRect canvasRect(134.f, 108.f, static_cast<float>(canvasW), static_cast<float>(canvasH));
 
     if (!mapCanvasReady || mapCanvas.getSize().x != canvasW || mapCanvas.getSize().y != canvasH) {
         mapCanvas.create(canvasW, canvasH);
@@ -573,17 +636,6 @@ void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& le
     mapCanvas.draw(scandiCoast);
 
     bool isZoomedOut = (mapZoom > 0.85f);
-
-    auto getKingdomBaseColor = [&](const std::string& kName) -> sf::Color {
-        if (kName.find("Wessex") != std::string::npos) return sf::Color(185, 55, 65);
-        if (kName.find("Mercia") != std::string::npos) return sf::Color(205, 115, 65);
-        if (kName.find("Northumbria") != std::string::npos) return sf::Color(155, 65, 95);
-        if (kName.find("Alba") != std::string::npos) return sf::Color(65, 105, 145);
-        if (kName.find("Cornwall") != std::string::npos) return sf::Color(155, 135, 75);
-        if (kName.find("East Anglia") != std::string::npos) return sf::Color(210, 160, 60);
-        if (kName.find("Ireland") != std::string::npos) return sf::Color(75, 135, 80);
-        return sf::Color(150, 140, 125);
-    };
 
     for (size_t i = 0; i < counties.size(); ++i) {
         auto& c = counties[i];
@@ -736,136 +788,163 @@ void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& le
 
     sf::Vector2f playerCoord = getPlayerMapCoord(playerX);
     sf::Vector2i pPix = mapCanvas.mapCoordsToPixel(playerCoord, mapView);
-    sf::Vector2f pScreen(canvasRect.left + static_cast<float>(pPix.x), canvasRect.top + static_cast<float>(pPix.y));
+    sf::Vector2f pOnCanvas(static_cast<float>(pPix.x), static_cast<float>(pPix.y));
 
-    if (canvasRect.contains(pScreen)) {
-        float pulse = 1.0f + 0.35f * std::sin(pulseTime * 5.0f);
-        sf::CircleShape halo(9.f * pulse);
-        halo.setOrigin(halo.getRadius(), halo.getRadius());
-        halo.setPosition(pScreen);
-        halo.setFillColor(sf::Color(235, 195, 45, 110));
-        window.draw(halo);
+    float pulse = 1.0f + 0.35f * std::sin(pulseTime * 5.0f);
+    sf::CircleShape halo(9.f * pulse);
+    halo.setOrigin(halo.getRadius(), halo.getRadius());
+    halo.setPosition(pOnCanvas);
+    halo.setFillColor(sf::Color(235, 195, 45, 110));
+    mapCanvas.draw(halo);
 
-        sf::CircleShape playerPin(5.5f);
-        playerPin.setOrigin(5.5f, 5.5f);
-        playerPin.setPosition(pScreen);
-        playerPin.setFillColor(sf::Color(255, 220, 50));
-        playerPin.setOutlineColor(sf::Color(35, 18, 5));
-        playerPin.setOutlineThickness(2.f);
-        window.draw(playerPin);
+    sf::CircleShape playerPin(5.5f);
+    playerPin.setOrigin(5.5f, 5.5f);
+    playerPin.setPosition(pOnCanvas);
+    playerPin.setFillColor(sf::Color(255, 220, 50));
+    playerPin.setOutlineColor(sf::Color(35, 18, 5));
+    playerPin.setOutlineThickness(2.f);
+    mapCanvas.draw(playerPin);
 
-        sf::Text youTxt("Alpha (You)", font, 9);
-        youTxt.setStyle(sf::Text::Bold);
-        youTxt.setFillColor(sf::Color(45, 20, 10));
-        youTxt.setOutlineColor(sf::Color(255, 245, 205));
-        youTxt.setOutlineThickness(1.6f);
-        sf::FloatRect yb = youTxt.getLocalBounds();
-        youTxt.setOrigin(yb.left + yb.width * 0.5f, yb.top + yb.height);
-        youTxt.setPosition(pScreen.x, pScreen.y - 8.f);
-        window.draw(youTxt);
-    }
+    sf::Text youTxt("Alpha (You)", font, 9);
+    youTxt.setStyle(sf::Text::Bold);
+    youTxt.setFillColor(sf::Color(45, 20, 10));
+    youTxt.setOutlineColor(sf::Color(255, 245, 205));
+    youTxt.setOutlineThickness(1.6f);
+    sf::FloatRect yb = youTxt.getLocalBounds();
+    youTxt.setOrigin(yb.left + yb.width * 0.5f, yb.top + yb.height);
+    youTxt.setPosition(pOnCanvas.x, pOnCanvas.y - 8.f);
+    mapCanvas.draw(youTxt);
 
     mapCanvas.display();
 
-    window.setView(letterboxView);
+    float easeT = expandAnimT * expandAnimT * (3.0f - 2.0f * expandAnimT);
+
+    float miniX = 984.f, miniY = 16.f, miniW = 276.f, miniH = 200.f;
+    float fullX = 110.f, fullY = 35.f, fullW = 1060.f, fullH = 650.f;
+
+    float curX = miniX + (fullX - miniX) * easeT;
+    float curY = miniY + (fullY - miniY) * easeT;
+    float curW = miniW + (fullW - miniW) * easeT;
+    float curH = miniH + (fullH - miniH) * easeT;
 
     sf::RectangleShape backdrop(sf::Vector2f(1280.f, 720.f));
-    backdrop.setFillColor(sf::Color(12, 10, 8, 225));
+    backdrop.setFillColor(sf::Color(12, 10, 8, static_cast<sf::Uint8>(easeT * 225.f)));
     window.draw(backdrop);
 
+    mapOuterVellum.setSize(sf::Vector2f(curW, curH));
+    mapOuterVellum.setOrigin(curW * 0.5f, curH * 0.5f);
+    mapOuterVellum.setPosition(curX + curW * 0.5f, curY + curH * 0.5f);
     window.draw(mapOuterVellum);
+
+    mapInnerVellum.setSize(sf::Vector2f(curW - 24.f, curH - 24.f));
+    mapInnerVellum.setOrigin((curW - 24.f) * 0.5f, (curH - 24.f) * 0.5f);
+    mapInnerVellum.setPosition(curX + curW * 0.5f, curY + curH * 0.5f);
     window.draw(mapInnerVellum);
+
+    mapInnerBorder.setSize(sf::Vector2f(curW - 44.f, curH - 44.f));
+    mapInnerBorder.setOrigin((curW - 44.f) * 0.5f, (curH - 44.f) * 0.5f);
+    mapInnerBorder.setPosition(curX + curW * 0.5f, curY + curH * 0.5f);
     window.draw(mapInnerBorder);
 
+    float cX = curX + 24.f * easeT + 8.f;
+    float cY = curY + 73.f * easeT + 26.f * (1.f - easeT);
+    float cW = curW - (48.f * easeT + 16.f);
+    float cH = curH - (126.f * easeT + 36.f * (1.f - easeT));
+
     sf::Sprite canvasSprite(mapCanvas.getTexture());
-    canvasSprite.setPosition(canvasRect.left, canvasRect.top);
+    canvasSprite.setPosition(cX, cY);
+    canvasSprite.setScale(cW / static_cast<float>(canvasW), cH / static_cast<float>(canvasH));
     window.draw(canvasSprite);
 
-    sf::RectangleShape headerRibbon(sf::Vector2f(1012.f, 40.f));
-    headerRibbon.setPosition(134.f, 68.f);
-    headerRibbon.setFillColor(sf::Color(38, 26, 16, 245));
-    headerRibbon.setOutlineColor(sf::Color(120, 85, 45));
-    headerRibbon.setOutlineThickness(1.5f);
-    window.draw(headerRibbon);
+    if (easeT > 0.65f) {
+        sf::Uint8 uiAlpha = static_cast<sf::Uint8>((easeT - 0.65f) / 0.35f * 255.f);
 
-    sf::Text header("BRITANNIA ET PARTES SEPTENTRIONALES", font, 13);
-    header.setStyle(sf::Text::Bold);
-    header.setFillColor(sf::Color(245, 220, 140));
-    header.setPosition(148.f, 72.f);
-    window.draw(header);
+        sf::RectangleShape headerRibbon(sf::Vector2f(1012.f, 40.f));
+        headerRibbon.setPosition(134.f, 68.f);
+        headerRibbon.setFillColor(sf::Color(38, 26, 16, uiAlpha));
+        headerRibbon.setOutlineColor(sf::Color(120, 85, 45, uiAlpha));
+        headerRibbon.setOutlineThickness(1.5f);
+        window.draw(headerRibbon);
 
-    sf::Text sub("AD 878 | REGNA ANGLO-SAXONUM ET DANELAGH", font, 9);
-    sub.setStyle(sf::Text::Italic);
-    sub.setFillColor(sf::Color(175, 145, 105));
-    sub.setPosition(148.f, 89.f);
-    window.draw(sub);
+        sf::Text headerText("BRITANNIA ET PARTES SEPTENTRIONALES", font, 13);
+        headerText.setStyle(sf::Text::Bold);
+        headerText.setFillColor(sf::Color(245, 220, 140, uiAlpha));
+        headerText.setPosition(148.f, 72.f);
+        window.draw(headerText);
 
-    float tabStartX = 654.f;
-    float tabY = 74.f;
-    float tabW = 114.f;
-    float tabH = 26.f;
-    float tabGap = 6.f;
+        sf::Text subText("AD 878 | REGNA ANGLO-SAXONUM ET DANELAGH", font, 9);
+        subText.setStyle(sf::Text::Italic);
+        subText.setFillColor(sf::Color(175, 145, 105, uiAlpha));
+        subText.setPosition(148.f, 89.f);
+        window.draw(subText);
 
-    const std::string tabLabels[4] = {
-        "[Q] Realms",
-        "[W] Diplomacy",
-        "[E] Tension",
-        "[R] Economy"
-    };
+        float tabStartX = 654.f;
+        float tabY = 74.f;
+        float tabW = 114.f;
+        float tabH = 26.f;
+        float tabGap = 6.f;
 
-    for (int i = 0; i < 4; ++i) {
-        float tx = tabStartX + i * (tabW + tabGap);
-        lensTabBounds[i] = sf::FloatRect(tx, tabY, tabW, tabH);
-        bool isActive = (currentLens == static_cast<MapLens>(i));
+        const std::string tabLabels[4] = {
+            "[Q] Realms",
+            "[W] Diplomacy",
+            "[E] Tension",
+            "[R] Economy"
+        };
 
-        sf::RectangleShape tabBox(sf::Vector2f(tabW, tabH));
-        tabBox.setPosition(tx, tabY);
+        for (int i = 0; i < 4; ++i) {
+            float tx = tabStartX + i * (tabW + tabGap);
+            lensTabBounds[i] = sf::FloatRect(tx, tabY, tabW, tabH);
+            bool isActive = (currentLens == static_cast<MapLens>(i));
 
-        if (isActive) {
-            tabBox.setFillColor(sf::Color(115, 75, 28));
-            tabBox.setOutlineColor(sf::Color(245, 215, 95));
-            tabBox.setOutlineThickness(1.5f);
-        } else {
-            tabBox.setFillColor(sf::Color(22, 16, 12, 220));
-            tabBox.setOutlineColor(sf::Color(78, 54, 30));
-            tabBox.setOutlineThickness(1.f);
+            sf::RectangleShape tabBox(sf::Vector2f(tabW, tabH));
+            tabBox.setPosition(tx, tabY);
+
+            if (isActive) {
+                tabBox.setFillColor(sf::Color(115, 75, 28, uiAlpha));
+                tabBox.setOutlineColor(sf::Color(245, 215, 95, uiAlpha));
+                tabBox.setOutlineThickness(1.5f);
+            } else {
+                tabBox.setFillColor(sf::Color(22, 16, 12, static_cast<sf::Uint8>(uiAlpha * 0.85f)));
+                tabBox.setOutlineColor(sf::Color(78, 54, 30, uiAlpha));
+                tabBox.setOutlineThickness(1.f);
+            }
+            window.draw(tabBox);
+
+            sf::Text tabTxt(tabLabels[i], font, 11);
+            tabTxt.setStyle(isActive ? sf::Text::Bold : sf::Text::Regular);
+            tabTxt.setFillColor(isActive ? sf::Color(255, 245, 205, uiAlpha) : sf::Color(180, 150, 110, uiAlpha));
+            sf::FloatRect tb = tabTxt.getLocalBounds();
+            tabTxt.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
+            tabTxt.setPosition(tx + tabW * 0.5f, tabY + tabH * 0.5f);
+            window.draw(tabTxt);
         }
-        window.draw(tabBox);
 
-        sf::Text tabTxt(tabLabels[i], font, 11);
-        tabTxt.setStyle(isActive ? sf::Text::Bold : sf::Text::Regular);
-        tabTxt.setFillColor(isActive ? sf::Color(255, 245, 205) : sf::Color(180, 150, 110));
-        sf::FloatRect tb = tabTxt.getLocalBounds();
-        tabTxt.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
-        tabTxt.setPosition(tx + tabW * 0.5f, tabY + tabH * 0.5f);
-        window.draw(tabTxt);
+        sf::RectangleShape footerRibbon(sf::Vector2f(1012.f, 26.f));
+        footerRibbon.setPosition(134.f, 634.f);
+        footerRibbon.setFillColor(sf::Color(32, 22, 14, uiAlpha));
+        footerRibbon.setOutlineColor(sf::Color(115, 82, 42, uiAlpha));
+        footerRibbon.setOutlineThickness(1.5f);
+        window.draw(footerRibbon);
+
+        std::string legendStr = "";
+        if (currentLens == MapLens::Realms) {
+            legendStr = isZoomedOut ? "LENS: Realms (Macro) | Left-Click: Inspect Kingdom | Right-Click: Realm Diplomacy | Scroll: Zoom In"
+                                    : "LENS: Counties (Micro) | Left-Click: Inspect County | Right-Click: County Actions | Scroll: Zoom Out";
+        } else if (currentLens == MapLens::Diplomacy) {
+            legendStr = "LENS: Diplomacy | Gold: Your Domain | Blue: Allies | Orange: Rivals | Red: War | Grey: Neutral";
+        } else if (currentLens == MapLens::Tension) {
+            legendStr = "LENS: Border Tension | Green: Calm | Orange: Unstable Frontier | Red: Active War Zone";
+        } else if (currentLens == MapLens::Economy) {
+            legendStr = "LENS: Economy | Gold: Wealthy (>1.2k Stockpile) | Green: Developed (>400) | Brown: Subsistence";
+        }
+
+        sf::Text legend(legendStr, font, 10);
+        legend.setFillColor(sf::Color(240, 218, 160, uiAlpha));
+        sf::FloatRect legB = legend.getLocalBounds();
+        legend.setOrigin(legB.left + legB.width / 2.f, legB.top + legB.height / 2.f);
+        legend.setPosition(640.f, 647.f);
+        window.draw(legend);
     }
-
-    sf::RectangleShape footerRibbon(sf::Vector2f(1012.f, 26.f));
-    footerRibbon.setPosition(134.f, 634.f);
-    footerRibbon.setFillColor(sf::Color(32, 22, 14, 245));
-    footerRibbon.setOutlineColor(sf::Color(115, 82, 42));
-    footerRibbon.setOutlineThickness(1.5f);
-    window.draw(footerRibbon);
-
-    std::string legendStr = "";
-    if (currentLens == MapLens::Realms) {
-        legendStr = isZoomedOut ? "LENS: Realms (Macro) | Left-Click: Inspect Kingdom | Right-Click: Realm Diplomacy | Scroll: Zoom In"
-                                : "LENS: Counties (Micro) | Left-Click: Inspect Settlement | Right-Click: County Actions | Scroll: Zoom Out";
-    } else if (currentLens == MapLens::Diplomacy) {
-        legendStr = "LENS: Diplomacy | Gold: Your Domain | Blue: Allies | Orange: Rivals | Red: War | Grey: Neutral";
-    } else if (currentLens == MapLens::Tension) {
-        legendStr = "LENS: Border Tension | Green: Calm | Orange: Unstable Frontier | Red: Active War Zone";
-    } else if (currentLens == MapLens::Economy) {
-        legendStr = "LENS: Economy | Gold: Wealthy (>1.2k Stockpile) | Green: Developed (>400) | Brown: Subsistence";
-    }
-
-    sf::Text legend(legendStr, font, 10);
-    legend.setFillColor(sf::Color(240, 218, 160));
-    sf::FloatRect legB = legend.getLocalBounds();
-    legend.setOrigin(legB.left + legB.width / 2.f, legB.top + legB.height / 2.f);
-    legend.setPosition(640.f, 647.f);
-    window.draw(legend);
 }
 
 const RealSettlement* SettlementSystem::getActiveSettlement() const {

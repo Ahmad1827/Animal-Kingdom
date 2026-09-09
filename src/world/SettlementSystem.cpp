@@ -167,20 +167,20 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
     sim::ApeData* controlled = registry.getApe(registry.getControlledApe());
 
     auto getMapNode = [](const std::string& name, sf::Vector2f& pos, int& ax, int& ay) {
-        if (name.find("Kernow") != std::string::npos)       { pos = {280.f, 570.f}; ax =  1; ay =  0; return; }
-        if (name.find("Wintanceaster") != std::string::npos){ pos = {410.f, 520.f}; ax = -1; ay = -1; return; }
-        if (name.find("Hamwic") != std::string::npos)       { pos = {425.f, 552.f}; ax =  0; ay =  1; return; }
-        if (name.find("Readingas") != std::string::npos)    { pos = {465.f, 485.f}; ax =  0; ay = -1; return; }
-        if (name.find("Lundenburh") != std::string::npos)   { pos = {525.f, 490.f}; ax =  1; ay =  0; return; }
-        if (name.find("Theodford") != std::string::npos)    { pos = {575.f, 440.f}; ax =  1; ay =  0; return; }
-        if (name.find("Tamworthig") != std::string::npos)   { pos = {455.f, 420.f}; ax = -1; ay =  0; return; }
-        if (name.find("Legaceaster") != std::string::npos)  { pos = {375.f, 385.f}; ax = -1; ay =  0; return; }
-        if (name.find("Lindcylene") != std::string::npos)   { pos = {525.f, 385.f}; ax =  1; ay =  0; return; }
-        if (name.find("Jorvik") != std::string::npos)       { pos = {490.f, 330.f}; ax =  1; ay =  0; return; }
-        if (name.find("Dunholm") != std::string::npos)      { pos = {465.f, 275.f}; ax =  1; ay =  0; return; }
-        if (name.find("Bebbanburg") != std::string::npos)   { pos = {480.f, 225.f}; ax =  1; ay =  0; return; }
-        if (name.find("Dun Eideann") != std::string::npos)  { pos = {435.f, 185.f}; ax = -1; ay =  0; return; }
-        if (name.find("Sgain") != std::string::npos)        { pos = {425.f, 140.f}; ax =  1; ay =  0; return; }
+        if (name.find("Kernow") != std::string::npos)        { pos = {280.f, 570.f}; ax = -1; ay = -1; return; }
+        if (name.find("Wintanceaster") != std::string::npos) { pos = {410.f, 520.f}; ax = -1; ay =  0; return; }
+        if (name.find("Hamwic") != std::string::npos)        { pos = {425.f, 555.f}; ax =  1; ay =  1; return; }
+        if (name.find("Readingas") != std::string::npos)     { pos = {465.f, 480.f}; ax = -1; ay = -1; return; }
+        if (name.find("Lundenburh") != std::string::npos)    { pos = {530.f, 495.f}; ax =  1; ay =  0; return; }
+        if (name.find("Theodford") != std::string::npos)     { pos = {580.f, 435.f}; ax =  1; ay =  0; return; }
+        if (name.find("Tamworthig") != std::string::npos)    { pos = {450.f, 420.f}; ax = -1; ay =  0; return; }
+        if (name.find("Legaceaster") != std::string::npos)   { pos = {375.f, 385.f}; ax = -1; ay =  0; return; }
+        if (name.find("Lindcylene") != std::string::npos)    { pos = {530.f, 385.f}; ax =  1; ay =  0; return; }
+        if (name.find("Jorvik") != std::string::npos)        { pos = {495.f, 325.f}; ax =  1; ay =  0; return; }
+        if (name.find("Dunholm") != std::string::npos)       { pos = {465.f, 270.f}; ax = -1; ay =  0; return; }
+        if (name.find("Bebbanburg") != std::string::npos)    { pos = {485.f, 220.f}; ax =  1; ay =  0; return; }
+        if (name.find("Dun Eideann") != std::string::npos)   { pos = {430.f, 180.f}; ax = -1; ay =  0; return; }
+        if (name.find("Sgain") != std::string::npos)         { pos = {430.f, 135.f}; ax =  1; ay =  0; return; }
         pos = {450.f, 350.f}; ax = 1; ay = 0;
     };
 
@@ -494,7 +494,7 @@ void SettlementSystem::drawCoast(sf::RenderTarget& rt, const sf::FloatRect& view
 
         if (fontLoaded) {
             std::string title = isWest ? "OCEANUS ATLANTICUS" : "MARE SEPTENTRIONALE";
-            std::string sub = isWest ? "BELERION - LAND'S END" : "CALEDONIA - NORTH REACH";
+            std::string subTitle = isWest ? "BELERION - LAND'S END" : "CALEDONIA - NORTH REACH";
 
             sf::Text markerLbl(title, font, 11);
             markerLbl.setStyle(sf::Text::Bold);
@@ -506,7 +506,7 @@ void SettlementSystem::drawCoast(sf::RenderTarget& rt, const sf::FloatRect& view
             markerLbl.setPosition(cliffX - dir * 45.f, groundY - 62.f);
             rt.draw(markerLbl);
 
-            sf::Text landsEnd(sub, font, 9);
+            sf::Text landsEnd(subTitle, font, 9);
             landsEnd.setFillColor(sf::Color(190, 180, 160));
             landsEnd.setOutlineColor(sf::Color(0, 0, 0, 220));
             landsEnd.setOutlineThickness(1.2f);
@@ -713,9 +713,11 @@ void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& le
 
     const unsigned int canvasW = 1012;
     const unsigned int canvasH = 524;
+    sf::FloatRect canvasRect(134.f, 108.f, static_cast<float>(canvasW), static_cast<float>(canvasH));
 
     if (!mapCanvasReady || mapCanvas.getSize().x != canvasW || mapCanvas.getSize().y != canvasH) {
         mapCanvas.create(canvasW, canvasH);
+        mapCanvas.setSmooth(true);
         mapCanvasReady = true;
     }
 
@@ -734,22 +736,22 @@ void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& le
     mapCanvas.draw(irelandCoast);
     mapCanvas.draw(britainCoast);
 
-    sf::Text seaLatin1("OCEANUS GERMANICUS", font, 11);
+    sf::Text seaLatin1("OCEANUS GERMANICUS", font, 14);
     seaLatin1.setFillColor(sf::Color(80, 110, 125, 160));
     seaLatin1.setPosition(630.f, 310.f);
     mapCanvas.draw(seaLatin1);
 
-    sf::Text seaLatin2("MARE HIBERNICUM", font, 10);
+    sf::Text seaLatin2("MARE HIBERNICUM", font, 13);
     seaLatin2.setFillColor(sf::Color(80, 110, 125, 160));
     seaLatin2.setPosition(250.f, 390.f);
     mapCanvas.draw(seaLatin2);
 
-    sf::Text fraText("REGNUM FRANCORUM", font, 10);
+    sf::Text fraText("REGNUM FRANCORUM", font, 13);
     fraText.setFillColor(sf::Color(105, 80, 55, 160));
     fraText.setPosition(470.f, 622.f);
     mapCanvas.draw(fraText);
 
-    sf::Text scaText("NORDRVEGR", font, 11);
+    sf::Text scaText("NORDRVEGR", font, 14);
     scaText.setFillColor(sf::Color(95, 80, 60, 160));
     scaText.setPosition(770.f, 130.f);
     mapCanvas.draw(scaText);
@@ -813,19 +815,6 @@ void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& le
                 sf::Vertex(rsB.mapCoord, tCol)
             };
             mapCanvas.draw(frontier, 2, sf::Lines);
-
-            if (diffRealm && tensionVal > 5.f) {
-                sf::Vector2f midPt = (rsA.mapCoord + rsB.mapCoord) * 0.5f;
-                sf::Text tBadge(std::to_string(static_cast<int>(tensionVal)) + "%", font, 9);
-                tBadge.setStyle(sf::Text::Bold);
-                tBadge.setFillColor(tCol);
-                tBadge.setOutlineColor(sf::Color::Black);
-                tBadge.setOutlineThickness(1.f);
-                sf::FloatRect tb = tBadge.getLocalBounds();
-                tBadge.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
-                tBadge.setPosition(midPt.x, midPt.y - 7.f);
-                mapCanvas.draw(tBadge);
-            }
         } else if (currentLens == MapLens::Economy) {
             sf::Vertex road[] = {
                 sf::Vertex(rsA.mapCoord, sf::Color(165, 145, 85, 140)),
@@ -834,226 +823,6 @@ void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& le
             mapCanvas.draw(road, 2, sf::Lines);
         }
     }
-
-    for (size_t i = 0; i < realSettlements.size(); ++i) {
-        const auto& rs = realSettlements[i];
-
-        sim::VillageData* vd = reg.getVillage(rs.villageId);
-        sim::KingdomData* kd = (rs.kingdomId != 0) ? reg.getKingdom(rs.kingdomId) : nullptr;
-
-        sf::Color nodeColor(150, 110, 60);
-        sf::Color auraColor(150, 110, 60, 50);
-        std::string badgeText = "";
-        sf::Color badgeColor(70, 50, 35);
-
-        if (currentLens == MapLens::Realms) {
-            if (kd) {
-                nodeColor = kd->color;
-                auraColor = kd->color;
-                auraColor.a = 75;
-                badgeText = kd->name;
-            } else {
-                nodeColor = sf::Color(135, 110, 85);
-                auraColor = sf::Color(135, 110, 85, 60);
-                badgeText = "Clan";
-            }
-            badgeColor = sf::Color(65, 45, 25);
-        } else if (currentLens == MapLens::Diplomacy) {
-            bool isPlayerSettlement = false;
-            if (playerKingdom && rs.kingdomId == playerKingdom->id) isPlayerSettlement = true;
-            else if (!playerKingdom && playerVillage && rs.villageId == playerVillage->id) isPlayerSettlement = true;
-
-            if (isPlayerSettlement) {
-                nodeColor = sf::Color(245, 205, 55);
-                auraColor = sf::Color(245, 205, 55, 90);
-                badgeText = "Your Realm";
-                badgeColor = sf::Color(160, 110, 15);
-            } else if (playerKingdom && kd) {
-                sim::DiplomacyStatus rel = sim::DiplomacyStatus::Neutral;
-                if (playerKingdom->relations.count(kd->id)) rel = playerKingdom->relations[kd->id];
-
-                if (rel == sim::DiplomacyStatus::War) {
-                    nodeColor = sf::Color(225, 45, 45);
-                    auraColor = sf::Color(225, 45, 45, 95);
-                    badgeText = "At War";
-                    badgeColor = sf::Color(190, 25, 25);
-                } else if (rel == sim::DiplomacyStatus::Rival) {
-                    nodeColor = sf::Color(235, 130, 40);
-                    auraColor = sf::Color(235, 130, 40, 80);
-                    badgeText = "Rival";
-                    badgeColor = sf::Color(180, 85, 20);
-                } else if (rel == sim::DiplomacyStatus::Alliance || rel == sim::DiplomacyStatus::Trade) {
-                    nodeColor = sf::Color(55, 160, 240);
-                    auraColor = sf::Color(55, 160, 240, 85);
-                    badgeText = "Allied";
-                    badgeColor = sf::Color(25, 105, 185);
-                } else if (rel == sim::DiplomacyStatus::Friendly) {
-                    nodeColor = sf::Color(65, 190, 85);
-                    auraColor = sf::Color(65, 190, 85, 80);
-                    badgeText = "Friendly";
-                    badgeColor = sf::Color(35, 130, 50);
-                } else {
-                    nodeColor = sf::Color(140, 130, 115);
-                    auraColor = sf::Color(140, 130, 115, 60);
-                    badgeText = "Neutral";
-                    badgeColor = sf::Color(85, 80, 70);
-                }
-            } else if (vd && playerApe) {
-                int op = vd->personalOpinions.count(playerApe->id) ? vd->personalOpinions[playerApe->id] : 0;
-                if (op >= 30) {
-                    nodeColor = sf::Color(65, 190, 85);
-                    auraColor = sf::Color(65, 190, 85, 80);
-                    badgeText = "Friendly Clan";
-                    badgeColor = sf::Color(35, 130, 50);
-                } else if (op <= -30) {
-                    nodeColor = sf::Color(225, 45, 45);
-                    auraColor = sf::Color(225, 45, 45, 95);
-                    badgeText = "Hostile Clan";
-                    badgeColor = sf::Color(190, 25, 25);
-                } else {
-                    nodeColor = sf::Color(140, 130, 115);
-                    auraColor = sf::Color(140, 130, 115, 60);
-                    badgeText = "Independent";
-                    badgeColor = sf::Color(85, 80, 70);
-                }
-            }
-        } else if (currentLens == MapLens::Tension) {
-            float maxTension = 0.f;
-            if (kd) {
-                for (const auto& tp : kd->borderTension) {
-                    if (tp.second > maxTension) maxTension = tp.second;
-                }
-            }
-
-            if (maxTension >= 50.f) {
-                float pulse = 0.5f + 0.5f * std::sin(pulseTime * 8.f);
-                nodeColor = sf::Color(235, 35, 35);
-                auraColor = sf::Color(235, 35, 35, static_cast<sf::Uint8>(100 + pulse * 80));
-                badgeText = "Flashpoint";
-                badgeColor = sf::Color(200, 20, 20);
-            } else if (maxTension >= 20.f) {
-                nodeColor = sf::Color(230, 140, 30);
-                auraColor = sf::Color(230, 140, 30, 80);
-                badgeText = "Uneasy";
-                badgeColor = sf::Color(180, 95, 20);
-            } else {
-                nodeColor = sf::Color(85, 175, 80);
-                auraColor = sf::Color(85, 175, 80, 60);
-                badgeText = "Peaceful";
-                badgeColor = sf::Color(45, 125, 45);
-            }
-        } else if (currentLens == MapLens::Economy) {
-            int food = vd ? vd->food : 0;
-            int wood = vd ? vd->wood : 0;
-            int stone = vd ? vd->stone : 0;
-            int totalWealth = food + wood + stone;
-            int tier = vd ? static_cast<int>(vd->tier) : 1;
-
-            if (totalWealth > 1200 || tier >= 2) {
-                nodeColor = sf::Color(240, 195, 45);
-                auraColor = sf::Color(240, 195, 45, 90);
-                badgeText = "T" + std::to_string(tier) + " | " + std::to_string(totalWealth);
-                badgeColor = sf::Color(160, 115, 15);
-            } else if (totalWealth > 400) {
-                nodeColor = sf::Color(105, 175, 90);
-                auraColor = sf::Color(105, 175, 90, 70);
-                badgeText = "T" + std::to_string(tier) + " | " + std::to_string(totalWealth);
-                badgeColor = sf::Color(55, 125, 45);
-            } else {
-                nodeColor = sf::Color(165, 115, 75);
-                auraColor = sf::Color(165, 115, 75, 60);
-                badgeText = "T" + std::to_string(tier) + " | " + std::to_string(totalWealth);
-                badgeColor = sf::Color(115, 75, 40);
-            }
-        }
-
-        sf::CircleShape aura(10.f);
-        aura.setOrigin(10.f, 10.f);
-        aura.setPosition(rs.mapCoord);
-        aura.setFillColor(auraColor);
-        mapCanvas.draw(aura);
-
-        sf::CircleShape pin(4.5f);
-        pin.setOrigin(4.5f, 4.5f);
-        pin.setPosition(rs.mapCoord);
-        pin.setFillColor(nodeColor);
-        pin.setOutlineColor(sf::Color(25, 18, 12));
-        pin.setOutlineThickness(1.2f);
-        mapCanvas.draw(pin);
-
-        bool showDetails = (mapZoom <= 1.4f);
-
-        if (showDetails) {
-            sf::Text nameLbl(rs.historicalName, font, 9);
-            nameLbl.setStyle(sf::Text::Bold);
-            nameLbl.setFillColor(sf::Color(35, 22, 12));
-            sf::FloatRect nlb = nameLbl.getLocalBounds();
-
-            float lx = rs.mapCoord.x;
-            float ly = rs.mapCoord.y;
-
-            if (rs.alignX == 1) lx += 8.f;
-            else if (rs.alignX == -1) lx -= (nlb.width + 12.f);
-            else lx -= (nlb.width * 0.5f + 4.f);
-
-            if (rs.alignY == -1) ly -= 22.f;
-            else if (rs.alignY == 1) ly += 10.f;
-            else ly -= 7.f;
-
-            sf::RectangleShape labelPill(sf::Vector2f(nlb.width + 8.f, 13.f));
-            labelPill.setPosition(lx, ly);
-            labelPill.setFillColor(sf::Color(232, 218, 188, 225));
-            labelPill.setOutlineColor(sf::Color(120, 85, 45, 170));
-            labelPill.setOutlineThickness(1.f);
-            mapCanvas.draw(labelPill);
-
-            nameLbl.setPosition(lx + 4.f, ly - 1.f);
-            mapCanvas.draw(nameLbl);
-
-            if (!badgeText.empty() && mapZoom <= 1.15f) {
-                sf::Text badge(badgeText, font, 8);
-                badge.setStyle(sf::Text::Regular);
-                badge.setFillColor(badgeColor);
-                badge.setOutlineColor(sf::Color(240, 230, 210, 200));
-                badge.setOutlineThickness(0.8f);
-                badge.setPosition(lx + 2.f, ly + 14.f);
-                mapCanvas.draw(badge);
-            }
-        }
-    }
-
-    sf::Vector2f playerCoord = getPlayerMapCoord(playerX);
-
-    float pulse = 1.0f + 0.35f * std::sin(pulseTime * 5.0f);
-    sf::CircleShape halo(9.f * pulse);
-    halo.setOrigin(halo.getRadius(), halo.getRadius());
-    halo.setPosition(playerCoord);
-    halo.setFillColor(sf::Color(210, 150, 40, 80));
-    mapCanvas.draw(halo);
-
-    sf::CircleShape playerPin(5.5f);
-    playerPin.setOrigin(5.5f, 5.5f);
-    playerPin.setPosition(playerCoord);
-    playerPin.setFillColor(sf::Color(255, 220, 50));
-    playerPin.setOutlineColor(sf::Color(40, 20, 5));
-    playerPin.setOutlineThickness(2.f);
-    mapCanvas.draw(playerPin);
-
-    sf::RectangleShape badge(sf::Vector2f(32.f, 13.f));
-    badge.setOrigin(16.f, 18.f);
-    badge.setPosition(playerCoord);
-    badge.setFillColor(sf::Color(125, 30, 20, 240));
-    badge.setOutlineColor(sf::Color(245, 215, 95));
-    badge.setOutlineThickness(1.f);
-    mapCanvas.draw(badge);
-
-    sf::Text youText("YOU", font, 8);
-    youText.setStyle(sf::Text::Bold);
-    youText.setFillColor(sf::Color(255, 240, 185));
-    sf::FloatRect yb = youText.getLocalBounds();
-    youText.setOrigin(yb.left + yb.width / 2.f, yb.top + yb.height / 2.f);
-    youText.setPosition(playerCoord.x, playerCoord.y - 12.f);
-    mapCanvas.draw(youText);
 
     mapCanvas.display();
 
@@ -1068,8 +837,242 @@ void SettlementSystem::drawWorldMap(sf::RenderWindow& window, const sf::View& le
     window.draw(mapInnerBorder);
 
     sf::Sprite canvasSprite(mapCanvas.getTexture());
-    canvasSprite.setPosition(134.f, 108.f);
+    canvasSprite.setPosition(canvasRect.left, canvasRect.top);
     window.draw(canvasSprite);
+
+    for (size_t i = 0; i < realSettlements.size(); ++i) {
+        const auto& rs = realSettlements[i];
+
+        sf::Vector2i pix = mapCanvas.mapCoordsToPixel(rs.mapCoord, mapView);
+        sf::Vector2f sPos(canvasRect.left + static_cast<float>(pix.x), canvasRect.top + static_cast<float>(pix.y));
+
+        if (sPos.x < canvasRect.left + 8.f || sPos.x > canvasRect.left + canvasRect.width - 8.f ||
+            sPos.y < canvasRect.top + 8.f || sPos.y > canvasRect.top + canvasRect.height - 8.f) {
+            continue;
+        }
+
+        sim::VillageData* vd = reg.getVillage(rs.villageId);
+        sim::KingdomData* kd = (rs.kingdomId != 0) ? reg.getKingdom(rs.kingdomId) : nullptr;
+
+        sf::Color nodeColor(150, 110, 60);
+        sf::Color auraColor(150, 110, 60, 70);
+        std::string badgeText = "";
+        sf::Color badgeColor(230, 205, 160);
+
+        if (currentLens == MapLens::Realms) {
+            if (kd) {
+                nodeColor = kd->color;
+                auraColor = kd->color;
+                auraColor.a = 90;
+                badgeText = kd->name;
+            } else {
+                nodeColor = sf::Color(140, 115, 85);
+                auraColor = sf::Color(140, 115, 85, 75);
+                badgeText = "Clan";
+            }
+            badgeColor = sf::Color(245, 215, 140);
+        } else if (currentLens == MapLens::Diplomacy) {
+            bool isPlayerSettlement = false;
+            if (playerKingdom && rs.kingdomId == playerKingdom->id) isPlayerSettlement = true;
+            else if (!playerKingdom && playerVillage && rs.villageId == playerVillage->id) isPlayerSettlement = true;
+
+            if (isPlayerSettlement) {
+                nodeColor = sf::Color(255, 210, 50);
+                auraColor = sf::Color(255, 210, 50, 110);
+                badgeText = "Your Realm";
+                badgeColor = sf::Color(255, 235, 150);
+            } else if (playerKingdom && kd) {
+                sim::DiplomacyStatus rel = sim::DiplomacyStatus::Neutral;
+                if (playerKingdom->relations.count(kd->id)) rel = playerKingdom->relations[kd->id];
+
+                if (rel == sim::DiplomacyStatus::War) {
+                    nodeColor = sf::Color(235, 45, 45);
+                    auraColor = sf::Color(235, 45, 45, 110);
+                    badgeText = "At War";
+                    badgeColor = sf::Color(255, 130, 130);
+                } else if (rel == sim::DiplomacyStatus::Rival) {
+                    nodeColor = sf::Color(245, 135, 40);
+                    auraColor = sf::Color(245, 135, 40, 95);
+                    badgeText = "Rival";
+                    badgeColor = sf::Color(255, 185, 120);
+                } else if (rel == sim::DiplomacyStatus::Alliance || rel == sim::DiplomacyStatus::Trade) {
+                    nodeColor = sf::Color(55, 160, 240);
+                    auraColor = sf::Color(55, 160, 240, 95);
+                    badgeText = "Allied";
+                    badgeColor = sf::Color(150, 215, 255);
+                } else if (rel == sim::DiplomacyStatus::Friendly) {
+                    nodeColor = sf::Color(65, 195, 85);
+                    auraColor = sf::Color(65, 195, 85, 90);
+                    badgeText = "Friendly";
+                    badgeColor = sf::Color(170, 245, 180);
+                } else {
+                    nodeColor = sf::Color(145, 135, 120);
+                    auraColor = sf::Color(145, 135, 120, 70);
+                    badgeText = "Neutral";
+                    badgeColor = sf::Color(210, 205, 195);
+                }
+            } else if (vd && playerApe) {
+                int op = vd->personalOpinions.count(playerApe->id) ? vd->personalOpinions[playerApe->id] : 0;
+                if (op >= 30) {
+                    nodeColor = sf::Color(65, 195, 85);
+                    auraColor = sf::Color(65, 195, 85, 90);
+                    badgeText = "Friendly Clan";
+                    badgeColor = sf::Color(170, 245, 180);
+                } else if (op <= -30) {
+                    nodeColor = sf::Color(235, 45, 45);
+                    auraColor = sf::Color(235, 45, 45, 110);
+                    badgeText = "Hostile Clan";
+                    badgeColor = sf::Color(255, 130, 130);
+                } else {
+                    nodeColor = sf::Color(145, 135, 120);
+                    auraColor = sf::Color(145, 135, 120, 70);
+                    badgeText = "Independent";
+                    badgeColor = sf::Color(210, 205, 195);
+                }
+            }
+        } else if (currentLens == MapLens::Tension) {
+            float maxTension = 0.f;
+            if (kd) {
+                for (const auto& tp : kd->borderTension) {
+                    if (tp.second > maxTension) maxTension = tp.second;
+                }
+            }
+
+            if (maxTension >= 50.f) {
+                float pulse = 0.5f + 0.5f * std::sin(pulseTime * 8.f);
+                nodeColor = sf::Color(240, 35, 35);
+                auraColor = sf::Color(240, 35, 35, static_cast<sf::Uint8>(110 + pulse * 90));
+                badgeText = "Flashpoint (" + std::to_string(static_cast<int>(maxTension)) + "%)";
+                badgeColor = sf::Color(255, 120, 120);
+            } else if (maxTension >= 20.f) {
+                nodeColor = sf::Color(240, 140, 30);
+                auraColor = sf::Color(240, 140, 30, 90);
+                badgeText = "Uneasy (" + std::to_string(static_cast<int>(maxTension)) + "%)";
+                badgeColor = sf::Color(255, 190, 110);
+            } else {
+                nodeColor = sf::Color(85, 185, 80);
+                auraColor = sf::Color(85, 185, 80, 70);
+                badgeText = "Calm";
+                badgeColor = sf::Color(180, 240, 175);
+            }
+        } else if (currentLens == MapLens::Economy) {
+            int food = vd ? vd->food : 0;
+            int wood = vd ? vd->wood : 0;
+            int stone = vd ? vd->stone : 0;
+            int totalWealth = food + wood + stone;
+            int tier = vd ? static_cast<int>(vd->tier) : 1;
+
+            if (totalWealth > 1200 || tier >= 2) {
+                nodeColor = sf::Color(245, 205, 50);
+                auraColor = sf::Color(245, 205, 50, 100);
+                badgeText = "T" + std::to_string(tier) + " | " + std::to_string(totalWealth);
+                badgeColor = sf::Color(255, 235, 140);
+            } else if (totalWealth > 400) {
+                nodeColor = sf::Color(105, 185, 90);
+                auraColor = sf::Color(105, 185, 90, 80);
+                badgeText = "T" + std::to_string(tier) + " | " + std::to_string(totalWealth);
+                badgeColor = sf::Color(185, 245, 175);
+            } else {
+                nodeColor = sf::Color(170, 120, 80);
+                auraColor = sf::Color(170, 120, 80, 70);
+                badgeText = "T" + std::to_string(tier) + " | " + std::to_string(totalWealth);
+                badgeColor = sf::Color(230, 190, 150);
+            }
+        }
+
+        sf::CircleShape aura(11.f);
+        aura.setOrigin(11.f, 11.f);
+        aura.setPosition(sPos);
+        aura.setFillColor(auraColor);
+        window.draw(aura);
+
+        sf::CircleShape pin(5.f);
+        pin.setOrigin(5.f, 5.f);
+        pin.setPosition(sPos);
+        pin.setFillColor(nodeColor);
+        pin.setOutlineColor(sf::Color(15, 10, 6));
+        pin.setOutlineThickness(1.5f);
+        window.draw(pin);
+
+        sf::Text nameLbl(rs.historicalName, font, 12);
+        nameLbl.setStyle(sf::Text::Bold);
+        nameLbl.setFillColor(sf::Color(255, 245, 220));
+        nameLbl.setOutlineColor(sf::Color(10, 8, 5));
+        nameLbl.setOutlineThickness(1.5f);
+        sf::FloatRect nlb = nameLbl.getLocalBounds();
+
+        sf::Text badgeLbl(badgeText, font, 10);
+        badgeLbl.setFillColor(badgeColor);
+        badgeLbl.setOutlineColor(sf::Color(10, 8, 5));
+        badgeLbl.setOutlineThickness(1.2f);
+        sf::FloatRect blb = badgeLbl.getLocalBounds();
+
+        float pillW = std::max(nlb.width, blb.width) + 14.f;
+        float pillH = (!badgeText.empty()) ? 32.f : 18.f;
+
+        float lx = sPos.x;
+        float ly = sPos.y;
+
+        if (rs.alignX == 1) lx += 9.f;
+        else if (rs.alignX == -1) lx -= (pillW + 9.f);
+        else lx -= (pillW * 0.5f);
+
+        if (rs.alignY == -1) ly -= (pillH + 7.f);
+        else if (rs.alignY == 1) ly += 8.f;
+        else ly -= (pillH * 0.5f);
+
+        sf::RectangleShape pill(sf::Vector2f(pillW, pillH));
+        pill.setPosition(lx, ly);
+        pill.setFillColor(sf::Color(24, 16, 12, 240));
+        pill.setOutlineColor(sf::Color(135, 95, 48));
+        pill.setOutlineThickness(1.2f);
+        window.draw(pill);
+
+        nameLbl.setPosition(lx + 7.f, ly + 2.f);
+        window.draw(nameLbl);
+
+        if (!badgeText.empty()) {
+            badgeLbl.setPosition(lx + 7.f, ly + 16.f);
+            window.draw(badgeLbl);
+        }
+    }
+
+    sf::Vector2f playerCoord = getPlayerMapCoord(playerX);
+    sf::Vector2i pPix = mapCanvas.mapCoordsToPixel(playerCoord, mapView);
+    sf::Vector2f pScreen(canvasRect.left + static_cast<float>(pPix.x), canvasRect.top + static_cast<float>(pPix.y));
+
+    if (canvasRect.contains(pScreen)) {
+        float pulse = 1.0f + 0.35f * std::sin(pulseTime * 5.0f);
+        sf::CircleShape halo(11.f * pulse);
+        halo.setOrigin(halo.getRadius(), halo.getRadius());
+        halo.setPosition(pScreen);
+        halo.setFillColor(sf::Color(220, 160, 40, 95));
+        window.draw(halo);
+
+        sf::CircleShape playerPin(6.5f);
+        playerPin.setOrigin(6.5f, 6.5f);
+        playerPin.setPosition(pScreen);
+        playerPin.setFillColor(sf::Color(255, 220, 50));
+        playerPin.setOutlineColor(sf::Color(35, 18, 5));
+        playerPin.setOutlineThickness(2.f);
+        window.draw(playerPin);
+
+        sf::RectangleShape badge(sf::Vector2f(38.f, 16.f));
+        badge.setOrigin(19.f, 24.f);
+        badge.setPosition(pScreen);
+        badge.setFillColor(sf::Color(145, 30, 20, 245));
+        badge.setOutlineColor(sf::Color(255, 220, 105));
+        badge.setOutlineThickness(1.2f);
+        window.draw(badge);
+
+        sf::Text youText("YOU", font, 10);
+        youText.setStyle(sf::Text::Bold);
+        youText.setFillColor(sf::Color(255, 245, 200));
+        sf::FloatRect yb = youText.getLocalBounds();
+        youText.setOrigin(yb.left + yb.width * 0.5f, yb.top + yb.height * 0.5f);
+        youText.setPosition(pScreen.x, pScreen.y - 16.f);
+        window.draw(youText);
+    }
 
     sf::RectangleShape headerRibbon(sf::Vector2f(1012.f, 40.f));
     headerRibbon.setPosition(134.f, 68.f);

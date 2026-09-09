@@ -2,7 +2,15 @@
 #include <SFML/Graphics.hpp>
 #include <string>
 #include <vector>
+#include <functional>
 #include "simulation/SimulationRegistry.h"
+
+enum class MapLens {
+    Realms = 0,
+    Diplomacy = 1,
+    Tension = 2,
+    Economy = 3
+};
 
 struct RealSettlement {
     sim::VillageID villageId = 0;
@@ -15,6 +23,8 @@ struct RealSettlement {
     std::string kingdomName;
     bool isAllied = true;
     sf::Vector2f mapCoord;
+    int alignX = 1;
+    int alignY = 0;
 };
 
 class SettlementSystem {
@@ -55,9 +65,20 @@ private:
     sf::ConvexShape miniBritain;
     sf::ConvexShape miniIreland;
 
+    sf::RenderTexture mapCanvas;
+    bool mapCanvasReady = false;
+    sf::Vector2f mapCenter = sf::Vector2f(440.f, 380.f);
+    float mapZoom = 1.0f;
+    bool isDraggingMap = false;
+    sf::Vector2i lastDragMouse;
+    sf::Vector2i dragStartMouse;
+
     float pulseTime = 0.f;
     float westCoastX = -32800.f;
     float eastCoastX = 368000.f;
+
+    MapLens currentLens = MapLens::Realms;
+    sf::FloatRect lensTabBounds[4];
 
     void buildAuthenticMapGeometry();
     void syncDynamicVillages(sim::SimulationRegistry& registry);
@@ -72,6 +93,12 @@ public:
     void drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX);
     void drawWorldMap(sf::RenderWindow& window, const sf::View& letterboxView, float playerX, const sim::SimulationRegistry& registry);
     void drawCoast(sf::RenderTarget& rt, const sf::FloatRect& viewBounds, float groundY, float timeOfDay, const sf::Texture* skyTex = nullptr, const sf::View* cameraView = nullptr);
+
+    bool handleMapLensInput(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView);
+    bool handleWorldMapInput(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView, const std::function<void(const RealSettlement&)>& onSettlementClicked);
+
+    void setMapLens(MapLens lens) { currentLens = lens; }
+    MapLens getMapLens() const { return currentLens; }
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

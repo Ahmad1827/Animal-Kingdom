@@ -170,6 +170,40 @@ void SettlementSystem::buildAuthenticMapGeometry() {
     miniSea.setSize(sf::Vector2f(260.f, 142.f));
     miniSea.setPosition(992.f, 42.f);
     miniSea.setFillColor(sf::Color(186, 204, 208, 190));
+
+    sf::Vector2f miniCenter(1122.f, 114.f);
+    sf::Vector2f mapCenterRef(377.5f, 342.5f);
+    float miniScale = 0.20f;
+
+    std::vector<sf::Vector2f> britPts = {
+        {260.f, 575.f}, {275.f, 585.f}, {310.f, 570.f}, {365.f, 565.f},
+        {425.f, 560.f}, {480.f, 555.f}, {535.f, 535.f}, {525.f, 505.f},
+        {575.f, 470.f}, {540.f, 435.f}, {525.f, 390.f}, {530.f, 355.f},
+        {505.f, 315.f}, {490.f, 260.f}, {465.f, 225.f}, {480.f, 210.f},
+        {485.f, 190.f}, {510.f, 155.f}, {455.f, 145.f}, {460.f, 100.f},
+        {415.f, 110.f}, {395.f, 150.f}, {375.f, 195.f}, {380.f, 225.f},
+        {385.f, 265.f}, {415.f, 265.f}, {390.f, 295.f}, {435.f, 300.f},
+        {440.f, 340.f}, {430.f, 380.f}, {410.f, 400.f}, {355.f, 395.f},
+        {340.f, 420.f}, {360.f, 445.f}, {330.f, 475.f}, {370.f, 500.f},
+        {415.f, 505.f}, {320.f, 530.f}
+    };
+    miniBritain.setPointCount(britPts.size());
+    for (size_t i = 0; i < britPts.size(); ++i) {
+        sf::Vector2f pt = miniCenter + (britPts[i] - mapCenterRef) * miniScale;
+        miniBritain.setPoint(i, pt);
+    }
+    miniBritain.setFillColor(sf::Color(215, 198, 160));
+    miniBritain.setOutlineColor(sf::Color(65, 45, 25));
+    miniBritain.setOutlineThickness(1.f);
+
+    miniIreland.setPointCount(irePts.size());
+    for (size_t i = 0; i < irePts.size(); ++i) {
+        sf::Vector2f pt = miniCenter + (irePts[i] - mapCenterRef) * miniScale;
+        miniIreland.setPoint(i, pt);
+    }
+    miniIreland.setFillColor(sf::Color(205, 188, 150));
+    miniIreland.setOutlineColor(sf::Color(75, 55, 35));
+    miniIreland.setOutlineThickness(1.f);
 }
 
 void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
@@ -683,8 +717,8 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
         sf::Vector2f delta = (curWorld - lastWorld) * mapZoom;
 
         mapCenter -= delta;
-        mapCenter.x = std::clamp(mapCenter.x, 220.f, 720.f);
-        mapCenter.y = std::clamp(mapCenter.y, 160.f, 600.f);
+        mapCenter.x = std::clamp(mapCenter.x, 180.f, 780.f);
+        mapCenter.y = std::clamp(mapCenter.y, 80.f, 650.f);
 
         lastDragMouse = curMouse;
         return true;

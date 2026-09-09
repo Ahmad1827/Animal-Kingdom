@@ -26,11 +26,12 @@ private:
     sim::VillageID selectedVillageId;
     sim::KingdomID selectedKingdomId;
 
-    bool isDraggingProfile;
-    sf::Vector2i lastMousePos;
     sf::Vector2f profilePanelPos;
+    float panelWidth;
+    float panelHeight;
 
     void drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId, sim::SimulationRegistry& reg, sim::EntityID controlledApeId);
     void drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId, sim::SimulationRegistry& reg);
     void drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId, sim::SimulationRegistry& reg, sim::EntityID controlledApeId);
+    void drawCloseButton(sf::RenderWindow& window, float x, float y);
 };

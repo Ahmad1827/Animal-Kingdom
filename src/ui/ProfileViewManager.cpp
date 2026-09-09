@@ -1,11 +1,12 @@
 #include "ui/ProfileViewManager.h"
 #include <algorithm>
+#include <sstream>
 #include <string>
 
 ProfileViewManager::ProfileViewManager()
     : font(nullptr), isInspectingCharacter(false), inspectedApeId(0),
       selectedVillageId(0), selectedKingdomId(0),
-      profilePanelPos(146.f, 118.f), panelWidth(265.f), panelHeight(380.f) {}
+      profilePanelPos(146.f, 118.f), panelWidth(290.f), panelHeight(380.f) {}
 
 void ProfileViewManager::init(const sf::Font& f) {
     font = &f;
@@ -16,7 +17,7 @@ void ProfileViewManager::inspectCharacter(sim::EntityID id) {
     isInspectingCharacter = true;
     selectedVillageId = 0;
     selectedKingdomId = 0;
-    panelHeight = 420.f;
+    panelHeight = 440.f;
 }
 
 void ProfileViewManager::inspectVillage(sim::VillageID id) {
@@ -24,7 +25,7 @@ void ProfileViewManager::inspectVillage(sim::VillageID id) {
     isInspectingCharacter = false;
     inspectedApeId = 0;
     selectedKingdomId = 0;
-    panelHeight = 360.f;
+    panelHeight = 370.f;
 }
 
 void ProfileViewManager::inspectKingdom(sim::KingdomID id) {
@@ -32,7 +33,7 @@ void ProfileViewManager::inspectKingdom(sim::KingdomID id) {
     isInspectingCharacter = false;
     inspectedApeId = 0;
     selectedVillageId = 0;
-    panelHeight = 360.f;
+    panelHeight = 390.f;
 }
 
 void ProfileViewManager::close() {
@@ -58,6 +59,41 @@ void ProfileViewManager::drawCloseButton(sf::RenderWindow& window, float x, floa
         xTxt.setOrigin(xb.left + xb.width * 0.5f, xb.top + xb.height * 0.5f);
         xTxt.setPosition(x + 10.f, y + 9.f);
         window.draw(xTxt);
+    }
+}
+
+void ProfileViewManager::drawWrappedText(sf::RenderWindow& window, const std::string& text, float x, float& y, float maxW, unsigned int size, sf::Color col, bool bold) {
+    if (!font || text.empty()) return;
+
+    std::istringstream words(text);
+    std::string word;
+    std::string currentLine;
+    float lineHeight = static_cast<float>(size) + 4.f;
+
+    sf::Text measure("", *font, size);
+    if (bold) measure.setStyle(sf::Text::Bold);
+
+    while (words >> word) {
+        std::string testLine = currentLine.empty() ? word : currentLine + " " + word;
+        measure.setString(testLine);
+        if (measure.getLocalBounds().width > maxW && !currentLine.empty()) {
+            measure.setString(currentLine);
+            measure.setFillColor(col);
+            measure.setPosition(x, y);
+            window.draw(measure);
+            y += lineHeight;
+            currentLine = word;
+        } else {
+            currentLine = testLine;
+        }
+    }
+
+    if (!currentLine.empty()) {
+        measure.setString(currentLine);
+        measure.setFillColor(col);
+        measure.setPosition(x, y);
+        window.draw(measure);
+        y += lineHeight;
     }
 }
 
@@ -183,11 +219,8 @@ void ProfileViewManager::drawCharacterProfile(sf::RenderWindow& window, sim::Ent
     headerPlate.setFillColor(sf::Color(48, 32, 20));
     window.draw(headerPlate);
 
-    sf::Text nameText(ape->name, *font, 14);
-    nameText.setFillColor(sf::Color(255, 225, 130));
-    nameText.setStyle(sf::Text::Bold);
-    nameText.setPosition(startX + 12.f, startY + 8.f);
-    window.draw(nameText);
+    float titleY = startY + 8.f;
+    drawWrappedText(window, ape->name, startX + 12.f, titleY, panelWidth - 45.f, 13, sf::Color(255, 225, 130), true);
 
     drawCloseButton(window, startX + panelWidth - 26.f, startY + 6.f);
 
@@ -211,7 +244,7 @@ void ProfileViewManager::drawCharacterProfile(sf::RenderWindow& window, sim::Ent
     roleText.setPosition(startX + 12.f, startY + 58.f);
     window.draw(roleText);
 
-    float statBoxW = 54.f;
+    float statBoxW = 58.f;
     float statBoxH = 36.f;
     float statSpacing = 8.f;
     float statStartX = startX + 12.f;
@@ -381,34 +414,27 @@ void ProfileViewManager::drawVillageProfile(sf::RenderWindow& window, sim::Villa
     hPlate.setFillColor(sf::Color(48, 32, 20));
     window.draw(hPlate);
 
-    sf::Text title(v->name, *font, 14);
-    title.setFillColor(sf::Color(255, 225, 130));
-    title.setStyle(sf::Text::Bold);
-    title.setPosition(startX + 12.f, startY + 8.f);
-    window.draw(title);
+    float titleY = startY + 8.f;
+    drawWrappedText(window, v->name, startX + 12.f, titleY, panelWidth - 45.f, 13, sf::Color(255, 225, 130), true);
 
     drawCloseButton(window, startX + panelWidth - 26.f, startY + 6.f);
 
-    auto drawField = [&](const std::string& label, const std::string& val, float y, sf::Color valCol = sf::Color(240, 230, 210)) {
+    float curY = startY + 44.f;
+
+    auto drawField = [&](const std::string& label, const std::string& val, sf::Color valCol = sf::Color(240, 230, 210)) {
         sf::Text l(label, *font, 10);
         l.setFillColor(sf::Color(165, 145, 120));
-        l.setPosition(startX + 14.f, y);
+        l.setPosition(startX + 14.f, curY);
         window.draw(l);
+        curY += 13.f;
 
-        sf::Text vTxt(val, *font, 12);
-        vTxt.setFillColor(valCol);
-        vTxt.setStyle(sf::Text::Bold);
-        vTxt.setPosition(startX + 14.f, y + 13.f);
-        window.draw(vTxt);
+        drawWrappedText(window, val, startX + 14.f, curY, panelWidth - 28.f, 11, valCol, true);
+        curY += 6.f;
     };
 
-    float curY = startY + 44.f;
-    drawField("Clan Alpha / Leader", leaderName, curY);
-    curY += 34.f;
-    drawField("Allegiance", allegiance, curY, sf::Color(100, 180, 240));
-    curY += 34.f;
-    drawField("Population", std::to_string(v->members.size()) + " apes", curY);
-    curY += 34.f;
+    drawField("Clan Alpha / Leader", leaderName);
+    drawField("Allegiance", allegiance, sf::Color(100, 180, 240));
+    drawField("Population", std::to_string(v->members.size()) + " apes");
 
     sf::RectangleShape resBox(sf::Vector2f(panelWidth - 28.f, 48.f));
     resBox.setPosition(startX + 14.f, curY);
@@ -430,10 +456,9 @@ void ProfileViewManager::drawVillageProfile(sf::RenderWindow& window, sim::Villa
     resVals.setPosition(resBox.getPosition().x + 8.f, resBox.getPosition().y + 22.f);
     window.draw(resVals);
 
-    curY += 60.f;
-    drawField("Settlement Tier", "Tier " + std::to_string(static_cast<int>(v->tier)), curY, sf::Color(235, 195, 55));
-    curY += 34.f;
-    drawField("Structures Built", std::to_string(v->finishedStructures.size()) + " structures", curY);
+    curY += 56.f;
+    drawField("Settlement Tier", "Tier " + std::to_string(static_cast<int>(v->tier)), sf::Color(235, 195, 55));
+    drawField("Structures Built", std::to_string(v->finishedStructures.size()) + " structures");
 }
 
 void ProfileViewManager::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId, sim::SimulationRegistry& reg, sim::EntityID controlledApeId) {
@@ -444,9 +469,14 @@ void ProfileViewManager::drawKingdomProfile(sf::RenderWindow& window, sim::Kingd
     sim::ApeData* ruler = reg.getApe(k->currentKingId);
     if (ruler) rulerName = ruler->name;
 
-    std::string dynastyName = "Unknown Dynasty";
+    std::string dynastyName = "Unknown";
     sim::DynastyData* dyn = reg.getDynasty(k->leaderDynastyId);
-    if (dyn) dynastyName = dyn->name;
+    if (dyn && !dyn->name.empty()) {
+        dynastyName = dyn->name;
+        if (dynastyName.find("Dynasty") == std::string::npos) {
+            dynastyName += " Dynasty";
+        }
+    }
 
     std::string capitalName = "Unknown Capital";
     sim::VillageData* cap = reg.getVillage(k->capitalVillageId);
@@ -492,34 +522,27 @@ void ProfileViewManager::drawKingdomProfile(sf::RenderWindow& window, sim::Kingd
     hPlate.setFillColor(sf::Color(48, 32, 20));
     window.draw(hPlate);
 
-    sf::Text title("KINGDOM OF " + k->name, *font, 13);
-    title.setFillColor(k->color);
-    title.setStyle(sf::Text::Bold);
-    title.setPosition(startX + 12.f, startY + 8.f);
-    window.draw(title);
+    float titleY = startY + 8.f;
+    drawWrappedText(window, "KINGDOM OF " + k->name, startX + 12.f, titleY, panelWidth - 45.f, 13, k->color, true);
 
     drawCloseButton(window, startX + panelWidth - 26.f, startY + 6.f);
 
-    auto drawField = [&](const std::string& label, const std::string& val, float y, sf::Color valCol = sf::Color(240, 230, 210), bool bold = false) {
+    float curY = startY + 42.f;
+
+    auto drawField = [&](const std::string& label, const std::string& val, sf::Color valCol = sf::Color(240, 230, 210), bool bold = false) {
         sf::Text l(label, *font, 10);
         l.setFillColor(sf::Color(165, 145, 120));
-        l.setPosition(startX + 14.f, y);
+        l.setPosition(startX + 14.f, curY);
         window.draw(l);
+        curY += 13.f;
 
-        sf::Text vTxt(val, *font, 12);
-        vTxt.setFillColor(valCol);
-        if (bold) vTxt.setStyle(sf::Text::Bold);
-        vTxt.setPosition(startX + 14.f, y + 13.f);
-        window.draw(vTxt);
+        drawWrappedText(window, val, startX + 14.f, curY, panelWidth - 28.f, 11, valCol, bold);
+        curY += 5.f;
     };
 
-    float curY = startY + 44.f;
-    drawField("Ruler", rulerName + " (" + dynastyName + " Dynasty)", curY, sf::Color(255, 235, 160), true);
-    curY += 34.f;
-    drawField("Capital", capitalName, curY);
-    curY += 34.f;
-    drawField("Scale", std::to_string(k->population) + " apes | " + std::to_string(k->controlledVillages.size()) + " settlements", curY);
-    curY += 34.f;
+    drawField("Ruler", rulerName + " (" + dynastyName + ")", sf::Color(255, 235, 160), true);
+    drawField("Capital", capitalName);
+    drawField("Scale", std::to_string(k->population) + " apes | " + std::to_string(k->controlledVillages.size()) + " settlements");
 
     sf::RectangleShape resBox(sf::Vector2f(panelWidth - 28.f, 48.f));
     resBox.setPosition(startX + 14.f, curY);
@@ -541,8 +564,7 @@ void ProfileViewManager::drawKingdomProfile(sf::RenderWindow& window, sim::Kingd
     resVals.setPosition(resBox.getPosition().x + 8.f, resBox.getPosition().y + 22.f);
     window.draw(resVals);
 
-    curY += 60.f;
-    drawField("Military Power", std::to_string(k->militaryStrength) + " strength", curY, sf::Color(245, 130, 130), true);
-    curY += 34.f;
-    drawField("Diplomatic Status", relStr, curY, relCol, true);
+    curY += 56.f;
+    drawField("Military Power", std::to_string(k->militaryStrength) + " strength", sf::Color(245, 130, 130), true);
+    drawField("Diplomatic Status", relStr, relCol, true);
 }

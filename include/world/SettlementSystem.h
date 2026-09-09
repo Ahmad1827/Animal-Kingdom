@@ -12,6 +12,19 @@ enum class MapLens {
     Economy = 3
 };
 
+struct CountyDef {
+    int countyId = 0;
+    sim::VillageID villageId = 0;
+    sim::KingdomID kingdomId = 0;
+    std::string countyName;
+    std::string settlementName;
+    std::string modernName;
+    std::string kingdomName;
+    std::vector<sf::Vector2f> points;
+    sf::ConvexShape shape;
+    sf::Vector2f center;
+};
+
 struct RealSettlement {
     sim::VillageID villageId = 0;
     sim::KingdomID kingdomId = 0;
@@ -21,15 +34,15 @@ struct RealSettlement {
     std::string historicalName;
     std::string modernName;
     std::string kingdomName;
+    std::string countyName;
     bool isAllied = true;
     sf::Vector2f mapCoord;
-    int alignX = 1;
-    int alignY = 0;
 };
 
 class SettlementSystem {
 private:
     std::vector<RealSettlement> realSettlements;
+    std::vector<CountyDef> counties;
     int activeSettlementIdx = -1;
     bool isInitialized = false;
 
@@ -53,24 +66,14 @@ private:
     sf::RectangleShape mapInnerVellum;
     sf::RectangleShape mapInnerBorder;
 
-    sf::ConvexShape cornwallShape;
-    sf::ConvexShape wessexShape;
-    sf::ConvexShape eastAngliaShape;
-    sf::ConvexShape merciaShape;
-    sf::ConvexShape northumbriaShape;
-    sf::ConvexShape albaShape;
-    sf::ConvexShape irelandShape;
     sf::ConvexShape frankiaCoast;
     sf::ConvexShape scandiCoast;
-
     std::vector<sf::Vertex> rhumbLines;
     std::vector<sf::Vertex> seaWaves;
 
     sf::RectangleShape miniFrameOuter;
     sf::RectangleShape miniFrameInner;
     sf::RectangleShape miniSea;
-    sf::ConvexShape miniBritain;
-    sf::ConvexShape miniIreland;
 
     sf::RenderTexture mapCanvas;
     bool mapCanvasReady = false;
@@ -80,6 +83,9 @@ private:
     sf::Vector2i lastDragMouse;
     sf::Vector2i dragStartMouse;
 
+    int hoveredCountyIdx = -1;
+    std::string hoveredKingdomName = "";
+
     float pulseTime = 0.f;
     float westCoastX = -32800.f;
     float eastCoastX = 368000.f;
@@ -88,7 +94,9 @@ private:
     sf::FloatRect lensTabBounds[4];
 
     void buildAuthenticMapGeometry();
+    void buildOrganicCounties();
     void syncDynamicVillages(sim::SimulationRegistry& registry);
+    bool pointInPolygon(const std::vector<sf::Vector2f>& poly, sf::Vector2f pt) const;
 
 public:
     SettlementSystem();
@@ -102,7 +110,9 @@ public:
     void drawCoast(sf::RenderTarget& rt, const sf::FloatRect& viewBounds, float groundY, float timeOfDay, const sf::Texture* skyTex = nullptr, const sf::View* cameraView = nullptr);
 
     bool handleMapLensInput(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView);
-    bool handleWorldMapInput(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView, const std::function<void(const RealSettlement&)>& onSettlementClicked);
+    bool handleWorldMapInput(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView,
+                             const std::function<void(const RealSettlement&, bool isKingdomLevel)>& onSettlementClicked,
+                             const std::function<void(const RealSettlement&, sf::Vector2f, bool isKingdomLevel)>& onSettlementRightClicked = nullptr);
 
     void setMapLens(MapLens lens) { currentLens = lens; }
     MapLens getMapLens() const { return currentLens; }

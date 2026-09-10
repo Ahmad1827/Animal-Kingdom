@@ -306,6 +306,14 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
             isExiting = false;
             bannerTimer = 0.f;
             showBanner = true;
+        } else if (activeSettlementIdx != -1 && activeSettlementIdx < static_cast<int>(realSettlements.size())) {
+            bannerOldName = realSettlements[activeSettlementIdx].historicalName;
+            bannerModernName = realSettlements[activeSettlementIdx].modernName;
+            bannerKingdom = realSettlements[activeSettlementIdx].kingdomName;
+            bannerAllied = realSettlements[activeSettlementIdx].isAllied;
+            isExiting = true;
+            bannerTimer = 0.f;
+            showBanner = true;
         }
         activeSettlementIdx = currentIdx;
     }
@@ -319,11 +327,30 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
 }
 
 void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxView) {
-    if (!fontLoaded || !showBanner) return;
+    if (!fontLoaded || !showBanner || expandAnimT > 0.35f) return;
 
     window.setView(letterboxView);
 
-    float alpha = std::clamp((bannerTimer < 0.5f) ? (bannerTimer / 0.5f) : (bannerTimer > 4.2f ? 1.0f - ((bannerTimer - 4.2f) / 1.0f) : 1.0f), 0.0f, 1.0f);
+    float alpha = 0.f;
+    float morphT = 0.f;
+
+    if (bannerTimer < 0.5f) {
+        alpha = bannerTimer / 0.5f;
+    } else if (bannerTimer < 1.9f) {
+        alpha = 1.0f;
+    } else if (bannerTimer < 3.1f) {
+        alpha = 1.0f;
+        morphT = (bannerTimer - 1.9f) / 1.2f;
+    } else if (bannerTimer < 4.2f) {
+        alpha = 1.0f;
+        morphT = 1.0f;
+    } else {
+        alpha = 1.0f - ((bannerTimer - 4.2f) / 1.0f);
+        morphT = 1.0f;
+    }
+
+    alpha = std::clamp(alpha, 0.0f, 1.0f);
+    morphT = std::clamp(morphT, 0.0f, 1.0f);
     sf::Uint8 byteAlpha = static_cast<sf::Uint8>(alpha * 255);
 
     float centerY = 88.f;
@@ -340,15 +367,42 @@ void SettlementSystem::draw(sf::RenderWindow& window, const sf::View& letterboxV
     kingdomText.setPosition(640.f, centerY - 24.f);
     window.draw(kingdomText);
 
-    sf::Text nameText(bannerOldName, font, 24);
-    nameText.setStyle(sf::Text::Bold);
-    nameText.setFillColor(sf::Color(255, 225, 140, byteAlpha));
-    nameText.setOutlineColor(sf::Color(0, 0, 0, byteAlpha));
-    nameText.setOutlineThickness(2.0f);
-    sf::FloatRect ob = nameText.getLocalBounds();
-    nameText.setOrigin(ob.left + ob.width / 2.f, ob.top + ob.height / 2.f);
-    nameText.setPosition(640.f, centerY + 8.f);
-    window.draw(nameText);
+    if (morphT < 1.0f) {
+        sf::Uint8 oldAlpha = static_cast<sf::Uint8>((1.0f - morphT) * 255 * alpha);
+        sf::Text oldText(bannerOldName, font, 24);
+        oldText.setStyle(sf::Text::Bold);
+        oldText.setFillColor(sf::Color(255, 225, 140, oldAlpha));
+        oldText.setOutlineColor(sf::Color(0, 0, 0, oldAlpha));
+        oldText.setOutlineThickness(2.0f);
+        sf::FloatRect ob = oldText.getLocalBounds();
+        oldText.setOrigin(ob.left + ob.width / 2.f, ob.top + ob.height / 2.f);
+        oldText.setPosition(640.f, centerY + 8.f);
+        window.draw(oldText);
+    }
+
+    if (morphT > 0.0f) {
+        sf::Uint8 modAlpha = static_cast<sf::Uint8>(morphT * 255 * alpha);
+        sf::Text modernText(bannerModernName, font, 24);
+        modernText.setStyle(sf::Text::Bold);
+        modernText.setFillColor(sf::Color(245, 245, 250, modAlpha));
+        modernText.setOutlineColor(sf::Color(0, 0, 0, modAlpha));
+        modernText.setOutlineThickness(2.0f);
+        sf::FloatRect mb = modernText.getLocalBounds();
+        modernText.setOrigin(mb.left + mb.width / 2.f, mb.top + mb.height / 2.f);
+        modernText.setPosition(640.f, centerY + 8.f);
+        window.draw(modernText);
+    }
+
+    float lineHalfW = 150.f * alpha;
+    sf::Color lineClr = bannerAllied ? sf::Color(120, 200, 110, byteAlpha) : sf::Color(210, 140, 80, byteAlpha);
+    sf::Color edgeClr = bannerAllied ? sf::Color(120, 200, 110, 0) : sf::Color(210, 140, 80, 0);
+
+    sf::Vertex line[] = {
+        sf::Vertex(sf::Vector2f(640.f - lineHalfW, centerY + 32.f), edgeClr),
+        sf::Vertex(sf::Vector2f(640.f, centerY + 32.f), lineClr),
+        sf::Vertex(sf::Vector2f(640.f + lineHalfW, centerY + 32.f), edgeClr)
+    };
+    window.draw(line, 3, sf::LinesStrip);
 }
 
 void SettlementSystem::drawCoast(sf::RenderTarget& rt, const sf::FloatRect& viewBounds, float groundY, float timeOfDay, const sf::Texture* skyTex, const sf::View* cameraView) {
@@ -787,19 +841,17 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
     }
 
     sf::Vector2f playerCoord = getPlayerMapCoord(playerX);
-    sf::Vector2i pPix = mapCanvas.mapCoordsToPixel(playerCoord, mapView);
-    sf::Vector2f pOnCanvas(static_cast<float>(pPix.x), static_cast<float>(pPix.y));
 
     float pulse = 1.0f + 0.35f * std::sin(pulseTime * 5.0f);
     sf::CircleShape halo(9.f * pulse);
     halo.setOrigin(halo.getRadius(), halo.getRadius());
-    halo.setPosition(pOnCanvas);
+    halo.setPosition(playerCoord);
     halo.setFillColor(sf::Color(235, 195, 45, 110));
     mapCanvas.draw(halo);
 
     sf::CircleShape playerPin(5.5f);
     playerPin.setOrigin(5.5f, 5.5f);
-    playerPin.setPosition(pOnCanvas);
+    playerPin.setPosition(playerCoord);
     playerPin.setFillColor(sf::Color(255, 220, 50));
     playerPin.setOutlineColor(sf::Color(35, 18, 5));
     playerPin.setOutlineThickness(2.f);
@@ -812,7 +864,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
     youTxt.setOutlineThickness(1.6f);
     sf::FloatRect yb = youTxt.getLocalBounds();
     youTxt.setOrigin(yb.left + yb.width * 0.5f, yb.top + yb.height);
-    youTxt.setPosition(pOnCanvas.x, pOnCanvas.y - 8.f);
+    youTxt.setPosition(playerCoord.x, playerCoord.y - 8.f);
     mapCanvas.draw(youTxt);
 
     mapCanvas.display();

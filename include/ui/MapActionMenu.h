@@ -33,6 +33,8 @@ private:
     sf::Color statusColor;
     float statusTimer;
 
+    std::function<void(sim::VillageID, sim::VillageID, const std::string&, const std::string&, float, float, float)> onRaidDispatched;
+
     void rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID playerApeId);
 
 public:
@@ -41,6 +43,10 @@ public:
     void init(const sf::Font& f);
     void open(const RealSettlement& rs, sf::Vector2f screenPos, sim::SimulationRegistry& reg, sim::EntityID playerApeId, bool kingdomLevel = false);
     void close();
+
+    void setRaidDispatchCallback(const std::function<void(sim::VillageID, sim::VillageID, const std::string&, const std::string&, float, float, float)>& cb) {
+        onRaidDispatched = cb;
+    }
 
     void update(float dt);
     bool handleEvent(const sf::Event& event, const sf::RenderWindow& window, const sf::View& letterboxView);

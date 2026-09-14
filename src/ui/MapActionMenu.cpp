@@ -152,23 +152,21 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
     } else {
         options.push_back({
             "Launch Border Raid",
-            "Pillage storage pits without war",
+            "Physical warband charge on storage",
             "+25 Tension",
             true,
             sf::Color(235, 140, 45),
             [this, targetVillage, playerVillage, targetKingdom]() {
-                if (targetVillage && playerVillage) {
-                    int lootFood = std::min(targetVillage->food, 35);
-                    int lootWood = std::min(targetVillage->wood, 25);
-                    targetVillage->food -= lootFood;
-                    targetVillage->wood -= lootWood;
-                    playerVillage->food += lootFood;
-                    playerVillage->wood += lootWood;
+                if (targetVillage && playerVillage && onRaidDispatched) {
+                    float tX = targetVillage->centerX;
+                    float sX = (playerVillage->centerX < targetVillage->centerX) ? targetVillage->borderMinX - 80.f : targetVillage->borderMaxX + 80.f;
+                    float rX = sX;
+                    onRaidDispatched(targetVillage->id, playerVillage->id, playerVillage->name, targetVillage->name, tX, sX, rX);
                     if (targetKingdom && targetKingdom->borderTension.count(playerVillage->kingdomId)) {
                         targetKingdom->borderTension[playerVillage->kingdomId] += 25.f;
                     }
                 }
-                statusMessage = "Settlement Raided!";
+                statusMessage = "Warband Dispatched to Raid!";
                 statusColor = sf::Color(245, 150, 50);
                 statusTimer = 3.0f;
             }

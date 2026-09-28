@@ -25,6 +25,20 @@ struct CountyDef {
     std::vector<sf::Vector2f> points;
     sf::ConvexShape shape;
     sf::Vector2f center;
+    float siegeProgress = 0.f;
+    bool isOccupied = false;
+    std::string occupierKingdom;
+};
+
+struct MapArmy {
+    uint32_t id = 0;
+    std::string ownerKingdom;
+    int strength = 20;
+    sf::Vector2f pos;
+    sf::Vector2f targetPos;
+    std::string currentCounty;
+    std::string targetCounty;
+    bool isMoving = false;
 };
 
 struct RealSettlement {
@@ -115,6 +129,8 @@ private:
     ActiveWarState activeWar;
     bool peaceModalOpen = false;
     sf::FloatRect warBadgeBounds;
+    std::vector<MapArmy> mapArmies;
+    int selectedArmyId = -1;
     sf::FloatRect enforceBtnBounds;
     sf::FloatRect whitePeaceBtnBounds;
     sf::FloatRect surrenderBtnBounds;
@@ -159,6 +175,7 @@ public:
     static void annexCounty(const std::string& county, const std::string& newKingdom);
     static bool isAtWarWith(const std::string& kingdom);
     static bool hasTruceWith(const std::string& kingdom);
+    static void spawnArmy(const std::string& county, const std::string& kingdom, int strength);
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

@@ -71,10 +71,11 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
             "Free",
             true,
             sf::Color(245, 195, 65),
-            [this, &reg, playerKingdom, targetVillage, playerApeId]() {
+            [this, &reg, playerKingdom, targetVillage, playerApeId, playerKName]() {
                 if (playerKingdom && targetVillage) {
                     sim::WarfareManager::issueMusterOrder(reg, playerKingdom->id, targetVillage->id, playerApeId);
                 }
+                SettlementSystem::spawnArmy(targetSettlement.countyName, playerKName, 25);
                 statusMessage = "Warband Called to Arms!";
                 statusColor = sf::Color(100, 240, 100);
                 statusTimer = 2.5f;

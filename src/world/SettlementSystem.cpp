@@ -21,12 +21,41 @@ void SettlementSystem::startWar(const std::string& county, const std::string& at
     s_instance->peaceModalOpen = false;
 }
 
+void SettlementSystem::spawnArmy(const std::string& county, const std::string& kingdom, int strength) {
+    if (!s_instance) return;
+
+    sf::Vector2f spawnPos(440.f, 525.f);
+    for (const auto& c : s_instance->counties) {
+        if (c.countyName == county) {
+            spawnPos = c.center;
+            break;
+        }
+    }
+
+    static uint32_t nextArmyId = 1;
+    MapArmy army;
+    army.id = nextArmyId++;
+    army.ownerKingdom = kingdom;
+    army.strength = strength;
+    army.pos = spawnPos;
+    army.targetPos = spawnPos;
+    army.currentCounty = county;
+    army.targetCounty = county;
+    army.isMoving = false;
+
+    s_instance->mapArmies.push_back(army);
+    s_instance->selectedArmyId = static_cast<int>(army.id);
+}
+
 void SettlementSystem::annexCounty(const std::string& county, const std::string& newKingdom) {
     if (!s_instance) return;
 
     for (auto& c : s_instance->counties) {
         if (c.countyName == county) {
             c.kingdomName = newKingdom;
+            c.isOccupied = false;
+            c.occupierKingdom.clear();
+            c.siegeProgress = 0.f;
             break;
         }
     }
@@ -351,10 +380,49 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
 
     pulseTime += dt;
 
-    if (activeWar.active) {
-        activeWar.warTimer += dt;
-        if (activeWar.warScore < 100.f) {
-            activeWar.warScore = std::min(100.f, activeWar.warScore + dt * 2.0f);
+    for (auto& a : mapArmies) {
+        if (a.isMoving) {
+            sf::Vector2f diff = a.targetPos - a.pos;
+            float dist = std::hypot(diff.x, diff.y);
+            float step = dt * 45.f;
+            if (dist <= step || dist < 1.0f) {
+                a.pos = a.targetPos;
+                a.isMoving = false;
+                a.currentCounty = a.targetCounty;
+            } else {
+                a.pos += (diff / dist) * step;
+            }
+        }
+    }
+
+    for (auto& c : counties) {
+        bool armyPresent = false;
+        std::string sieger;
+
+        for (const auto& a : mapArmies) {
+            if (!a.isMoving && a.currentCounty == c.countyName) {
+                armyPresent = true;
+                sieger = a.ownerKingdom;
+                break;
+            }
+        }
+
+        if (activeWar.active && armyPresent && !c.isOccupied) {
+            if (sieger == activeWar.attackerKingdom && (c.kingdomName == activeWar.enemyKingdom || c.countyName == activeWar.targetCounty)) {
+                c.siegeProgress = std::min(100.f, c.siegeProgress + dt * 8.f);
+                if (c.siegeProgress >= 100.f) {
+                    c.isOccupied = true;
+                    c.occupierKingdom = sieger;
+                    c.siegeProgress = 0.f;
+                    if (c.countyName == activeWar.targetCounty) {
+                        activeWar.warScore = 100.f;
+                    } else {
+                        activeWar.warScore = std::min(100.f, activeWar.warScore + 35.f);
+                    }
+                }
+            }
+        } else if (!armyPresent && c.siegeProgress > 0.f && !c.isOccupied) {
+            c.siegeProgress = std::max(0.f, c.siegeProgress - dt * 4.f);
         }
     }
 
@@ -626,6 +694,11 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
             }
 
             if (whitePeaceBtnBounds.contains(mPos)) {
+                for (auto& c : counties) {
+                    c.isOccupied = false;
+                    c.occupierKingdom.clear();
+                    c.siegeProgress = 0.f;
+                }
                 kingdomTruces[activeWar.enemyKingdom] = 3;
                 activeWar.active = false;
                 peaceModalOpen = false;
@@ -633,6 +706,11 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
             }
 
             if (surrenderBtnBounds.contains(mPos)) {
+                for (auto& c : counties) {
+                    c.isOccupied = false;
+                    c.occupierKingdom.clear();
+                    c.siegeProgress = 0.f;
+                }
                 kingdomTruces[activeWar.enemyKingdom] = 5;
                 activeWar.active = false;
                 peaceModalOpen = false;
@@ -649,6 +727,33 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
             float relX = mPos.x - canvasRect.left;
             float relY = mPos.y - canvasRect.top;
             sf::Vector2f worldClick = mapCenter + sf::Vector2f(relX - canvasRect.width * 0.5f, relY - canvasRect.height * 0.5f) * mapZoom;
+
+            if (event.mouseButton.button == sf::Mouse::Left) {
+                for (const auto& a : mapArmies) {
+                    float dist = std::hypot(a.pos.x - worldClick.x, a.pos.y - worldClick.y);
+                    if (dist <= 18.f) {
+                        selectedArmyId = static_cast<int>(a.id);
+                        return true;
+                    }
+                }
+            }
+
+            if (event.mouseButton.button == sf::Mouse::Right && selectedArmyId != -1) {
+                for (size_t i = 0; i < counties.size(); ++i) {
+                    if (pointInPolygon(counties[i].points, worldClick)) {
+                        for (auto& a : mapArmies) {
+                            if (static_cast<int>(a.id) == selectedArmyId) {
+                                a.targetPos = counties[i].center;
+                                a.targetCounty = counties[i].countyName;
+                                a.isMoving = true;
+                                break;
+                            }
+                        }
+                        selectedArmyId = -1;
+                        return true;
+                    }
+                }
+            }
 
             for (size_t i = 0; i < counties.size(); ++i) {
                 if (pointInPolygon(counties[i].points, worldClick)) {
@@ -869,6 +974,90 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         c.shape.setFillColor(fillCol);
         mapCanvas.draw(c.shape);
 
+        if (c.isOccupied) {
+            sf::Color occColor = getKingdomBaseColor(c.occupierKingdom);
+            occColor.a = 150;
+            const auto& pts = c.points;
+            size_t numPts = pts.size();
+
+            float dMin = 999999.f, dMax = -999999.f;
+            for (const auto& p : pts) {
+                float val = p.x - p.y;
+                if (val < dMin) dMin = val;
+                if (val > dMax) dMax = val;
+            }
+
+            for (float d = dMin + 7.f; d < dMax; d += 14.f) {
+                std::vector<sf::Vector2f> hits;
+                for (size_t k = 0; k < numPts; ++k) {
+                    sf::Vector2f p1 = pts[k];
+                    sf::Vector2f p2 = pts[(k + 1) % numPts];
+                    float denom = (p2.x - p1.x) - (p2.y - p1.y);
+                    if (std::abs(denom) > 0.0001f) {
+                        float t = (d - (p1.x - p1.y)) / denom;
+                        if (t >= 0.0f && t <= 1.0f) hits.push_back(p1 + t * (p2 - p1));
+                    }
+                }
+
+                if (hits.size() >= 2) {
+                    std::sort(hits.begin(), hits.end(), [](const sf::Vector2f& a, const sf::Vector2f& b) { return a.x < b.x; });
+                    for (size_t h = 0; h + 1 < hits.size(); h += 2) {
+                        sf::Vector2f mid = (hits[h] + hits[h + 1]) * 0.5f;
+                        if (pointInPolygon(pts, mid)) {
+                            sf::Vertex stripe[] = { sf::Vertex(hits[h], occColor), sf::Vertex(hits[h + 1], occColor) };
+                            mapCanvas.draw(stripe, 2, sf::Lines);
+                        }
+                    }
+                }
+            }
+
+            sf::RectangleShape occBadge(sf::Vector2f(74.f, 14.f));
+            occBadge.setOrigin(37.f, 7.f);
+            occBadge.setPosition(c.center.x, c.center.y - 18.f);
+            occBadge.setFillColor(sf::Color(18, 12, 10, 230));
+            occBadge.setOutlineColor(occColor);
+            occBadge.setOutlineThickness(1.f);
+            mapCanvas.draw(occBadge);
+
+            sf::Text oTxt("OCCUPIED", font, 8);
+            oTxt.setStyle(sf::Text::Bold);
+            oTxt.setFillColor(sf::Color(255, 235, 175));
+            sf::FloatRect tb = oTxt.getLocalBounds();
+            oTxt.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
+            oTxt.setPosition(occBadge.getPosition());
+            mapCanvas.draw(oTxt);
+        }
+
+        if (c.siegeProgress > 0.f && !c.isOccupied) {
+            sf::CircleShape ringBack(14.f);
+            ringBack.setOrigin(14.f, 14.f);
+            ringBack.setPosition(c.center);
+            ringBack.setFillColor(sf::Color(20, 14, 10, 220));
+            ringBack.setOutlineColor(sf::Color(185, 140, 60));
+            ringBack.setOutlineThickness(1.2f);
+            mapCanvas.draw(ringBack);
+
+            int segs = static_cast<int>((c.siegeProgress / 100.f) * 16.f);
+            for (int s = 0; s < segs; ++s) {
+                float a1 = s * (6.28318f / 16.f) - 1.57079f;
+                float a2 = (s + 1) * (6.28318f / 16.f) - 1.57079f;
+                sf::ConvexShape wedge(3);
+                wedge.setPoint(0, c.center);
+                wedge.setPoint(1, c.center + sf::Vector2f(std::cos(a1) * 13.f, std::sin(a1) * 13.f));
+                wedge.setPoint(2, c.center + sf::Vector2f(std::cos(a2) * 13.f, std::sin(a2) * 13.f));
+                wedge.setFillColor(sf::Color(235, 60, 45, 220));
+                mapCanvas.draw(wedge);
+            }
+
+            sf::Text sPct(std::to_string(static_cast<int>(c.siegeProgress)) + "%", font, 8);
+            sPct.setStyle(sf::Text::Bold);
+            sPct.setFillColor(sf::Color::White);
+            sf::FloatRect pb = sPct.getLocalBounds();
+            sPct.setOrigin(pb.left + pb.width * 0.5f, pb.top + pb.height * 0.5f);
+            sPct.setPosition(c.center.x, c.center.y + 20.f);
+            mapCanvas.draw(sPct);
+        }
+
         if (currentLens == MapLens::DeJure && isContested) {
             sf::Color stripeCol(245, 60, 50, 130);
             const auto& pts = c.points;
@@ -1016,6 +1205,44 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             sName.setOrigin(sb.left + sb.width * 0.5f, sb.top + sb.height * 0.5f);
             sName.setPosition(c.center.x, c.center.y + 7.f);
             mapCanvas.draw(sName);
+        }
+    }
+
+    for (const auto& a : mapArmies) {
+        if (a.isMoving) {
+            sf::Vertex path[] = {
+                sf::Vertex(a.pos, sf::Color(255, 220, 100, 180)),
+                sf::Vertex(a.targetPos, sf::Color(255, 220, 100, 60))
+            };
+            mapCanvas.draw(path, 2, sf::Lines);
+        }
+
+        bool isSel = (static_cast<int>(a.id) == selectedArmyId);
+
+        sf::CircleShape banner(12.f);
+        banner.setOrigin(12.f, 12.f);
+        banner.setPosition(a.pos);
+        banner.setFillColor(getKingdomBaseColor(a.ownerKingdom));
+        banner.setOutlineColor(isSel ? sf::Color(255, 230, 80) : sf::Color(30, 20, 14));
+        banner.setOutlineThickness(isSel ? 2.5f : 1.5f);
+        mapCanvas.draw(banner);
+
+        sf::Text aStrength(std::to_string(a.strength), font, 9);
+        aStrength.setStyle(sf::Text::Bold);
+        aStrength.setFillColor(sf::Color::White);
+        sf::FloatRect sb = aStrength.getLocalBounds();
+        aStrength.setOrigin(sb.left + sb.width * 0.5f, sb.top + sb.height * 0.5f);
+        aStrength.setPosition(a.pos.x, a.pos.y - 1.f);
+        mapCanvas.draw(aStrength);
+
+        if (isSel) {
+            sf::Text selPrompt("SELECTED", font, 7);
+            selPrompt.setStyle(sf::Text::Bold);
+            selPrompt.setFillColor(sf::Color(255, 225, 100));
+            sf::FloatRect spb = selPrompt.getLocalBounds();
+            selPrompt.setOrigin(spb.left + spb.width * 0.5f, spb.top + spb.height * 0.5f);
+            selPrompt.setPosition(a.pos.x, a.pos.y - 16.f);
+            mapCanvas.draw(selPrompt);
         }
     }
 

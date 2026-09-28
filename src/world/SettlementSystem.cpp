@@ -16,11 +16,21 @@ void SettlementSystem::startWar(const std::string& county, const std::string& at
     s_instance->activeWar.attackerKingdom = attacker;
     s_instance->activeWar.enemyKingdom = enemy;
     s_instance->activeWar.casusBelli = cb;
-    s_instance->activeWar.warScore = 70.f;
+    s_instance->activeWar.warScore = 20.f;
     s_instance->activeWar.warTimer = 0.f;
+    s_instance->activeWar.aiThinkTimer = 0.f;
     s_instance->peaceModalOpen = false;
-}
 
+    std::string musterCounty = county;
+    for (const auto& c : s_instance->counties) {
+        if (c.kingdomName == enemy && c.countyName != county) {
+            musterCounty = c.countyName;
+            break;
+        }
+    }
+
+    spawnArmy(musterCounty, enemy, 22);
+}
 void SettlementSystem::spawnArmy(const std::string& county, const std::string& kingdom, int strength) {
     if (!s_instance) return;
 
@@ -69,8 +79,15 @@ void SettlementSystem::annexCounty(const std::string& county, const std::string&
         }
     }
 
+    std::string enemyK = s_instance->activeWar.enemyKingdom;
+    s_instance->mapArmies.erase(
+        std::remove_if(s_instance->mapArmies.begin(), s_instance->mapArmies.end(),
+                       [&enemyK](const MapArmy& a) { return a.ownerKingdom == enemyK; }),
+        s_instance->mapArmies.end()
+    );
+
     getPlayerClaims().erase(county);
-    s_instance->kingdomTruces[s_instance->activeWar.enemyKingdom] = 5;
+    s_instance->kingdomTruces[enemyK] = 5;
     s_instance->activeWar.active = false;
     s_instance->peaceModalOpen = false;
 }
@@ -395,19 +412,97 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
         }
     }
 
+    if (activeWar.active) {
+        activeWar.aiThinkTimer += dt;
+        if (activeWar.aiThinkTimer >= 1.5f) {
+            activeWar.aiThinkTimer = 0.f;
+
+            sf::Vector2f targetCountyCenter(440.f, 525.f);
+            for (const auto& c : counties) {
+                if (c.countyName == activeWar.targetCounty) {
+                    targetCountyCenter = c.center;
+                    break;
+                }
+            }
+
+            for (auto& a : mapArmies) {
+                if (a.ownerKingdom == activeWar.enemyKingdom && !a.inCombat && !a.isMoving) {
+                    if (a.currentCounty != activeWar.targetCounty) {
+                        a.targetPos = targetCountyCenter;
+                        a.targetCounty = activeWar.targetCounty;
+                        a.isMoving = true;
+                    }
+                }
+            }
+        }
+    }
+
+    for (size_t i = 0; i < mapArmies.size(); ++i) {
+        mapArmies[i].inCombat = false;
+    }
+
+    for (size_t i = 0; i < mapArmies.size(); ++i) {
+        for (size_t j = i + 1; j < mapArmies.size(); ++j) {
+            if (mapArmies[i].ownerKingdom != mapArmies[j].ownerKingdom) {
+                if (!mapArmies[i].isMoving && !mapArmies[j].isMoving &&
+                    mapArmies[i].currentCounty == mapArmies[j].currentCounty &&
+                    !mapArmies[i].currentCounty.empty()) {
+                    mapArmies[i].inCombat = true;
+                    mapArmies[j].inCombat = true;
+
+                    float dmgToJ = dt * (static_cast<float>(mapArmies[i].strength) * 0.15f + 1.5f);
+                    float dmgToI = dt * (static_cast<float>(mapArmies[j].strength) * 0.15f + 1.5f);
+
+                    mapArmies[i].combatTimer += dmgToI;
+                    mapArmies[j].combatTimer += dmgToJ;
+
+                    if (mapArmies[i].combatTimer >= 1.0f) {
+                        int loss = static_cast<int>(mapArmies[i].combatTimer);
+                        mapArmies[i].strength = std::max(0, mapArmies[i].strength - loss);
+                        mapArmies[i].combatTimer -= static_cast<float>(loss);
+                    }
+                    if (mapArmies[j].combatTimer >= 1.0f) {
+                        int loss = static_cast<int>(mapArmies[j].combatTimer);
+                        mapArmies[j].strength = std::max(0, mapArmies[j].strength - loss);
+                        mapArmies[j].combatTimer -= static_cast<float>(loss);
+                    }
+                }
+            }
+        }
+    }
+
+    for (auto it = mapArmies.begin(); it != mapArmies.end();) {
+        if (it->strength <= 0) {
+            if (activeWar.active) {
+                if (it->ownerKingdom == activeWar.attackerKingdom) {
+                    activeWar.warScore = std::max(-100.f, activeWar.warScore - 30.f);
+                } else if (it->ownerKingdom == activeWar.enemyKingdom) {
+                    activeWar.warScore = std::min(100.f, activeWar.warScore + 30.f);
+                }
+            }
+            if (selectedArmyId == static_cast<int>(it->id)) {
+                selectedArmyId = -1;
+            }
+            it = mapArmies.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
     for (auto& c : counties) {
         bool armyPresent = false;
+        bool battleInCounty = false;
         std::string sieger;
 
         for (const auto& a : mapArmies) {
             if (!a.isMoving && a.currentCounty == c.countyName) {
                 armyPresent = true;
                 sieger = a.ownerKingdom;
-                break;
+                if (a.inCombat) battleInCounty = true;
             }
         }
 
-        if (activeWar.active && armyPresent && !c.isOccupied) {
+        if (activeWar.active && armyPresent && !battleInCounty && !c.isOccupied) {
             if (sieger == activeWar.attackerKingdom && (c.kingdomName == activeWar.enemyKingdom || c.countyName == activeWar.targetCounty)) {
                 c.siegeProgress = std::min(100.f, c.siegeProgress + dt * 8.f);
                 if (c.siegeProgress >= 100.f) {
@@ -421,7 +516,7 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
                     }
                 }
             }
-        } else if (!armyPresent && c.siegeProgress > 0.f && !c.isOccupied) {
+        } else if ((!armyPresent || battleInCounty) && c.siegeProgress > 0.f && !c.isOccupied) {
             c.siegeProgress = std::max(0.f, c.siegeProgress - dt * 4.f);
         }
     }
@@ -699,7 +794,13 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
                     c.occupierKingdom.clear();
                     c.siegeProgress = 0.f;
                 }
-                kingdomTruces[activeWar.enemyKingdom] = 3;
+                std::string enemyK = activeWar.enemyKingdom;
+                mapArmies.erase(
+                    std::remove_if(mapArmies.begin(), mapArmies.end(),
+                                   [&enemyK](const MapArmy& a) { return a.ownerKingdom == enemyK; }),
+                    mapArmies.end()
+                );
+                kingdomTruces[enemyK] = 3;
                 activeWar.active = false;
                 peaceModalOpen = false;
                 return true;
@@ -711,7 +812,13 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
                     c.occupierKingdom.clear();
                     c.siegeProgress = 0.f;
                 }
-                kingdomTruces[activeWar.enemyKingdom] = 5;
+                std::string enemyK = activeWar.enemyKingdom;
+                mapArmies.erase(
+                    std::remove_if(mapArmies.begin(), mapArmies.end(),
+                                   [&enemyK](const MapArmy& a) { return a.ownerKingdom == enemyK; }),
+                    mapArmies.end()
+                );
+                kingdomTruces[enemyK] = 5;
                 activeWar.active = false;
                 peaceModalOpen = false;
                 return true;
@@ -1243,6 +1350,30 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             selPrompt.setOrigin(spb.left + spb.width * 0.5f, spb.top + spb.height * 0.5f);
             selPrompt.setPosition(a.pos.x, a.pos.y - 16.f);
             mapCanvas.draw(selPrompt);
+        }
+
+        if (a.inCombat) {
+            float p = 0.5f + 0.5f * std::sin(pulseTime * 14.f);
+            sf::Color swCol(255, static_cast<sf::Uint8>(60 + p * 150), 40);
+
+            sf::Vertex sw1[] = {
+                sf::Vertex(sf::Vector2f(a.pos.x - 9.f, a.pos.y - 20.f), swCol),
+                sf::Vertex(sf::Vector2f(a.pos.x + 9.f, a.pos.y - 36.f), swCol)
+            };
+            sf::Vertex sw2[] = {
+                sf::Vertex(sf::Vector2f(a.pos.x + 9.f, a.pos.y - 20.f), swCol),
+                sf::Vertex(sf::Vector2f(a.pos.x - 9.f, a.pos.y - 36.f), swCol)
+            };
+            mapCanvas.draw(sw1, 2, sf::Lines);
+            mapCanvas.draw(sw2, 2, sf::Lines);
+
+            sf::Text clTxt("BATTLE", font, 8);
+            clTxt.setStyle(sf::Text::Bold);
+            clTxt.setFillColor(sf::Color(255, 235, 120));
+            sf::FloatRect cb = clTxt.getLocalBounds();
+            clTxt.setOrigin(cb.left + cb.width * 0.5f, cb.top + cb.height * 0.5f);
+            clTxt.setPosition(a.pos.x, a.pos.y - 42.f);
+            mapCanvas.draw(clTxt);
         }
     }
 

@@ -39,6 +39,8 @@ struct MapArmy {
     std::string currentCounty;
     std::string targetCounty;
     bool isMoving = false;
+    bool inCombat = false;
+    float combatTimer = 0.f;
 };
 
 struct RealSettlement {
@@ -65,6 +67,7 @@ struct ActiveWarState {
     std::string casusBelli;
     float warScore = 65.f;
     float warTimer = 0.f;
+    float aiThinkTimer = 0.f;
 };
 
 class SettlementSystem {

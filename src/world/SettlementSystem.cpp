@@ -28,13 +28,16 @@ bool SettlementSystem::pointInPolygon(const std::vector<sf::Vector2f>& poly, sf:
 void SettlementSystem::buildOrganicCounties() {
     counties.clear();
 
-    auto addCounty = [this](int id, const std::string& cName, const std::string& sName, const std::string& mName, const std::string& kName, const std::vector<sf::Vector2f>& pts) {
+    auto addCounty = [this](int id, const std::string& cName, const std::string& sName, const std::string& mName,
+                            const std::string& deFactoKName, const std::string& deJureKName,
+                            const std::vector<sf::Vector2f>& pts) {
         CountyDef c;
         c.countyId = id;
         c.countyName = cName;
         c.settlementName = sName;
         c.modernName = mName;
-        c.kingdomName = kName;
+        c.kingdomName = deFactoKName;
+        c.deJureKingdom = deJureKName;
         c.points = pts;
 
         c.shape.setPointCount(pts.size());
@@ -49,63 +52,63 @@ void SettlementSystem::buildOrganicCounties() {
         counties.push_back(c);
     };
 
-    addCounty(1, "Cornwall", "Kernow", "Tintagel", "Cornwall", {
+    addCounty(1, "Cornwall", "Kernow", "Tintagel", "Cornwall", "Cornwall", {
         {260.f, 575.f}, {275.f, 585.f}, {310.f, 570.f}, {340.f, 555.f}, {330.f, 525.f}, {305.f, 532.f}
     });
 
-    addCounty(2, "Hampshire", "Wintanceaster", "Winchester", "Wessex", {
+    addCounty(2, "Hampshire", "Wintanceaster", "Winchester", "Wessex", "Wessex", {
         {330.f, 525.f}, {340.f, 555.f}, {395.f, 560.f}, {415.f, 515.f}, {370.f, 502.f}
     });
 
-    addCounty(3, "Wight", "Hamwic", "Southampton", "Wessex", {
+    addCounty(3, "Wight", "Hamwic", "Southampton", "Wessex", "Wessex", {
         {395.f, 560.f}, {440.f, 558.f}, {445.f, 520.f}, {415.f, 515.f}
     });
 
-    addCounty(4, "Berkshire", "Readingas", "Reading", "Wessex", {
-        {370.f, 502.f}, {415.f, 515.f}, {445.f, 520.f}, {480.f, 485.f}, {440.f, 475.f}, {380.f, 480.f}
+    addCounty(4, "Berkshire", "Readingas", "Reading", "Mercia", "Wessex", {
+        {370.f, 502.f}, {415.f, 515.f}, {445.f, 520.f}, {480.f, 485.f}, {470.f, 455.f}, {440.f, 475.f}, {380.f, 480.f}
     });
 
-    addCounty(5, "Middlesex", "Lundenburh", "London", "Wessex", {
+    addCounty(5, "Middlesex", "Lundenburh", "London", "East Anglia", "Wessex", {
         {445.f, 520.f}, {440.f, 558.f}, {485.f, 555.f}, {535.f, 535.f}, {525.f, 505.f}, {480.f, 485.f}
     });
 
-    addCounty(6, "Norfolk", "Theodford", "Thetford", "East Anglia", {
+    addCounty(6, "Norfolk", "Theodford", "Thetford", "East Anglia", "East Anglia", {
         {480.f, 485.f}, {525.f, 505.f}, {575.f, 470.f}, {540.f, 435.f}, {505.f, 425.f}, {470.f, 455.f}
     });
 
-    addCounty(7, "Chester", "Legaceaster", "Chester", "Mercia", {
+    addCounty(7, "Chester", "Legaceaster", "Chester", "Mercia", "Mercia", {
         {340.f, 420.f}, {360.f, 445.f}, {330.f, 475.f}, {370.f, 500.f}, {380.f, 480.f}, {415.f, 445.f}, {395.f, 395.f}, {365.f, 390.f}
     });
 
-    addCounty(8, "Warwick", "Tamworthig", "Tamworth", "Mercia", {
+    addCounty(8, "Warwick", "Tamworthig", "Tamworth", "Mercia", "Mercia", {
         {380.f, 480.f}, {440.f, 475.f}, {470.f, 455.f}, {460.f, 380.f}, {410.f, 395.f}, {415.f, 445.f}
     });
 
-    addCounty(9, "Lincoln", "Lindcylene", "Lincoln", "Mercia", {
+    addCounty(9, "Lincoln", "Lindcylene", "Lincoln", "Northumbria", "Mercia", {
         {470.f, 455.f}, {505.f, 425.f}, {525.f, 390.f}, {530.f, 355.f}, {470.f, 345.f}, {460.f, 380.f}
     });
 
-    addCounty(10, "Yorkshire", "Jorvik", "York", "Northumbria", {
+    addCounty(10, "Yorkshire", "Jorvik", "York", "Northumbria", "Northumbria", {
         {410.f, 395.f}, {460.f, 380.f}, {470.f, 345.f}, {530.f, 355.f}, {505.f, 315.f}, {450.f, 305.f}, {395.f, 340.f}
     });
 
-    addCounty(11, "Durham", "Dunholm", "Durham", "Northumbria", {
+    addCounty(11, "Durham", "Dunholm", "Durham", "Northumbria", "Northumbria", {
         {395.f, 340.f}, {450.f, 305.f}, {505.f, 315.f}, {485.f, 260.f}, {435.f, 255.f}, {385.f, 275.f}
     });
 
-    addCounty(12, "Bamburgh", "Bebbanburg", "Bamburgh", "Northumbria", {
+    addCounty(12, "Bamburgh", "Bebbanburg", "Bamburgh", "Northumbria", "Northumbria", {
         {385.f, 275.f}, {435.f, 255.f}, {485.f, 260.f}, {465.f, 225.f}, {420.f, 215.f}, {380.f, 230.f}
     });
 
-    addCounty(13, "Lothian", "Dun Eideann", "Edinburgh", "Alba", {
+    addCounty(13, "Lothian", "Dun Eideann", "Edinburgh", "Northumbria", "Alba", {
         {380.f, 230.f}, {420.f, 215.f}, {465.f, 225.f}, {480.f, 195.f}, {440.f, 175.f}, {385.f, 185.f}
     });
 
-    addCounty(14, "Gowrie", "Sgain", "Scone", "Alba", {
+    addCounty(14, "Gowrie", "Sgain", "Scone", "Alba", "Alba", {
         {385.f, 185.f}, {440.f, 175.f}, {480.f, 195.f}, {510.f, 155.f}, {455.f, 145.f}, {460.f, 100.f}, {415.f, 110.f}, {395.f, 150.f}, {375.f, 195.f}
     });
 
-    addCounty(15, "Meath", "Dublin", "Dublin", "Ireland", {
+    addCounty(15, "Meath", "Dublin", "Dublin", "Ireland", "Ireland", {
         {230.f, 335.f}, {270.f, 325.f}, {285.f, 360.f}, {275.f, 415.f}, {250.f, 475.f}, {205.f, 485.f}, {180.f, 430.f}, {195.f, 360.f}
     });
 }
@@ -228,6 +231,8 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
                 rs.mapCoord = c.center;
                 rs.countyName = c.countyName;
                 rs.modernName = c.modernName;
+                rs.deJureKingdom = c.deJureKingdom;
+                rs.hasPlayerClaim = (getPlayerClaims().count(c.countyName) > 0);
                 break;
             }
         }
@@ -553,15 +558,25 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
                     dummyRs.historicalName = counties[i].settlementName;
                     dummyRs.modernName = counties[i].modernName;
                     dummyRs.kingdomName = counties[i].kingdomName;
+                    dummyRs.deJureKingdom = counties[i].deJureKingdom;
                     dummyRs.countyName = counties[i].countyName;
                     dummyRs.mapCoord = counties[i].center;
+                    dummyRs.hasPlayerClaim = (getPlayerClaims().count(counties[i].countyName) > 0);
 
                     for (const auto& s : realSettlements) {
-                        if (s.villageId == counties[i].villageId || s.historicalName.find(counties[i].settlementName) != std::string::npos) {
-                            dummyRs = s;
+                        if (counties[i].villageId != 0 && s.villageId == counties[i].villageId) {
+                            dummyRs.villageId = s.villageId;
+                            dummyRs.centerX = s.centerX;
+                            break;
+                        } else if (!counties[i].settlementName.empty() && s.historicalName == counties[i].settlementName) {
+                            dummyRs.villageId = s.villageId;
+                            dummyRs.centerX = s.centerX;
                             break;
                         }
                     }
+                    dummyRs.kingdomName = counties[i].kingdomName;
+                    dummyRs.deJureKingdom = counties[i].deJureKingdom;
+                    dummyRs.countyName = counties[i].countyName;
 
                     if (event.mouseButton.button == sf::Mouse::Left && onSettlementClicked) {
                         onSettlementClicked(dummyRs, isKingdomLevel);
@@ -695,25 +710,12 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
     for (size_t i = 0; i < counties.size(); ++i) {
         auto& c = counties[i];
         sf::Color fillCol = getKingdomBaseColor(c.kingdomName);
+        bool isContested = (c.kingdomName != c.deJureKingdom);
 
         if (currentLens == MapLens::DeFacto) {
             fillCol = getKingdomBaseColor(c.kingdomName);
         } else if (currentLens == MapLens::DeJure) {
-            std::string rightfulCrown = c.kingdomName;
-            if (c.countyName == "Cornwall") rightfulCrown = "Cornwall";
-            else if (c.countyName == "Hampshire" || c.countyName == "Wight" || c.countyName == "Berkshire" || c.countyName == "Middlesex") rightfulCrown = "Wessex";
-            else if (c.countyName == "Norfolk") rightfulCrown = "East Anglia";
-            else if (c.countyName == "Chester" || c.countyName == "Warwick" || c.countyName == "Lincoln") rightfulCrown = "Mercia";
-            else if (c.countyName == "Yorkshire" || c.countyName == "Durham" || c.countyName == "Bamburgh") rightfulCrown = "Northumbria";
-            else if (c.countyName == "Lothian" || c.countyName == "Gowrie") rightfulCrown = "Alba";
-            else if (c.countyName == "Meath") rightfulCrown = "Ireland";
-
-            fillCol = getKingdomBaseColor(rightfulCrown);
-            if (c.kingdomName != rightfulCrown) {
-                fillCol.r = static_cast<sf::Uint8>(std::min(255, fillCol.r + 55));
-                fillCol.g = static_cast<sf::Uint8>(std::max(0, fillCol.g - 35));
-                fillCol.b = static_cast<sf::Uint8>(std::max(0, fillCol.b - 35));
-            }
+            fillCol = getKingdomBaseColor(c.deJureKingdom);
         } else if (currentLens == MapLens::Vassals) {
             int pseudoOpinion = ((static_cast<int>(c.countyId) * 37) % 70) - 20;
             if (pseudoOpinion >= 25) fillCol = sf::Color(70, 165, 70);
@@ -766,6 +768,69 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
 
         c.shape.setFillColor(fillCol);
         mapCanvas.draw(c.shape);
+
+        if (currentLens == MapLens::DeJure && isContested) {
+            sf::Color stripeCol(245, 60, 50, 130);
+            const auto& pts = c.points;
+            size_t numPts = pts.size();
+
+            float dMin = 999999.f;
+            float dMax = -999999.f;
+            for (const auto& p : pts) {
+                float val = p.x - p.y;
+                if (val < dMin) dMin = val;
+                if (val > dMax) dMax = val;
+            }
+
+            for (float d = dMin + 7.f; d < dMax; d += 14.f) {
+                std::vector<sf::Vector2f> hits;
+                for (size_t k = 0; k < numPts; ++k) {
+                    sf::Vector2f p1 = pts[k];
+                    sf::Vector2f p2 = pts[(k + 1) % numPts];
+
+                    float denom = (p2.x - p1.x) - (p2.y - p1.y);
+                    if (std::abs(denom) > 0.0001f) {
+                        float t = (d - (p1.x - p1.y)) / denom;
+                        if (t >= 0.0f && t <= 1.0f) {
+                            hits.push_back(p1 + t * (p2 - p1));
+                        }
+                    }
+                }
+
+                if (hits.size() >= 2) {
+                    std::sort(hits.begin(), hits.end(), [](const sf::Vector2f& a, const sf::Vector2f& b) {
+                        return a.x < b.x;
+                    });
+
+                    for (size_t h = 0; h + 1 < hits.size(); h += 2) {
+                        sf::Vector2f mid = (hits[h] + hits[h + 1]) * 0.5f;
+                        if (pointInPolygon(pts, mid)) {
+                            sf::Vertex stripe[] = {
+                                sf::Vertex(hits[h], stripeCol),
+                                sf::Vertex(hits[h + 1], stripeCol)
+                            };
+                            mapCanvas.draw(stripe, 2, sf::Lines);
+                        }
+                    }
+                }
+            }
+
+            sf::RectangleShape marker(sf::Vector2f(72.f, 14.f));
+            marker.setOrigin(36.f, 7.f);
+            marker.setPosition(c.center.x, c.center.y + 14.f);
+            marker.setFillColor(sf::Color(140, 20, 15, 230));
+            marker.setOutlineColor(sf::Color(255, 220, 100));
+            marker.setOutlineThickness(1.f);
+            mapCanvas.draw(marker);
+
+            sf::Text cTag("USURPED", font, 8);
+            cTag.setStyle(sf::Text::Bold);
+            cTag.setFillColor(sf::Color(255, 240, 200));
+            sf::FloatRect tb = cTag.getLocalBounds();
+            cTag.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
+            cTag.setPosition(marker.getPosition().x, marker.getPosition().y - 1.f);
+            mapCanvas.draw(cTag);
+        }
     }
 
     if (isZoomedOut) {

@@ -50,9 +50,19 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
     sim::KingdomData* targetKingdom = (targetSettlement.kingdomId != 0) ? reg.getKingdom(targetSettlement.kingdomId) : nullptr;
     sim::VillageData* targetVillage = reg.getVillage(targetSettlement.villageId);
 
-    bool isSelfRealm = false;
-    if (playerKingdom && targetSettlement.kingdomId == playerKingdom->id) isSelfRealm = true;
-    else if (!playerKingdom && playerVillage && targetSettlement.villageId == playerVillage->id) isSelfRealm = true;
+    std::string playerKName = playerKingdom ? playerKingdom->name : "Wessex";
+
+    bool isForeignOccupied = (targetSettlement.kingdomName == "East Anglia" ||
+                              targetSettlement.kingdomName == "Mercia" ||
+                              targetSettlement.kingdomName == "Northumbria" ||
+                              targetSettlement.kingdomName == "Alba" ||
+                              targetSettlement.kingdomName == "Ireland" ||
+                              targetSettlement.kingdomName == "Cornwall");
+
+    bool isSelfRealm = !isForeignOccupied && (targetSettlement.countyName == "Hampshire" ||
+                                              targetSettlement.countyName == "Wight" ||
+                                              targetSettlement.kingdomName == "Wessex" ||
+                                              targetSettlement.kingdomName == playerKName);
 
     if (isSelfRealm) {
         options.push_back({
@@ -96,20 +106,70 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
 
     int curAmber = player ? player->amberCount : 0;
 
+    bool hasDeJureClaim = (!targetSettlement.deJureKingdom.empty() &&
+                          (targetSettlement.deJureKingdom == playerKName ||
+                           targetSettlement.deJureKingdom == "Wessex" ||
+                           playerKName.find(targetSettlement.deJureKingdom) != std::string::npos ||
+                           targetSettlement.deJureKingdom.find(playerKName) != std::string::npos));
+
+    bool hasFabricatedClaim = (SettlementSystem::getPlayerClaims().count(targetSettlement.countyName) > 0);
+    bool hasValidCB = hasDeJureClaim || hasFabricatedClaim;
+
+    std::string cWarTitle = hasDeJureClaim ? ("War for " + targetSettlement.countyName + " (De Jure)")
+                          : (hasFabricatedClaim ? ("War for " + targetSettlement.countyName + " (Claim)")
+                                                : ("War for " + targetSettlement.countyName + " (No Claim)"));
+
+    std::string cWarDesc = hasDeJureClaim ? ("Press De Jure rights of " + targetSettlement.deJureKingdom)
+                         : (hasFabricatedClaim ? ("Press Shaman's forged claim on " + targetSettlement.countyName)
+                                               : ("No legal claim on this county"));
+
+    options.push_back({
+        cWarTitle,
+        cWarDesc,
+        hasValidCB ? "County CB" : "No Claim",
+        !alreadyAtWar && hasValidCB,
+        hasValidCB ? sf::Color(235, 60, 60) : sf::Color(95, 88, 85),
+        [this, &reg, player, playerKingdom, targetKingdom, targetVillage, hasDeJureClaim]() {
+            sim::KingdomID myKId = playerKingdom ? playerKingdom->id : 1;
+            sim::KingdomID enemyKId = targetKingdom ? targetKingdom->id : targetSettlement.kingdomId;
+            if (enemyKId == 0) enemyKId = 2;
+
+            sim::VillageID goalVId = targetVillage ? targetVillage->id : targetSettlement.villageId;
+
+            std::string reason = hasDeJureClaim ? ("De Jure War for " + targetSettlement.countyName)
+                                                : ("War for " + targetSettlement.countyName);
+            sim::WarfareManager::declareWarWithGoal(reg, myKId, enemyKId, goalVId, reason);
+
+            statusMessage = "War for " + targetSettlement.countyName + " Declared!";
+            statusColor = sf::Color(245, 60, 60);
+            statusTimer = 3.0f;
+        }
+    });
+
     if (isKingdomLevel) {
+        bool isReigningKing = (playerKingdom && player && playerKingdom->currentKingId == player->id);
+        bool hasInvasionStrength = (playerKingdom && playerKingdom->militaryStrength >= 30);
+        bool hasInvasionAmber = (curAmber >= 100);
+        bool canInvade = isReigningKing && hasInvasionStrength && hasInvasionAmber && !alreadyAtWar;
+
+        std::string invDesc = alreadyAtWar ? "Already at war with this realm"
+                            : (canInvade ? "Total territorial subjugation"
+                                         : "Requires: King rank, 100 Amber, and 30+ Military");
+
         options.push_back({
-            "Declare War",
-            alreadyAtWar ? "Realm is already at war" : "Full territorial conquest",
-            "-15 Tension",
-            !alreadyAtWar && (playerKingdom != nullptr || player != nullptr),
-            sf::Color(235, 60, 60),
-            [this, &reg, playerKingdom, targetKingdom]() {
-                if (playerKingdom && targetKingdom) {
-                    sim::WarfareManager::declareWar(reg, playerKingdom->id, targetKingdom->id, "Royal territorial claim.");
+            "Kingdom Invasion",
+            invDesc,
+            canInvade ? "-100 Amber" : "Locked",
+            canInvade,
+            canInvade ? sf::Color(225, 45, 40) : sf::Color(90, 82, 78),
+            [this, &reg, player, playerKingdom, targetKingdom]() {
+                if (player && playerKingdom && targetKingdom) {
+                    player->amberCount -= 100;
+                    sim::WarfareManager::declareWar(reg, playerKingdom->id, targetKingdom->id, "Kingdom Invasion CB");
+                    statusMessage = "Kingdom Invasion Declared on " + targetSettlement.kingdomName + "!";
+                    statusColor = sf::Color(245, 50, 45);
+                    statusTimer = 3.0f;
                 }
-                statusMessage = "Realm War Declared!";
-                statusColor = sf::Color(245, 60, 60);
-                statusTimer = 3.0f;
             }
         });
 
@@ -150,40 +210,52 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
             }
         });
     } else {
+        std::string cWarTitle = hasDeJureClaim ? ("War for " + targetSettlement.countyName + " (De Jure)")
+                              : (hasFabricatedClaim ? ("War for " + targetSettlement.countyName + " (Claim)")
+                                                    : ("War for " + targetSettlement.countyName + " (Locked)"));
+
+        std::string cWarDesc = hasDeJureClaim ? ("Press De Jure rights of " + targetSettlement.deJureKingdom)
+                             : (hasFabricatedClaim ? ("Press Shaman's forged claim on " + targetSettlement.countyName)
+                                                   : ("No claim on this county (Fabricate first)"));
+
+        bool canDeclareCountyWar = !alreadyAtWar && hasValidCB;
+
         options.push_back({
-            "Launch Border Raid",
-            "Physical warband charge on storage",
-            "+25 Tension",
-            true,
-            sf::Color(235, 140, 45),
-            [this, targetVillage, playerVillage, targetKingdom]() {
-                if (targetVillage && playerVillage && onRaidDispatched) {
-                    float tX = targetVillage->centerX;
-                    float sX = (playerVillage->centerX < targetVillage->centerX) ? targetVillage->borderMinX - 80.f : targetVillage->borderMaxX + 80.f;
-                    float rX = sX;
-                    onRaidDispatched(targetVillage->id, playerVillage->id, playerVillage->name, targetVillage->name, tX, sX, rX);
-                    if (targetKingdom && targetKingdom->borderTension.count(playerVillage->kingdomId)) {
-                        targetKingdom->borderTension[playerVillage->kingdomId] += 25.f;
-                    }
-                }
-                statusMessage = "Warband Dispatched to Raid!";
-                statusColor = sf::Color(245, 150, 50);
+            cWarTitle,
+            cWarDesc,
+            hasValidCB ? "County CB" : "No Claim",
+            canDeclareCountyWar,
+            hasValidCB ? sf::Color(235, 60, 60) : sf::Color(95, 88, 85),
+            [this, &reg, player, playerKingdom, targetKingdom, targetVillage, hasDeJureClaim]() {
+                sim::KingdomID myKId = playerKingdom ? playerKingdom->id : 1;
+                sim::KingdomID enemyKId = targetKingdom ? targetKingdom->id : targetSettlement.kingdomId;
+                if (enemyKId == 0) enemyKId = 2;
+
+                sim::VillageID goalVId = targetVillage ? targetVillage->id : targetSettlement.villageId;
+
+                std::string reason = hasDeJureClaim ? ("De Jure War for " + targetSettlement.countyName)
+                                                    : ("War for " + targetSettlement.countyName);
+                sim::WarfareManager::declareWarWithGoal(reg, myKId, enemyKId, goalVId, reason);
+
+                statusMessage = "War for " + targetSettlement.countyName + " Declared!";
+                statusColor = sf::Color(245, 60, 60);
                 statusTimer = 3.0f;
             }
         });
 
         options.push_back({
-            "Fabricate Claim",
-            "Shaman claims boundary right",
-            "-30 Amber",
-            (curAmber >= 30),
-            sf::Color(190, 130, 240),
+            hasFabricatedClaim ? "Claim Fabricated" : "Fabricate Claim",
+            hasFabricatedClaim ? "Shaman established ancestral rights" : "Send Shaman to forge legal claim",
+            hasFabricatedClaim ? "Claimed" : "-30 Amber",
+            (!hasFabricatedClaim && !hasDeJureClaim && curAmber >= 30),
+            hasFabricatedClaim ? sf::Color(120, 210, 120) : sf::Color(190, 130, 240),
             [this, player]() {
                 if (player && player->amberCount >= 30) {
                     player->amberCount -= 30;
-                    statusMessage = "County Casus Belli Created";
+                    SettlementSystem::getPlayerClaims().insert(targetSettlement.countyName);
+                    statusMessage = "Casus Belli Fabricated on " + targetSettlement.countyName + "!";
                     statusColor = sf::Color(205, 145, 255);
-                    statusTimer = 2.5f;
+                    statusTimer = 3.0f;
                 }
             }
         });

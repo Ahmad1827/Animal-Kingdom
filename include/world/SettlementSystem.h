@@ -21,6 +21,7 @@ struct CountyDef {
     std::string settlementName;
     std::string modernName;
     std::string kingdomName;
+    std::string deJureKingdom;
     std::vector<sf::Vector2f> points;
     sf::ConvexShape shape;
     sf::Vector2f center;
@@ -35,8 +36,10 @@ struct RealSettlement {
     std::string historicalName;
     std::string modernName;
     std::string kingdomName;
+    std::string deJureKingdom;
     std::string countyName;
     bool isAllied = true;
+    bool hasPlayerClaim = false;
     sf::Vector2f mapCoord;
 };
 
@@ -125,6 +128,11 @@ public:
 
     void setMapLens(MapLens lens) { currentLens = lens; }
     MapLens getMapLens() const { return currentLens; }
+
+    static std::unordered_set<std::string>& getPlayerClaims() {
+        static std::unordered_set<std::string> claims;
+        return claims;
+    }
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

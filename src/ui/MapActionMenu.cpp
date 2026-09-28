@@ -4,7 +4,7 @@
 
 MapActionMenu::MapActionMenu()
     : font(nullptr), active(false), position(0.f, 0.f),
-      menuWidth(235.f), menuHeight(280.f), isKingdomLevel(false), hoveredIdx(-1),
+      menuWidth(265.f), menuHeight(280.f), isKingdomLevel(false), hoveredIdx(-1),
       statusColor(sf::Color::White), statusTimer(0.f) {}
 
 void MapActionMenu::init(const sf::Font& f) {
@@ -99,8 +99,8 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
         return;
     }
 
-    bool alreadyAtWar = false;
-    if (playerKingdom && targetKingdom && playerKingdom->relations.count(targetKingdom->id)) {
+bool alreadyAtWar = SettlementSystem::isAtWarWith(targetSettlement.kingdomName);
+    if (!alreadyAtWar && playerKingdom && targetKingdom && playerKingdom->relations.count(targetKingdom->id)) {
         alreadyAtWar = (playerKingdom->relations[targetKingdom->id] == sim::DiplomacyStatus::War);
     }
 
@@ -114,37 +114,6 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
 
     bool hasFabricatedClaim = (SettlementSystem::getPlayerClaims().count(targetSettlement.countyName) > 0);
     bool hasValidCB = hasDeJureClaim || hasFabricatedClaim;
-
-    std::string cWarTitle = hasDeJureClaim ? ("War for " + targetSettlement.countyName + " (De Jure)")
-                          : (hasFabricatedClaim ? ("War for " + targetSettlement.countyName + " (Claim)")
-                                                : ("War for " + targetSettlement.countyName + " (No Claim)"));
-
-    std::string cWarDesc = hasDeJureClaim ? ("Press De Jure rights of " + targetSettlement.deJureKingdom)
-                         : (hasFabricatedClaim ? ("Press Shaman's forged claim on " + targetSettlement.countyName)
-                                               : ("No legal claim on this county"));
-
-    options.push_back({
-        cWarTitle,
-        cWarDesc,
-        hasValidCB ? "County CB" : "No Claim",
-        !alreadyAtWar && hasValidCB,
-        hasValidCB ? sf::Color(235, 60, 60) : sf::Color(95, 88, 85),
-        [this, &reg, player, playerKingdom, targetKingdom, targetVillage, hasDeJureClaim]() {
-            sim::KingdomID myKId = playerKingdom ? playerKingdom->id : 1;
-            sim::KingdomID enemyKId = targetKingdom ? targetKingdom->id : targetSettlement.kingdomId;
-            if (enemyKId == 0) enemyKId = 2;
-
-            sim::VillageID goalVId = targetVillage ? targetVillage->id : targetSettlement.villageId;
-
-            std::string reason = hasDeJureClaim ? ("De Jure War for " + targetSettlement.countyName)
-                                                : ("War for " + targetSettlement.countyName);
-            sim::WarfareManager::declareWarWithGoal(reg, myKId, enemyKId, goalVId, reason);
-
-            statusMessage = "War for " + targetSettlement.countyName + " Declared!";
-            statusColor = sf::Color(245, 60, 60);
-            statusTimer = 3.0f;
-        }
-    });
 
     if (isKingdomLevel) {
         bool isReigningKing = (playerKingdom && player && playerKingdom->currentKingId == player->id);
@@ -210,31 +179,42 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
             }
         });
     } else {
+        bool hasTruce = SettlementSystem::hasTruceWith(targetSettlement.kingdomName);
+        bool canDeclareCountyWar = !alreadyAtWar && !hasTruce && hasValidCB;
+
         std::string cWarTitle = hasDeJureClaim ? ("War for " + targetSettlement.countyName + " (De Jure)")
                               : (hasFabricatedClaim ? ("War for " + targetSettlement.countyName + " (Claim)")
-                                                    : ("War for " + targetSettlement.countyName + " (Locked)"));
+                                                    : ("War for " + targetSettlement.countyName + " (No Claim)"));
 
         std::string cWarDesc = hasDeJureClaim ? ("Press De Jure rights of " + targetSettlement.deJureKingdom)
                              : (hasFabricatedClaim ? ("Press Shaman's forged claim on " + targetSettlement.countyName)
-                                                   : ("No claim on this county (Fabricate first)"));
+                                                   : ("No legal claim on this county"));
 
-        bool canDeclareCountyWar = !alreadyAtWar && hasValidCB;
+        std::string warBadgeCost = alreadyAtWar ? "At War" : (hasTruce ? "Truce" : (hasValidCB ? "County CB" : "No Claim"));
+
+        if (alreadyAtWar) {
+            cWarTitle = "War for " + targetSettlement.countyName + " (Active)";
+            cWarDesc = "War is currently active against " + targetSettlement.kingdomName;
+        } else if (hasTruce) {
+            cWarDesc = "A truce is currently in effect with " + targetSettlement.kingdomName;
+        }
 
         options.push_back({
             cWarTitle,
             cWarDesc,
-            hasValidCB ? "County CB" : "No Claim",
+            warBadgeCost,
             canDeclareCountyWar,
-            hasValidCB ? sf::Color(235, 60, 60) : sf::Color(95, 88, 85),
-            [this, &reg, player, playerKingdom, targetKingdom, targetVillage, hasDeJureClaim]() {
+            canDeclareCountyWar ? sf::Color(235, 60, 60) : sf::Color(95, 88, 85),
+            [this, &reg, playerKName, hasDeJureClaim, playerKingdom, targetKingdom, targetVillage]() {
+                std::string reason = hasDeJureClaim ? ("De Jure Claim on " + targetSettlement.countyName)
+                                                    : ("Fabricated Claim on " + targetSettlement.countyName);
+
+                SettlementSystem::startWar(targetSettlement.countyName, playerKName, targetSettlement.kingdomName, reason);
+
                 sim::KingdomID myKId = playerKingdom ? playerKingdom->id : 1;
                 sim::KingdomID enemyKId = targetKingdom ? targetKingdom->id : targetSettlement.kingdomId;
                 if (enemyKId == 0) enemyKId = 2;
-
                 sim::VillageID goalVId = targetVillage ? targetVillage->id : targetSettlement.villageId;
-
-                std::string reason = hasDeJureClaim ? ("De Jure War for " + targetSettlement.countyName)
-                                                    : ("War for " + targetSettlement.countyName);
                 sim::WarfareManager::declareWarWithGoal(reg, myKId, enemyKId, goalVId, reason);
 
                 statusMessage = "War for " + targetSettlement.countyName + " Declared!";
@@ -242,7 +222,7 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
                 statusTimer = 3.0f;
             }
         });
-
+        
         options.push_back({
             hasFabricatedClaim ? "Claim Fabricated" : "Fabricate Claim",
             hasFabricatedClaim ? "Shaman established ancestral rights" : "Send Shaman to forge legal claim",

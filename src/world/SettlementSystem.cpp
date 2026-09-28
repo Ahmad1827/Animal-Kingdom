@@ -3,7 +3,64 @@
 #include <algorithm>
 #include <functional>
 
+SettlementSystem* SettlementSystem::s_instance = nullptr;
+
+SettlementSystem* SettlementSystem::getInstance() {
+    return s_instance;
+}
+
+void SettlementSystem::startWar(const std::string& county, const std::string& attacker, const std::string& enemy, const std::string& cb) {
+    if (!s_instance) return;
+    s_instance->activeWar.active = true;
+    s_instance->activeWar.targetCounty = county;
+    s_instance->activeWar.attackerKingdom = attacker;
+    s_instance->activeWar.enemyKingdom = enemy;
+    s_instance->activeWar.casusBelli = cb;
+    s_instance->activeWar.warScore = 70.f;
+    s_instance->activeWar.warTimer = 0.f;
+    s_instance->peaceModalOpen = false;
+}
+
+void SettlementSystem::annexCounty(const std::string& county, const std::string& newKingdom) {
+    if (!s_instance) return;
+
+    for (auto& c : s_instance->counties) {
+        if (c.countyName == county) {
+            c.kingdomName = newKingdom;
+            break;
+        }
+    }
+
+    std::string fullKName = (newKingdom == "Wessex") ? "Kingdom of Wessex" : ("Kingdom of " + newKingdom);
+    for (auto& s : s_instance->realSettlements) {
+        if (s.countyName == county) {
+            s.kingdomName = fullKName;
+            s.isAllied = (newKingdom == "Wessex");
+            break;
+        }
+    }
+
+    getPlayerClaims().erase(county);
+    s_instance->kingdomTruces[s_instance->activeWar.enemyKingdom] = 5;
+    s_instance->activeWar.active = false;
+    s_instance->peaceModalOpen = false;
+}
+
+bool SettlementSystem::isAtWarWith(const std::string& kingdom) {
+    if (!s_instance || !s_instance->activeWar.active) return false;
+    return (s_instance->activeWar.enemyKingdom == kingdom);
+}
+
+bool SettlementSystem::hasTruceWith(const std::string& kingdom) {
+    if (!s_instance) return false;
+    auto it = s_instance->kingdomTruces.find(kingdom);
+    return (it != s_instance->kingdomTruces.end() && it->second > 0);
+}
+
 SettlementSystem::SettlementSystem() {
+    s_instance = this;
+    warBadgeBounds = sf::FloatRect(820.f, 580.f, 310.f, 44.f);
+
     fontLoaded = font.loadFromFile("assets/fonts/Cinzel-Bold.ttf") ||
                  font.loadFromFile("assets/fonts/Cinzel-Regular.ttf") ||
                  font.loadFromFile("font.ttf") ||
@@ -294,6 +351,13 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
 
     pulseTime += dt;
 
+    if (activeWar.active) {
+        activeWar.warTimer += dt;
+        if (activeWar.warScore < 100.f) {
+            activeWar.warScore = std::min(100.f, activeWar.warScore + dt * 2.0f);
+        }
+    }
+
     int currentIdx = -1;
     for (size_t i = 0; i < realSettlements.size(); ++i) {
         if (playerX >= realSettlements[i].borderLeftX && playerX <= realSettlements[i].borderRightX) {
@@ -544,6 +608,42 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
         bool isClick = (dx * dx + dy * dy < 36);
 
         sf::Vector2f mPos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), letterboxView);
+
+        if (isClick && activeWar.active && warBadgeBounds.contains(mPos)) {
+            peaceModalOpen = !peaceModalOpen;
+            return true;
+        }
+
+        if (isClick && peaceModalOpen) {
+            if (closePeaceModalBounds.contains(mPos)) {
+                peaceModalOpen = false;
+                return true;
+            }
+
+            if (enforceBtnBounds.contains(mPos) && activeWar.warScore >= 75.f) {
+                annexCounty(activeWar.targetCounty, activeWar.attackerKingdom);
+                return true;
+            }
+
+            if (whitePeaceBtnBounds.contains(mPos)) {
+                kingdomTruces[activeWar.enemyKingdom] = 3;
+                activeWar.active = false;
+                peaceModalOpen = false;
+                return true;
+            }
+
+            if (surrenderBtnBounds.contains(mPos)) {
+                kingdomTruces[activeWar.enemyKingdom] = 5;
+                activeWar.active = false;
+                peaceModalOpen = false;
+                return true;
+            }
+
+            sf::FloatRect modalRect(390.f, 175.f, 500.f, 335.f);
+            if (modalRect.contains(mPos)) {
+                return true;
+            }
+        }
 
         if (isClick && canvasRect.contains(mPos)) {
             float relX = mPos.x - canvasRect.left;
@@ -1078,6 +1178,154 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         legend.setOrigin(legB.left + legB.width / 2.f, legB.top + legB.height / 2.f);
         legend.setPosition(640.f, 647.f);
         window.draw(legend);
+
+        if (activeWar.active) {
+            sf::RectangleShape badge(sf::Vector2f(warBadgeBounds.width, warBadgeBounds.height));
+            badge.setPosition(warBadgeBounds.left, warBadgeBounds.top);
+            badge.setFillColor(sf::Color(20, 14, 10, 245));
+            badge.setOutlineColor(activeWar.warScore >= 75.f ? sf::Color(100, 230, 90) : sf::Color(225, 60, 50));
+            badge.setOutlineThickness(1.5f);
+            window.draw(badge);
+
+            float pulse = 0.5f + 0.5f * std::sin(pulseTime * 6.f);
+            sf::CircleShape pip(5.f);
+            pip.setOrigin(5.f, 5.f);
+            pip.setPosition(warBadgeBounds.left + 15.f, warBadgeBounds.top + 22.f);
+            pip.setFillColor(sf::Color(225, 45, 35, static_cast<sf::Uint8>(180 + pulse * 75)));
+            window.draw(pip);
+
+            sf::Text wLabel("WAR FOR " + activeWar.targetCounty + " (" + activeWar.enemyKingdom + ")", font, 9);
+            wLabel.setStyle(sf::Text::Bold);
+            wLabel.setFillColor(sf::Color(245, 220, 160));
+            wLabel.setPosition(warBadgeBounds.left + 26.f, warBadgeBounds.top + 6.f);
+            window.draw(wLabel);
+
+            std::string scoreStr = "+" + std::to_string(static_cast<int>(std::round(activeWar.warScore))) + "%";
+            sf::Text scoreTxt(scoreStr, font, 13);
+            scoreTxt.setStyle(sf::Text::Bold);
+            scoreTxt.setFillColor(activeWar.warScore >= 75.f ? sf::Color(90, 235, 90) : sf::Color(245, 185, 65));
+            scoreTxt.setPosition(warBadgeBounds.left + 26.f, warBadgeBounds.top + 20.f);
+            window.draw(scoreTxt);
+
+            sf::Text treatyPrompt("[Negotiate Peace ->]", font, 9);
+            treatyPrompt.setStyle(sf::Text::Bold);
+            treatyPrompt.setFillColor(sf::Color(255, 230, 120));
+            treatyPrompt.setPosition(warBadgeBounds.left + 140.f, warBadgeBounds.top + 22.f);
+            window.draw(treatyPrompt);
+        }
+
+        if (activeWar.active && peaceModalOpen) {
+            sf::FloatRect mR(390.f, 175.f, 500.f, 335.f);
+
+            sf::RectangleShape shadow(sf::Vector2f(mR.width + 6.f, mR.height + 6.f));
+            shadow.setPosition(mR.left + 3.f, mR.top + 3.f);
+            shadow.setFillColor(sf::Color(0, 0, 0, 210));
+            window.draw(shadow);
+
+            sf::RectangleShape modal(sf::Vector2f(mR.width, mR.height));
+            modal.setPosition(mR.left, mR.top);
+            modal.setFillColor(sf::Color(22, 16, 12, 252));
+            modal.setOutlineColor(sf::Color(195, 150, 70));
+            modal.setOutlineThickness(1.8f);
+            window.draw(modal);
+
+            sf::RectangleShape header(sf::Vector2f(mR.width - 6.f, 32.f));
+            header.setPosition(mR.left + 3.f, mR.top + 3.f);
+            header.setFillColor(sf::Color(46, 30, 20));
+            window.draw(header);
+
+            sf::Text title("PEACE TREATY: WAR FOR " + activeWar.targetCounty, font, 12);
+            title.setStyle(sf::Text::Bold);
+            title.setFillColor(sf::Color(255, 230, 140));
+            title.setPosition(mR.left + 14.f, mR.top + 8.f);
+            window.draw(title);
+
+            closePeaceModalBounds = sf::FloatRect(mR.left + mR.width - 26.f, mR.top + 6.f, 20.f, 20.f);
+            sf::RectangleShape closeBtn(sf::Vector2f(20.f, 20.f));
+            closeBtn.setPosition(closePeaceModalBounds.left, closePeaceModalBounds.top);
+            closeBtn.setFillColor(sf::Color(140, 25, 20));
+            closeBtn.setOutlineColor(sf::Color(240, 200, 75));
+            closeBtn.setOutlineThickness(1.f);
+            window.draw(closeBtn);
+
+            sf::Text xT("x", font, 12);
+            xT.setStyle(sf::Text::Bold);
+            xT.setFillColor(sf::Color::White);
+            xT.setPosition(closePeaceModalBounds.left + 6.f, closePeaceModalBounds.top + 1.f);
+            window.draw(xT);
+
+            float curY = mR.top + 42.f;
+            sf::Text sub("Casus Belli: " + activeWar.casusBelli, font, 10);
+            sub.setFillColor(sf::Color(195, 180, 150));
+            sub.setPosition(mR.left + 16.f, curY);
+            window.draw(sub);
+            curY += 20.f;
+
+            sf::RectangleShape breakdownBox(sf::Vector2f(mR.width - 32.f, 44.f));
+            breakdownBox.setPosition(mR.left + 16.f, curY);
+            breakdownBox.setFillColor(sf::Color(14, 10, 8, 235));
+            breakdownBox.setOutlineColor(sf::Color(90, 65, 40));
+            breakdownBox.setOutlineThickness(1.f);
+            window.draw(breakdownBox);
+
+            std::string scStr = "+" + std::to_string(static_cast<int>(std::round(activeWar.warScore))) + "%";
+            sf::Text scH("Current War Score: " + scStr, font, 12);
+            scH.setStyle(sf::Text::Bold);
+            scH.setFillColor(activeWar.warScore >= 75.f ? sf::Color(105, 240, 105) : sf::Color(245, 195, 65));
+            scH.setPosition(breakdownBox.getPosition().x + 10.f, breakdownBox.getPosition().y + 6.f);
+            window.draw(scH);
+
+            sf::Text dtTxt(activeWar.warScore >= 75.f ? "Superiority established. Demands can be fully enforced!"
+                                                      : "War score progressing toward requirement (+75%)...", font, 9);
+            dtTxt.setFillColor(sf::Color(185, 170, 140));
+            dtTxt.setPosition(breakdownBox.getPosition().x + 10.f, breakdownBox.getPosition().y + 24.f);
+            window.draw(dtTxt);
+            curY += 56.f;
+
+            auto drawPeaceOption = [&](sf::FloatRect& bounds, const std::string& optTitle, const std::string& desc, bool enabled, sf::Color col) {
+                bounds = sf::FloatRect(mR.left + 16.f, curY, mR.width - 32.f, 50.f);
+
+                sf::RectangleShape opt(sf::Vector2f(bounds.width, bounds.height));
+                opt.setPosition(bounds.left, bounds.top);
+                opt.setFillColor(enabled ? sf::Color(32, 22, 16, 240) : sf::Color(18, 14, 12, 170));
+                opt.setOutlineColor(enabled ? col : sf::Color(65, 50, 40));
+                opt.setOutlineThickness(1.2f);
+                window.draw(opt);
+
+                sf::RectangleShape bar(sf::Vector2f(4.f, bounds.height));
+                bar.setPosition(bounds.left, bounds.top);
+                bar.setFillColor(enabled ? col : sf::Color(75, 60, 50));
+                window.draw(bar);
+
+                sf::Text oT(optTitle, font, 11);
+                oT.setStyle(sf::Text::Bold);
+                oT.setFillColor(enabled ? sf::Color::White : sf::Color(130, 120, 110));
+                oT.setPosition(bounds.left + 12.f, bounds.top + 6.f);
+                window.draw(oT);
+
+                sf::Text oD(desc, font, 9);
+                oD.setStyle(sf::Text::Italic);
+                oD.setFillColor(enabled ? sf::Color(185, 170, 145) : sf::Color(100, 95, 90));
+                oD.setPosition(bounds.left + 12.f, bounds.top + 24.f);
+                window.draw(oD);
+
+                curY += 56.f;
+            };
+
+            bool canEnforce = (activeWar.warScore >= 75.f);
+            drawPeaceOption(enforceBtnBounds, "1. Enforce Demands",
+                            canEnforce ? ("Annex " + activeWar.targetCounty + " into " + activeWar.attackerKingdom + " and sign a 5-year truce.")
+                                       : "Requires at least +75% War Score.",
+                            canEnforce, sf::Color(90, 225, 90));
+
+            drawPeaceOption(whitePeaceBtnBounds, "2. White Peace",
+                            "Status quo ante bellum. Borders remain unchanged. 3-year truce.",
+                            true, sf::Color(225, 195, 75));
+
+            drawPeaceOption(surrenderBtnBounds, "3. Surrender",
+                            "Concede defeat, renounce claim, and pay reparations.",
+                            true, sf::Color(235, 65, 65));
+        }
     }
 }
 

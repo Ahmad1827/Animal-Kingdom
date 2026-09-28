@@ -43,6 +43,16 @@ struct RealSettlement {
     sf::Vector2f mapCoord;
 };
 
+struct ActiveWarState {
+    bool active = false;
+    std::string targetCounty;
+    std::string enemyKingdom;
+    std::string attackerKingdom;
+    std::string casusBelli;
+    float warScore = 65.f;
+    float warTimer = 0.f;
+};
+
 class SettlementSystem {
 private:
     std::vector<RealSettlement> realSettlements;
@@ -101,6 +111,16 @@ private:
     float miniAnimT = 0.f;
     float expandAnimT = 0.f;
 
+    static SettlementSystem* s_instance;
+    ActiveWarState activeWar;
+    bool peaceModalOpen = false;
+    sf::FloatRect warBadgeBounds;
+    sf::FloatRect enforceBtnBounds;
+    sf::FloatRect whitePeaceBtnBounds;
+    sf::FloatRect surrenderBtnBounds;
+    sf::FloatRect closePeaceModalBounds;
+    std::unordered_map<std::string, int> kingdomTruces;
+
     void buildAuthenticMapGeometry();
     void buildOrganicCounties();
     void syncDynamicVillages(sim::SimulationRegistry& registry);
@@ -133,6 +153,12 @@ public:
         static std::unordered_set<std::string> claims;
         return claims;
     }
+
+    static SettlementSystem* getInstance();
+    static void startWar(const std::string& county, const std::string& attacker, const std::string& enemy, const std::string& cb);
+    static void annexCounty(const std::string& county, const std::string& newKingdom);
+    static bool isAtWarWith(const std::string& kingdom);
+    static bool hasTruceWith(const std::string& kingdom);
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

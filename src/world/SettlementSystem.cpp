@@ -449,16 +449,17 @@ bool SettlementSystem::handleMapLensInput(const sf::Event& event, const sf::Rend
     if (expandAnimT < 0.70f) return false;
 
     if (event.type == sf::Event::KeyPressed) {
-        if (event.key.code == sf::Keyboard::Q) { currentLens = MapLens::Realms; return true; }
-        if (event.key.code == sf::Keyboard::W) { currentLens = MapLens::Diplomacy; return true; }
-        if (event.key.code == sf::Keyboard::E) { currentLens = MapLens::Tension; return true; }
-        if (event.key.code == sf::Keyboard::R) { currentLens = MapLens::Economy; return true; }
+        if (event.key.code == sf::Keyboard::Q) { currentLens = MapLens::DeFacto; return true; }
+        if (event.key.code == sf::Keyboard::W) { currentLens = MapLens::DeJure; return true; }
+        if (event.key.code == sf::Keyboard::E) { currentLens = MapLens::Vassals; return true; }
+        if (event.key.code == sf::Keyboard::R) { currentLens = MapLens::Diplomacy; return true; }
+        if (event.key.code == sf::Keyboard::T) { currentLens = MapLens::Economy; return true; }
     }
 
     if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
         sf::Vector2i clickPixel(event.mouseButton.x, event.mouseButton.y);
         sf::Vector2f uiCoords = window.mapPixelToCoords(clickPixel, letterboxView);
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 5; ++i) {
             if (lensTabBounds[i].contains(uiCoords)) {
                 currentLens = static_cast<MapLens>(i);
                 return true;
@@ -695,21 +696,34 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         auto& c = counties[i];
         sf::Color fillCol = getKingdomBaseColor(c.kingdomName);
 
-        if (currentLens == MapLens::Diplomacy) {
-            if (c.kingdomName.find("Wessex") != std::string::npos) fillCol = sf::Color(230, 185, 45);
-            else if (c.kingdomName.find("Cornwall") != std::string::npos) fillCol = sf::Color(45, 115, 205);
-            else if (c.kingdomName.find("Mercia") != std::string::npos || c.kingdomName.find("East Anglia") != std::string::npos) fillCol = sf::Color(225, 115, 30);
-            else if (c.kingdomName.find("Northumbria") != std::string::npos) fillCol = sf::Color(200, 35, 35);
-            else fillCol = sf::Color(150, 140, 125);
-        } else if (currentLens == MapLens::Tension) {
-            float pulse = 0.5f + 0.5f * std::sin(pulseTime * 7.f);
-            if (c.kingdomName.find("Northumbria") != std::string::npos) {
-                fillCol = sf::Color(225, 35, 35, static_cast<sf::Uint8>(190 + pulse * 60));
-            } else if (c.kingdomName.find("Mercia") != std::string::npos || c.kingdomName.find("East Anglia") != std::string::npos) {
-                fillCol = sf::Color(225, 130, 30);
-            } else {
-                fillCol = sf::Color(85, 155, 80);
+        if (currentLens == MapLens::DeFacto) {
+            fillCol = getKingdomBaseColor(c.kingdomName);
+        } else if (currentLens == MapLens::DeJure) {
+            std::string rightfulCrown = c.kingdomName;
+            if (c.countyName == "Cornwall") rightfulCrown = "Cornwall";
+            else if (c.countyName == "Hampshire" || c.countyName == "Wight" || c.countyName == "Berkshire" || c.countyName == "Middlesex") rightfulCrown = "Wessex";
+            else if (c.countyName == "Norfolk") rightfulCrown = "East Anglia";
+            else if (c.countyName == "Chester" || c.countyName == "Warwick" || c.countyName == "Lincoln") rightfulCrown = "Mercia";
+            else if (c.countyName == "Yorkshire" || c.countyName == "Durham" || c.countyName == "Bamburgh") rightfulCrown = "Northumbria";
+            else if (c.countyName == "Lothian" || c.countyName == "Gowrie") rightfulCrown = "Alba";
+            else if (c.countyName == "Meath") rightfulCrown = "Ireland";
+
+            fillCol = getKingdomBaseColor(rightfulCrown);
+            if (c.kingdomName != rightfulCrown) {
+                fillCol.r = static_cast<sf::Uint8>(std::min(255, fillCol.r + 55));
+                fillCol.g = static_cast<sf::Uint8>(std::max(0, fillCol.g - 35));
+                fillCol.b = static_cast<sf::Uint8>(std::max(0, fillCol.b - 35));
             }
+        } else if (currentLens == MapLens::Vassals) {
+            int pseudoOpinion = ((static_cast<int>(c.countyId) * 37) % 70) - 20;
+            if (pseudoOpinion >= 25) fillCol = sf::Color(70, 165, 70);
+            else if (pseudoOpinion >= 0) fillCol = sf::Color(200, 170, 55);
+            else fillCol = sf::Color(190, 55, 45);
+        } else if (currentLens == MapLens::Diplomacy) {
+            if (c.kingdomName.find("Wessex") != std::string::npos) fillCol = sf::Color(55, 125, 215);
+            else if (c.kingdomName.find("Cornwall") != std::string::npos) fillCol = sf::Color(45, 185, 220);
+            else if (c.kingdomName.find("Northumbria") != std::string::npos) fillCol = sf::Color(215, 40, 40);
+            else fillCol = sf::Color(110, 105, 100);
         } else if (currentLens == MapLens::Economy) {
             if (c.countyName == "Middlesex" || c.countyName == "Hampshire" || c.countyName == "Yorkshire") fillCol = sf::Color(235, 195, 50);
             else if (c.countyName == "Warwick" || c.countyName == "Chester" || c.countyName == "Norfolk") fillCol = sf::Color(115, 175, 90);
@@ -930,20 +944,21 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         subText.setPosition(148.f, 89.f);
         window.draw(subText);
 
-        float tabStartX = 654.f;
+        float tabStartX = 538.f;
         float tabY = 74.f;
-        float tabW = 114.f;
+        float tabW = 96.f;
         float tabH = 26.f;
-        float tabGap = 6.f;
+        float tabGap = 5.f;
 
-        const std::string tabLabels[4] = {
-            "[Q] Realms",
-            "[W] Diplomacy",
-            "[E] Tension",
-            "[R] Economy"
+        const std::string tabLabels[5] = {
+            "[Q] De Facto",
+            "[W] De Jure",
+            "[E] Vassals",
+            "[R] Diplomacy",
+            "[T] Economy"
         };
 
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 5; ++i) {
             float tx = tabStartX + i * (tabW + tabGap);
             lensTabBounds[i] = sf::FloatRect(tx, tabY, tabW, tabH);
             bool isActive = (currentLens == static_cast<MapLens>(i));
@@ -962,7 +977,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             }
             window.draw(tabBox);
 
-            sf::Text tabTxt(tabLabels[i], font, 11);
+            sf::Text tabTxt(tabLabels[i], font, 10);
             tabTxt.setStyle(isActive ? sf::Text::Bold : sf::Text::Regular);
             tabTxt.setFillColor(isActive ? sf::Color(255, 245, 205, uiAlpha) : sf::Color(180, 150, 110, uiAlpha));
             sf::FloatRect tb = tabTxt.getLocalBounds();
@@ -979,13 +994,15 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         window.draw(footerRibbon);
 
         std::string legendStr = "";
-        if (currentLens == MapLens::Realms) {
-            legendStr = isZoomedOut ? "LENS: Realms (Macro) | Left-Click: Inspect Kingdom | Right-Click: Realm Diplomacy | Scroll: Zoom In"
-                                    : "LENS: Counties (Micro) | Left-Click: Inspect County | Right-Click: County Actions | Scroll: Zoom Out";
+        if (currentLens == MapLens::DeFacto) {
+            legendStr = isZoomedOut ? "LENS: De Facto Realms | Physical realm control | Left-Click: Inspect | Right-Click: Actions"
+                                    : "LENS: De Facto Counties | Local administration | Left-Click: Inspect | Right-Click: Actions";
+        } else if (currentLens == MapLens::DeJure) {
+            legendStr = "LENS: De Jure Kingdoms | Historical legitimate borders | Red tint: Usurped / Contested Title";
+        } else if (currentLens == MapLens::Vassals) {
+            legendStr = "LENS: Vassal Loyalty | Green: Loyal Alpha (+25) | Yellow: Neutral (0 to +25) | Red: Disloyal (<0)";
         } else if (currentLens == MapLens::Diplomacy) {
-            legendStr = "LENS: Diplomacy | Gold: Your Domain | Blue: Allies | Orange: Rivals | Red: War | Grey: Neutral";
-        } else if (currentLens == MapLens::Tension) {
-            legendStr = "LENS: Border Tension | Green: Calm | Orange: Unstable Frontier | Red: Active War Zone";
+            legendStr = "LENS: Diplomacy | Blue: Your Realm & Allies | Red: War Opponents | Grey: Neutral Realms";
         } else if (currentLens == MapLens::Economy) {
             legendStr = "LENS: Economy | Gold: Wealthy (>1.2k Stockpile) | Green: Developed (>400) | Brown: Subsistence";
         }

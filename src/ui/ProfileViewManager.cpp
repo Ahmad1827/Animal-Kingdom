@@ -1,11 +1,13 @@
 #include "ui/ProfileViewManager.h"
 #include <algorithm>
 #include <sstream>
+#include <cmath>
 
 ProfileViewManager::ProfileViewManager()
-    : font(nullptr), currentView(ViewType::None), inspectedApeId(0),
-      selectedVillageId(0), selectedKingdomId(0),
-      profilePanelPos(146.f, 110.f), panelWidth(320.f), panelHeight(530.f) {}
+    : font(nullptr), currentView(ViewType::None), activeTab(CharacterTab::Overview),
+      inspectedApeId(0), selectedVillageId(0), selectedKingdomId(0),
+      isDragging(false), dragOffset(0.f, 0.f), profilePanelPos(70.f, 80.f),
+      panelWidth(430.f), panelHeight(550.f) {}
 
 void ProfileViewManager::init(const sf::Font& f) {
     font = &f;
@@ -25,7 +27,7 @@ void ProfileViewManager::inspectCharacter(sim::EntityID id, bool recordHistory) 
     selectedVillageId = 0;
     selectedKingdomId = 0;
     currentView = ViewType::Character;
-    panelHeight = 540.f;
+    panelHeight = 550.f;
 }
 
 void ProfileViewManager::inspectVillage(sim::VillageID id, bool recordHistory) {
@@ -42,7 +44,7 @@ void ProfileViewManager::inspectVillage(sim::VillageID id, bool recordHistory) {
     inspectedApeId = 0;
     selectedKingdomId = 0;
     currentView = ViewType::Village;
-    panelHeight = 440.f;
+    panelHeight = 490.f;
 }
 
 void ProfileViewManager::inspectKingdom(sim::KingdomID id, bool recordHistory) {
@@ -59,7 +61,7 @@ void ProfileViewManager::inspectKingdom(sim::KingdomID id, bool recordHistory) {
     inspectedApeId = 0;
     selectedVillageId = 0;
     currentView = ViewType::Kingdom;
-    panelHeight = 430.f;
+    panelHeight = 490.f;
 }
 
 void ProfileViewManager::close() {
@@ -67,6 +69,7 @@ void ProfileViewManager::close() {
     inspectedApeId = 0;
     selectedVillageId = 0;
     selectedKingdomId = 0;
+    isDragging = false;
     navHistory.clear();
     interactiveButtons.clear();
 }
@@ -76,42 +79,6 @@ void ProfileViewManager::registerButton(sf::FloatRect bounds, const std::functio
     btn.bounds = bounds;
     btn.onClick = action;
     interactiveButtons.push_back(btn);
-}
-
-void ProfileViewManager::drawCloseButton(sf::RenderWindow& window, float x, float y) {
-    sf::RectangleShape btn(sf::Vector2f(20.f, 20.f));
-    btn.setPosition(x, y);
-    btn.setFillColor(sf::Color(140, 25, 20, 240));
-    btn.setOutlineColor(sf::Color(235, 195, 75));
-    btn.setOutlineThickness(1.2f);
-    window.draw(btn);
-
-    if (font) {
-        sf::Text xTxt("x", *font, 13);
-        xTxt.setStyle(sf::Text::Bold);
-        xTxt.setFillColor(sf::Color(255, 240, 200));
-        sf::FloatRect xb = xTxt.getLocalBounds();
-        xTxt.setOrigin(xb.left + xb.width * 0.5f, xb.top + xb.height * 0.5f);
-        xTxt.setPosition(x + 10.f, y + 9.f);
-        window.draw(xTxt);
-    }
-}
-
-void ProfileViewManager::drawBackButton(sf::RenderWindow& window, float x, float y) {
-    sf::RectangleShape btn(sf::Vector2f(54.f, 20.f));
-    btn.setPosition(x, y);
-    btn.setFillColor(sf::Color(44, 30, 20, 240));
-    btn.setOutlineColor(sf::Color(190, 150, 70));
-    btn.setOutlineThickness(1.2f);
-    window.draw(btn);
-
-    if (font) {
-        sf::Text bTxt("< Back", *font, 10);
-        bTxt.setStyle(sf::Text::Bold);
-        bTxt.setFillColor(sf::Color(245, 225, 160));
-        bTxt.setPosition(x + 6.f, y + 3.f);
-        window.draw(bTxt);
-    }
 }
 
 void ProfileViewManager::drawWrappedText(sf::RenderWindow& window, const std::string& text, float x, float& y, float maxW, unsigned int size, sf::Color col, bool bold) {
@@ -191,9 +158,7 @@ ProfileViewManager::FamilyInfo ProfileViewManager::resolveFamily(sim::EntityID a
             if (c.id != apeId) {
                 bool sharedFather = (fam.fatherId != 0 && c.fatherId == fam.fatherId);
                 bool sharedMother = (fam.motherId != 0 && c.motherId == fam.motherId);
-                if (sharedFather || sharedMother) {
-                    fam.siblingIds.push_back(c.id);
-                }
+                if (sharedFather || sharedMother) fam.siblingIds.push_back(c.id);
             }
         }
     }
@@ -206,16 +171,10 @@ ProfileViewManager::FamilyInfo ProfileViewManager::resolveFamily(sim::EntityID a
                 sim::ApeData* other = reg.getApe(mId);
                 if (!other || !other->alive) continue;
 
-                if (fam.spouseIds.empty() && std::abs(other->age - targetApe->age) <= 6.f && other->age >= 16.f) {
+                if (fam.spouseIds.empty() && std::abs(other->age - targetApe->age) <= 5.f && other->age >= 16.f) {
                     fam.spouseIds.push_back(other->id);
-                } else if (fam.childrenIds.size() < 3 && targetApe->age >= 24.f && other->age <= 15.f && (targetApe->age - other->age) >= 14.f) {
+                } else if (fam.childrenIds.size() < 3 && targetApe->age >= 24.f && other->age <= 14.f && (targetApe->age - other->age) >= 15.f) {
                     fam.childrenIds.push_back(other->id);
-                } else if (fam.fatherId == 0 && other->age > targetApe->age + 14.f) {
-                    fam.fatherId = other->id;
-                } else if (fam.motherId == 0 && other->age > targetApe->age + 14.f && other->id != fam.fatherId) {
-                    fam.motherId = other->id;
-                } else if (fam.siblingIds.size() < 2 && other->id != fam.fatherId && other->id != fam.motherId && std::abs(other->age - targetApe->age) <= 4.f) {
-                    fam.siblingIds.push_back(other->id);
                 }
             }
         }
@@ -228,64 +187,33 @@ bool ProfileViewManager::handleEvent(const sf::Event& event, const sf::RenderWin
     if (!isInspecting()) return false;
 
     sf::FloatRect profileRect(profilePanelPos.x, profilePanelPos.y, panelWidth, panelHeight);
-    sf::FloatRect closeBtnRect(profilePanelPos.x + panelWidth - 26.f, profilePanelPos.y + 6.f, 20.f, 20.f);
-    sf::FloatRect backBtnRect(profilePanelPos.x + 8.f, profilePanelPos.y + 6.f, 54.f, 20.f);
+    sf::FloatRect closeBtnRect(profilePanelPos.x + panelWidth - 30.f, profilePanelPos.y + 7.f, 22.f, 22.f);
+    sf::FloatRect backBtnRect(profilePanelPos.x + 8.f, profilePanelPos.y + 7.f, 54.f, 22.f);
+    headerDragBounds = sf::FloatRect(profilePanelPos.x, profilePanelPos.y, panelWidth, 42.f);
 
     if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape) {
         close();
         return true;
     }
 
-    if (event.type == sf::Event::KeyPressed && currentView == ViewType::Character && inspectedApeId != 0) {
-        sim::ApeData* targetApe = reg.getApe(inspectedApeId);
-        sim::ApeData* player = reg.getApe(controlledApeId);
-
-        if (targetApe && player) {
-            sim::VillageData* village = reg.getVillage(player->villageId);
-            if (village && targetApe->id != village->leaderId && targetApe->villageId == village->id) {
-                auto appoint = [&](sim::EntityID& roleSlot, sim::CouncilRole role) {
-                    if (roleSlot != 0 && roleSlot != targetApe->id) {
-                        sim::ApeData* formerApe = reg.getApe(roleSlot);
-                        if (formerApe) {
-                            formerApe->councilRole = sim::CouncilRole::None;
-                            formerApe->opinions[player->id] = std::clamp(formerApe->opinions[player->id] - 40, -100, 100);
-                        }
-                    }
-                    if (roleSlot != targetApe->id) {
-                        targetApe->opinions[player->id] = std::clamp(targetApe->opinions[player->id] + 30, -100, 100);
-                    }
-                    roleSlot = targetApe->id;
-                    targetApe->councilRole = role;
-                };
-
-                auto revoke = [&](sim::EntityID& roleSlot) {
-                    if (roleSlot == targetApe->id) {
-                        roleSlot = 0;
-                        targetApe->councilRole = sim::CouncilRole::None;
-                        targetApe->opinions[player->id] = std::clamp(targetApe->opinions[player->id] - 30, -100, 100);
-                    }
-                };
-
-                if (event.key.code == sf::Keyboard::Num1) { appoint(village->warChiefId, sim::CouncilRole::WarChief); return true; }
-                if (event.key.code == sf::Keyboard::Num2) { appoint(village->chiefBuilderId, sim::CouncilRole::ChiefBuilder); return true; }
-                if (event.key.code == sf::Keyboard::Num3) { appoint(village->leadForagerId, sim::CouncilRole::LeadForager); return true; }
-                if (event.key.code == sf::Keyboard::Num4) { appoint(village->shamanId, sim::CouncilRole::Shaman); return true; }
-                if (event.key.code == sf::Keyboard::Num0) {
-                    revoke(village->warChiefId);
-                    revoke(village->chiefBuilderId);
-                    revoke(village->leadForagerId);
-                    revoke(village->shamanId);
-                    return true;
-                }
-            }
-        }
+    if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left) {
+        isDragging = false;
     }
 
     if (event.type == sf::Event::MouseMoved) {
         sf::Vector2f vMouse = window.mapPixelToCoords(sf::Vector2i(event.mouseMove.x, event.mouseMove.y), letterboxView);
+
+        if (isDragging) {
+            profilePanelPos = vMouse - dragOffset;
+            profilePanelPos.x = std::clamp(profilePanelPos.x, 10.f, 1270.f - panelWidth);
+            profilePanelPos.y = std::clamp(profilePanelPos.y, 10.f, 710.f - panelHeight);
+            return true;
+        }
+
         for (auto& btn : interactiveButtons) {
             btn.isHovered = btn.bounds.contains(vMouse);
         }
+
         if (profileRect.contains(vMouse)) return true;
     }
 
@@ -315,19 +243,18 @@ bool ProfileViewManager::handleEvent(const sf::Event& event, const sf::RenderWin
             }
         }
 
+        if (headerDragBounds.contains(vMouse)) {
+            isDragging = true;
+            dragOffset = vMouse - profilePanelPos;
+            return true;
+        }
+
         if (profileRect.contains(vMouse)) {
             return true;
         }
 
         close();
         return false;
-    }
-
-    if (event.type == sf::Event::MouseWheelScrolled) {
-        sf::Vector2f vMouse = window.mapPixelToCoords(sf::Vector2i(event.mouseWheelScroll.x, event.mouseWheelScroll.y), letterboxView);
-        if (profileRect.contains(vMouse)) {
-            return true;
-        }
     }
 
     return false;
@@ -347,559 +274,643 @@ void ProfileViewManager::draw(sf::RenderWindow& window, sim::SimulationRegistry&
     }
 }
 
-void ProfileViewManager::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId, sim::SimulationRegistry& reg) {
-    sim::VillageData* v = reg.getVillage(vId);
-    if (!v) return;
-
+void ProfileViewManager::drawHeader(sf::RenderWindow& window, const std::string& title, const std::string& subtitle, sf::Color titleColor) {
     float startX = profilePanelPos.x;
     float startY = profilePanelPos.y;
 
-    sf::RectangleShape shadow(sf::Vector2f(panelWidth + 4.f, panelHeight + 4.f));
-    shadow.setPosition(startX + 2.f, startY + 2.f);
-    shadow.setFillColor(sf::Color(0, 0, 0, 185));
+    sf::RectangleShape shadow(sf::Vector2f(panelWidth + 6.f, panelHeight + 6.f));
+    shadow.setPosition(startX + 3.f, startY + 3.f);
+    shadow.setFillColor(sf::Color(0, 0, 0, 200));
     window.draw(shadow);
 
     sf::RectangleShape panel(sf::Vector2f(panelWidth, panelHeight));
     panel.setPosition(startX, startY);
-    panel.setFillColor(sf::Color(24, 17, 13, 252));
-    panel.setOutlineColor(sf::Color(185, 140, 65));
-    panel.setOutlineThickness(1.5f);
+    panel.setFillColor(sf::Color(20, 15, 11, 252));
+    panel.setOutlineColor(sf::Color(175, 130, 60));
+    panel.setOutlineThickness(1.8f);
     window.draw(panel);
 
-    sf::RectangleShape hPlate(sf::Vector2f(panelWidth - 6.f, 32.f));
-    hPlate.setPosition(startX + 3.f, startY + 3.f);
-    hPlate.setFillColor(sf::Color(48, 32, 20));
-    window.draw(hPlate);
+    sf::RectangleShape header(sf::Vector2f(panelWidth - 8.f, 40.f));
+    header.setPosition(startX + 4.f, startY + 4.f);
+    header.setFillColor(sf::Color(42, 28, 18));
+    header.setOutlineColor(sf::Color(85, 60, 35));
+    header.setOutlineThickness(1.f);
+    window.draw(header);
 
-    float titleX = (!navHistory.empty()) ? (startX + 68.f) : (startX + 12.f);
-    float titleY = startY + 8.f;
-    drawWrappedText(window, v->name + " (County)", titleX, titleY, panelWidth - 95.f, 13, sf::Color(255, 225, 130), true);
-
-    if (!navHistory.empty()) drawBackButton(window, startX + 8.f, startY + 6.f);
-    drawCloseButton(window, startX + panelWidth - 26.f, startY + 6.f);
-
-    float curY = startY + 44.f;
-
-    sim::ApeData* ruler = reg.getApe(v->leaderId);
-    std::string rulerName = ruler ? ruler->name : "Unknown Chieftain";
-
-    sim::KingdomData* kd = (v->kingdomId != 0) ? reg.getKingdom(v->kingdomId) : nullptr;
-    bool isCrownDomain = (kd && kd->currentKingId == v->leaderId);
-
-    sf::RectangleShape rBox(sf::Vector2f(panelWidth - 24.f, 52.f));
-    rBox.setPosition(startX + 12.f, curY);
-    rBox.setFillColor(sf::Color(38, 26, 18));
-    rBox.setOutlineColor(sf::Color(215, 170, 70));
-    rBox.setOutlineThickness(1.2f);
-    window.draw(rBox);
-
-    sf::Text rH("RULER & SEAT OF POWER", *font, 9);
-    rH.setFillColor(sf::Color(200, 160, 80));
-    rH.setStyle(sf::Text::Bold);
-    rH.setPosition(startX + 20.f, curY + 6.f);
-    window.draw(rH);
-
-    sf::Text rNameTxt(rulerName, *font, 13);
-    rNameTxt.setFillColor(sf::Color(255, 240, 190));
-    rNameTxt.setStyle(sf::Text::Bold);
-    rNameTxt.setPosition(startX + 20.f, curY + 18.f);
-    window.draw(rNameTxt);
-
-    std::string rSub = isCrownDomain ? "Direct Crown Domain of Sovereign" : "Vassal Clan Alpha";
-    sf::Text rSubTxt(rSub, *font, 9);
-    rSubTxt.setStyle(sf::Text::Italic);
-    rSubTxt.setFillColor(sf::Color(175, 160, 130));
-    rSubTxt.setPosition(startX + 20.f, curY + 34.f);
-    window.draw(rSubTxt);
-
-    sf::Text clickPrompt("[Inspect Ruler ->]", *font, 9);
-    clickPrompt.setStyle(sf::Text::Bold);
-    clickPrompt.setFillColor(sf::Color(255, 215, 75));
-    sf::FloatRect cpb = clickPrompt.getLocalBounds();
-    clickPrompt.setPosition(startX + panelWidth - cpb.width - 20.f, curY + 34.f);
-    window.draw(clickPrompt);
-
-    if (ruler) {
-        registerButton(rBox.getGlobalBounds(), [this, ruler]() {
-            inspectCharacter(ruler->id);
-        });
+    for (int g = 0; g < 4; ++g) {
+        sf::RectangleShape grip(sf::Vector2f(22.f, 1.5f));
+        grip.setPosition(startX + (panelWidth - 22.f) * 0.5f, startY + 6.f + g * 3.f);
+        grip.setFillColor(sf::Color(135, 105, 65, 180));
+        window.draw(grip);
     }
 
-    curY += 62.f;
+    float leftOffset = (!navHistory.empty()) ? 66.f : 12.f;
 
-    if (kd && kd->currentKingId != 0 && kd->currentKingId != v->leaderId) {
-        sim::ApeData* liege = reg.getApe(kd->currentKingId);
-        std::string liegeName = liege ? liege->name : "Monarch";
+    sf::Text t(title, *font, 12);
+    t.setStyle(sf::Text::Bold);
+    t.setFillColor(titleColor);
+    t.setPosition(startX + leftOffset, startY + 9.f);
 
-        sf::RectangleShape lBox(sf::Vector2f(panelWidth - 24.f, 32.f));
-        lBox.setPosition(startX + 12.f, curY);
-        lBox.setFillColor(sf::Color(24, 20, 28));
-        lBox.setOutlineColor(sf::Color(140, 110, 185));
-        lBox.setOutlineThickness(1.f);
-        window.draw(lBox);
-
-        sf::Text liegeTxt("Liege: " + liegeName + " (" + kd->name + ")", *font, 10);
-        liegeTxt.setFillColor(sf::Color(225, 205, 255));
-        liegeTxt.setPosition(startX + 20.f, curY + 4.f);
-        window.draw(liegeTxt);
-
-        sf::Text liegeP("[View King ->]", *font, 9);
-        liegeP.setFillColor(sf::Color(185, 155, 240));
-        liegeP.setPosition(startX + 20.f, curY + 17.f);
-        window.draw(liegeP);
-
-        if (liege) {
-            registerButton(lBox.getGlobalBounds(), [this, liege]() {
-                inspectCharacter(liege->id);
-            });
+    float maxTitleW = panelWidth - leftOffset - 38.f;
+    if (t.getLocalBounds().width > maxTitleW) {
+        std::string trimmed = title;
+        while (!trimmed.empty() && t.getLocalBounds().width > maxTitleW - 10.f) {
+            trimmed.pop_back();
+            t.setString(trimmed + "...");
         }
-        curY += 40.f;
+    }
+    window.draw(t);
+
+    sf::Text sub(subtitle, *font, 9);
+    sub.setFillColor(sf::Color(185, 165, 135));
+    sub.setPosition(startX + leftOffset, startY + 24.f);
+    window.draw(sub);
+
+    if (!navHistory.empty()) {
+        sf::RectangleShape bBtn(sf::Vector2f(50.f, 22.f));
+        bBtn.setPosition(startX + 8.f, startY + 11.f);
+        bBtn.setFillColor(sf::Color(32, 22, 14));
+        bBtn.setOutlineColor(sf::Color(185, 140, 65));
+        bBtn.setOutlineThickness(1.f);
+        window.draw(bBtn);
+
+        sf::Text bTxt("< Back", *font, 9);
+        bTxt.setStyle(sf::Text::Bold);
+        bTxt.setFillColor(sf::Color(245, 225, 160));
+        bTxt.setPosition(startX + 13.f, startY + 15.f);
+        window.draw(bTxt);
     }
 
-    auto drawField = [&](const std::string& label, const std::string& val, sf::Color valCol = sf::Color(240, 230, 210)) {
-        sf::Text l(label, *font, 10);
-        l.setFillColor(sf::Color(165, 145, 120));
-        l.setPosition(startX + 14.f, curY);
-        window.draw(l);
-        curY += 13.f;
+    sf::RectangleShape cBtn(sf::Vector2f(22.f, 22.f));
+    cBtn.setPosition(startX + panelWidth - 30.f, startY + 11.f);
+    cBtn.setFillColor(sf::Color(135, 22, 16));
+    cBtn.setOutlineColor(sf::Color(235, 195, 75));
+    cBtn.setOutlineThickness(1.f);
+    window.draw(cBtn);
 
-        drawWrappedText(window, val, startX + 14.f, curY, panelWidth - 28.f, 11, valCol, true);
-        curY += 5.f;
+    sf::Text xTxt("x", *font, 12);
+    xTxt.setStyle(sf::Text::Bold);
+    xTxt.setFillColor(sf::Color::White);
+    xTxt.setPosition(startX + panelWidth - 24.f, startY + 13.f);
+    window.draw(xTxt);
+}
+
+void ProfileViewManager::drawTabs(sf::RenderWindow& window) {
+    float startX = profilePanelPos.x + 10.f;
+    float startY = profilePanelPos.y + 44.f;
+    float tabW = (panelWidth - 20.f) / 3.f;
+    float tabH = 24.f;
+
+    struct TabItem { CharacterTab tab; std::string name; };
+    std::vector<TabItem> tabs = {
+        {CharacterTab::Overview, "I. Overview"},
+        {CharacterTab::Kinship, "II. Kinship"},
+        {CharacterTab::Realm, "III. Realm"}
     };
 
-    std::string allegiance = kd ? ("Kingdom of " + kd->name) : "Independent Territory";
-    drawField("Realm Allegiance", allegiance, sf::Color(100, 180, 240));
-    drawField("Population", std::to_string(v->members.size()) + " inhabitants");
+    for (size_t i = 0; i < tabs.size(); ++i) {
+        float tx = startX + i * tabW;
+        bool isActive = (activeTab == tabs[i].tab);
 
-    sf::RectangleShape resBox(sf::Vector2f(panelWidth - 28.f, 44.f));
-    resBox.setPosition(startX + 14.f, curY);
-    resBox.setFillColor(sf::Color(16, 11, 8, 230));
-    resBox.setOutlineColor(sf::Color(120, 85, 45));
-    resBox.setOutlineThickness(1.f);
-    window.draw(resBox);
+        sf::RectangleShape tShape(sf::Vector2f(tabW - 2.f, tabH));
+        tShape.setPosition(tx, startY);
+        tShape.setFillColor(isActive ? sf::Color(65, 45, 26) : sf::Color(28, 20, 15));
+        tShape.setOutlineColor(isActive ? sf::Color(235, 195, 75) : sf::Color(75, 55, 35));
+        tShape.setOutlineThickness(1.f);
+        window.draw(tShape);
 
-    sf::Text resH("COUNTY STOCKPILES", *font, 9);
-    resH.setFillColor(sf::Color(180, 145, 75));
-    resH.setStyle(sf::Text::Bold);
-    resH.setPosition(resBox.getPosition().x + 8.f, resBox.getPosition().y + 5.f);
-    window.draw(resH);
+        sf::Text tTxt(tabs[i].name, *font, 10);
+        tTxt.setStyle(sf::Text::Bold);
+        tTxt.setFillColor(isActive ? sf::Color(255, 235, 160) : sf::Color(155, 140, 120));
+        sf::FloatRect tb = tTxt.getLocalBounds();
+        tTxt.setPosition(tx + (tabW - 2.f - tb.width) * 0.5f, startY + 5.f);
+        window.draw(tTxt);
 
-    std::string resContent = "Food: " + std::to_string(v->food) + "  Wood: " + std::to_string(v->wood) + "  Stone: " + std::to_string(v->stone);
-    sf::Text resVals(resContent, *font, 11);
-    resVals.setFillColor(sf::Color(220, 215, 195));
-    resVals.setStyle(sf::Text::Bold);
-    resVals.setPosition(resBox.getPosition().x + 8.f, resBox.getPosition().y + 20.f);
-    window.draw(resVals);
+        CharacterTab target = tabs[i].tab;
+        registerButton(tShape.getGlobalBounds(), [this, target]() {
+            activeTab = target;
+        });
+    }
+}
 
-    curY += 52.f;
-    drawField("Settlement Tier", "Tier " + std::to_string(static_cast<int>(v->tier)), sf::Color(235, 195, 55));
-    drawField("Finished Structures", std::to_string(v->finishedStructures.size()) + " buildings");
+void ProfileViewManager::drawStatBox(sf::RenderWindow& window, float x, float y, float w, float h, const std::string& label, int val, sf::Color accent) {
+    sf::RectangleShape box(sf::Vector2f(w, h));
+    box.setPosition(x, y);
+    box.setFillColor(sf::Color(16, 12, 9, 240));
+    box.setOutlineColor(accent);
+    box.setOutlineThickness(1.2f);
+    window.draw(box);
+
+    sf::RectangleShape bar(sf::Vector2f(w, 3.f));
+    bar.setPosition(x, y);
+    bar.setFillColor(accent);
+    window.draw(bar);
+
+    sf::Text l(label, *font, 9);
+    l.setFillColor(sf::Color(170, 160, 145));
+    l.setPosition(x + 6.f, y + 6.f);
+    window.draw(l);
+
+    sf::Text v(std::to_string(val), *font, 15);
+    v.setStyle(sf::Text::Bold);
+    v.setFillColor(sf::Color::White);
+    v.setPosition(x + 6.f, y + 17.f);
+    window.draw(v);
+
+    std::string grade = (val >= 18) ? "Master" : (val >= 14 ? "Adept" : (val >= 10 ? "Average" : "Poor"));
+    sf::Text g(grade, *font, 8);
+    g.setFillColor(accent);
+    sf::FloatRect gb = g.getLocalBounds();
+    g.setPosition(x + w - gb.width - 6.f, y + 20.f);
+    window.draw(g);
+}
+
+void ProfileViewManager::drawOpinionBar(sf::RenderWindow& window, float x, float y, float w, int opinion) {
+    sf::Text l("OPINION OF YOU: " + (opinion >= 0 ? ("+" + std::to_string(opinion)) : std::to_string(opinion)), *font, 9);
+    l.setStyle(sf::Text::Bold);
+    l.setFillColor(opinion >= 25 ? sf::Color(110, 235, 110) : (opinion >= 0 ? sf::Color(220, 205, 120) : sf::Color(240, 70, 70)));
+    l.setPosition(x, y);
+    window.draw(l);
+
+    float barY = y + 15.f;
+    sf::RectangleShape track(sf::Vector2f(w, 8.f));
+    track.setPosition(x, barY);
+    track.setFillColor(sf::Color(18, 14, 11));
+    track.setOutlineColor(sf::Color(75, 55, 38));
+    track.setOutlineThickness(1.f);
+    window.draw(track);
+
+    float midX = x + w * 0.5f;
+    sf::RectangleShape centerPip(sf::Vector2f(2.f, 10.f));
+    centerPip.setPosition(midX - 1.f, barY - 1.f);
+    centerPip.setFillColor(sf::Color(140, 120, 95));
+    window.draw(centerPip);
+
+    float norm = std::clamp(opinion / 100.f, -1.f, 1.f);
+    float fillW = std::abs(norm) * (w * 0.5f);
+
+    if (fillW > 1.f) {
+        sf::RectangleShape fill(sf::Vector2f(fillW, 8.f));
+        if (norm >= 0.f) {
+            fill.setPosition(midX, barY);
+            fill.setFillColor(sf::Color(75, 205, 75));
+        } else {
+            fill.setPosition(midX - fillW, barY);
+            fill.setFillColor(sf::Color(225, 50, 45));
+        }
+        window.draw(fill);
+    }
 }
 
 void ProfileViewManager::drawCharacterProfile(sf::RenderWindow& window, sim::EntityID apeId, sim::SimulationRegistry& reg, sim::EntityID controlledApeId) {
     sim::ApeData* ape = reg.getApe(apeId);
     if (!ape) return;
 
-    float startX = profilePanelPos.x;
-    float startY = profilePanelPos.y;
-
-    sf::RectangleShape shadow(sf::Vector2f(panelWidth + 4.f, panelHeight + 4.f));
-    shadow.setPosition(startX + 2.f, startY + 2.f);
-    shadow.setFillColor(sf::Color(0, 0, 0, 185));
-    window.draw(shadow);
-
-    sf::RectangleShape panel(sf::Vector2f(panelWidth, panelHeight));
-    panel.setPosition(startX, startY);
-    panel.setFillColor(sf::Color(24, 17, 13, 252));
-    panel.setOutlineColor(sf::Color(185, 140, 65));
-    panel.setOutlineThickness(1.5f);
-    window.draw(panel);
-
-    sf::RectangleShape headerPlate(sf::Vector2f(panelWidth - 6.f, 32.f));
-    headerPlate.setPosition(startX + 3.f, startY + 3.f);
-    headerPlate.setFillColor(sf::Color(48, 32, 20));
-    window.draw(headerPlate);
-
-    float titleX = (!navHistory.empty()) ? (startX + 68.f) : (startX + 12.f);
-    float titleY = startY + 8.f;
-    drawWrappedText(window, ape->name, titleX, titleY, panelWidth - 95.f, 13, sf::Color(255, 225, 130), true);
-
-    if (!navHistory.empty()) drawBackButton(window, startX + 8.f, startY + 6.f);
-    drawCloseButton(window, startX + panelWidth - 26.f, startY + 6.f);
-
-    float curY = startY + 40.f;
-
-    FamilyInfo fam = resolveFamily(apeId, reg);
-
-    if (fam.liegeId != 0) {
-        sim::ApeData* liege = reg.getApe(fam.liegeId);
-        std::string lName = liege ? liege->name : "Monarch";
-
-        sf::RectangleShape lBox(sf::Vector2f(panelWidth - 24.f, 26.f));
-        lBox.setPosition(startX + 12.f, curY);
-        lBox.setFillColor(sf::Color(32, 22, 38));
-        lBox.setOutlineColor(sf::Color(160, 120, 210));
-        lBox.setOutlineThickness(1.f);
-        window.draw(lBox);
-
-        sf::Text lTxt("Liege: " + lName + " (" + fam.liegeTitle + ")", *font, 10);
-        lTxt.setFillColor(sf::Color(235, 215, 255));
-        lTxt.setPosition(startX + 18.f, curY + 5.f);
-        window.draw(lTxt);
-
-        if (liege) {
-            registerButton(lBox.getGlobalBounds(), [this, liege]() {
-                inspectCharacter(liege->id);
-            });
-        }
-        curY += 32.f;
-    }
+    ape->skills.combat = std::clamp(ape->skills.combat, 1.0f, 25.0f);
+    ape->skills.leadership = std::clamp(ape->skills.leadership, 1.0f, 25.0f);
+    ape->skills.building = std::clamp(ape->skills.building, 1.0f, 25.0f);
+    ape->skills.gathering = std::clamp(ape->skills.gathering, 1.0f, 25.0f);
 
     sim::VillageData* apeVillage = reg.getVillage(ape->villageId);
     sim::KingdomData* apeKingdom = (ape->currentKingdom != 0) ? reg.getKingdom(ape->currentKingdom) : nullptr;
-    std::string realmName = apeKingdom ? ("Kingdom of " + apeKingdom->name) : (apeVillage ? ("Clan of " + apeVillage->name) : "Wanderer");
+    std::string realmName = apeKingdom ? ("Kingdom of " + apeKingdom->name) : (apeVillage ? ("Clan of " + apeVillage->name) : "Independent Wanderer");
 
-    sf::Text rText(realmName + " | Age " + std::to_string(static_cast<int>(ape->age)), *font, 10);
-    rText.setFillColor(sf::Color(185, 170, 145));
-    rText.setPosition(startX + 12.f, curY);
-    window.draw(rText);
-    curY += 18.f;
+    drawHeader(window, ape->name, realmName + " | Age " + std::to_string(static_cast<int>(ape->age)));
+    drawTabs(window);
 
-    sf::RectangleShape fSection(sf::Vector2f(panelWidth - 24.f, 138.f));
-    fSection.setPosition(startX + 12.f, curY);
-    fSection.setFillColor(sf::Color(18, 13, 10, 240));
-    fSection.setOutlineColor(sf::Color(120, 85, 45));
-    fSection.setOutlineThickness(1.f);
-    window.draw(fSection);
+    float startX = profilePanelPos.x + 14.f;
+    float curY = profilePanelPos.y + 80.f;
+    float contentW = panelWidth - 28.f;
 
-    sf::Text fH("HERITAGE & KINSHIP", *font, 9);
-    fH.setStyle(sf::Text::Bold);
-    fH.setFillColor(sf::Color(230, 195, 90));
-    fH.setPosition(startX + 18.f, curY + 5.f);
-    window.draw(fH);
+    FamilyInfo fam = resolveFamily(apeId, reg);
 
-    float fLineY = curY + 20.f;
+    if (activeTab == CharacterTab::Overview) {
+        int mar = static_cast<int>(std::round(ape->skills.combat));
+        int dip = static_cast<int>(std::round(ape->skills.leadership));
+        int adm = static_cast<int>(std::round(ape->skills.building));
+        int fow = static_cast<int>(std::round(ape->skills.gathering));
+        
+        float sW = (contentW - 18.f) / 4.f;
+        drawStatBox(window, startX + 0 * (sW + 6.f), curY, sW, 40.f, "MAR", mar, sf::Color(215, 60, 60));
+        drawStatBox(window, startX + 1 * (sW + 6.f), curY, sW, 40.f, "DIP", dip, sf::Color(235, 185, 55));
+        drawStatBox(window, startX + 2 * (sW + 6.f), curY, sW, 40.f, "ADM", adm, sf::Color(85, 185, 85));
+        drawStatBox(window, startX + 3 * (sW + 6.f), curY, sW, 40.f, "FOR", fow, sf::Color(70, 165, 225));
+        curY += 50.f;
 
-    auto drawPill = [&](const std::string& label, sim::EntityID targetId, float px, float py, float pw) {
-        sim::ApeData* relApe = reg.getApe(targetId);
-        std::string disp = label + ": " + (relApe ? relApe->name : "None");
+        sf::Text tHeader("PERSONALITY & CONGENITAL TRAITS", *font, 9);
+        tHeader.setStyle(sf::Text::Bold);
+        tHeader.setFillColor(sf::Color(205, 170, 95));
+        tHeader.setPosition(startX, curY);
+        window.draw(tHeader);
+        curY += 15.f;
 
-        sf::RectangleShape pill(sf::Vector2f(pw, 20.f));
-        pill.setPosition(px, py);
-        pill.setFillColor(relApe ? sf::Color(42, 30, 22) : sf::Color(25, 18, 14));
-        pill.setOutlineColor(relApe ? sf::Color(175, 130, 60) : sf::Color(65, 50, 35));
-        pill.setOutlineThickness(1.f);
-        window.draw(pill);
+        auto traitToStr = [](sim::Trait t) -> std::string {
+            switch (t) {
+                case sim::Trait::Brave: return "Brave";
+                case sim::Trait::Coward: return "Coward";
+                case sim::Trait::Greedy: return "Greedy";
+                case sim::Trait::Honorable: return "Honorable";
+                case sim::Trait::Cruel: return "Cruel";
+                case sim::Trait::Charismatic: return "Charismatic";
+                case sim::Trait::Lazy: return "Lazy";
+                case sim::Trait::Strategic: return "Strategic";
+                case sim::Trait::Impulsive: return "Impulsive";
+                case sim::Trait::Curious: return "Curious";
+                case sim::Trait::Energetic: return "Energetic";
+                case sim::Trait::Clever: return "Clever";
+                case sim::Trait::Hardworking: return "Hardworking";
+                case sim::Trait::Patient: return "Patient";
+                case sim::Trait::Aggressive: return "Aggressive";
+                case sim::Trait::Perceptive: return "Perceptive";
+                default: return "Trait";
+            }
+        };
 
-        sf::Text pTxt(disp, *font, 9);
-        pTxt.setFillColor(relApe ? sf::Color(245, 230, 180) : sf::Color(125, 115, 105));
-        pTxt.setPosition(px + 6.f, py + 3.f);
-        window.draw(pTxt);
+        if (ape->traits.empty()) {
+            sf::Text noT("Unremarkable Disposition", *font, 9);
+            noT.setFillColor(sf::Color(140, 130, 120));
+            noT.setPosition(startX, curY);
+            window.draw(noT);
+            curY += 20.f;
+        } else {
+            float badgeX = startX;
+            for (auto tr : ape->traits) {
+                std::string tName = traitToStr(tr);
+                sf::Text tTxt(tName, *font, 9);
+                sf::FloatRect tb = tTxt.getLocalBounds();
 
-        if (relApe) {
-            registerButton(pill.getGlobalBounds(), [this, targetId]() {
-                inspectCharacter(targetId);
-            });
+                sf::RectangleShape badge(sf::Vector2f(tb.width + 12.f, 20.f));
+                badge.setPosition(badgeX, curY);
+                badge.setFillColor(sf::Color(36, 26, 18));
+                badge.setOutlineColor(sf::Color(165, 125, 65));
+                badge.setOutlineThickness(1.f);
+                window.draw(badge);
+
+                tTxt.setFillColor(sf::Color(245, 230, 185));
+                tTxt.setPosition(badgeX + 6.f, curY + 3.f);
+                window.draw(tTxt);
+
+                badgeX += tb.width + 18.f;
+                if (badgeX > startX + contentW - 60.f) {
+                    badgeX = startX;
+                    curY += 24.f;
+                }
+            }
+            curY += 28.f;
         }
-    };
 
-    float halfW = (panelWidth - 36.f) * 0.5f;
-    drawPill("Father", fam.fatherId, startX + 16.f, fLineY, halfW);
-    drawPill("Mother", fam.motherId, startX + 20.f + halfW, fLineY, halfW);
-    fLineY += 25.f;
-
-    sim::EntityID primarySpouse = fam.spouseIds.empty() ? 0 : fam.spouseIds.front();
-    drawPill("Pair-Bond", primarySpouse, startX + 16.f, fLineY, panelWidth - 32.f);
-    fLineY += 25.f;
-
-    sf::Text chH("Children (" + std::to_string(fam.childrenIds.size()) + "):", *font, 9);
-    chH.setFillColor(sf::Color(175, 160, 135));
-    chH.setPosition(startX + 18.f, fLineY + 2.f);
-    window.draw(chH);
-
-    float chX = startX + 85.f;
-    for (size_t cIdx = 0; cIdx < std::min<size_t>(fam.childrenIds.size(), 2); ++cIdx) {
-        sim::ApeData* cApe = reg.getApe(fam.childrenIds[cIdx]);
-        if (!cApe) continue;
-
-        std::string cStr = cApe->name + " (" + std::to_string(static_cast<int>(cApe->age)) + ")";
-        sf::Text cTxt(cStr, *font, 9);
-        sf::FloatRect ctb = cTxt.getLocalBounds();
-
-        sf::RectangleShape cPill(sf::Vector2f(ctb.width + 12.f, 18.f));
-        cPill.setPosition(chX, fLineY);
-        cPill.setFillColor(sf::Color(35, 25, 18));
-        cPill.setOutlineColor(sf::Color(140, 100, 50));
-        cPill.setOutlineThickness(1.f);
-        window.draw(cPill);
-
-        cTxt.setFillColor(sf::Color(235, 215, 165));
-        cTxt.setPosition(chX + 6.f, fLineY + 1.f);
-        window.draw(cTxt);
-
-        sim::EntityID childId = fam.childrenIds[cIdx];
-        registerButton(cPill.getGlobalBounds(), [this, childId]() {
-            inspectCharacter(childId);
-        });
-
-        chX += ctb.width + 18.f;
-    }
-
-    fLineY += 24.f;
-
-    sf::Text sibH("Siblings (" + std::to_string(fam.siblingIds.size()) + "):", *font, 9);
-    sibH.setFillColor(sf::Color(175, 160, 135));
-    sibH.setPosition(startX + 18.f, fLineY + 2.f);
-    window.draw(sibH);
-
-    float sibX = startX + 85.f;
-    for (size_t sIdx = 0; sIdx < std::min<size_t>(fam.siblingIds.size(), 2); ++sIdx) {
-        sim::ApeData* sApe = reg.getApe(fam.siblingIds[sIdx]);
-        if (!sApe) continue;
-
-        sf::Text sTxt(sApe->name, *font, 9);
-        sf::FloatRect stb = sTxt.getLocalBounds();
-
-        sf::RectangleShape sPill(sf::Vector2f(stb.width + 12.f, 18.f));
-        sPill.setPosition(sibX, fLineY);
-        sPill.setFillColor(sf::Color(35, 25, 18));
-        sPill.setOutlineColor(sf::Color(140, 100, 50));
-        sPill.setOutlineThickness(1.f);
-        window.draw(sPill);
-
-        sTxt.setFillColor(sf::Color(235, 215, 165));
-        sTxt.setPosition(sibX + 6.f, fLineY + 1.f);
-        window.draw(sTxt);
-
-        sim::EntityID sibId = fam.siblingIds[sIdx];
-        registerButton(sPill.getGlobalBounds(), [this, sibId]() {
-            inspectCharacter(sibId);
-        });
-
-        sibX += stb.width + 18.f;
-    }
-
-    curY += 148.f;
-
-    float statBoxW = 68.f;
-    float statBoxH = 34.f;
-    float statSpacing = 8.f;
-    float statStartX = startX + 12.f;
-
-    struct StatBadge { std::string label; int val; sf::Color col; };
-    std::vector<StatBadge> stats = {
-        {"MAR", static_cast<int>(ape->skills.combat * 10.f), sf::Color(190, 60, 60)},
-        {"DIP", static_cast<int>(ape->skills.leadership * 10.f), sf::Color(210, 170, 50)},
-        {"ADM", static_cast<int>(ape->skills.building * 10.f), sf::Color(70, 150, 70)},
-        {"FOR", static_cast<int>(ape->skills.gathering * 10.f), sf::Color(60, 150, 190)}
-    };
-
-    for (size_t i = 0; i < stats.size(); ++i) {
-        float bx = statStartX + i * (statBoxW + statSpacing);
-        sf::RectangleShape box(sf::Vector2f(statBoxW, statBoxH));
-        box.setPosition(bx, curY);
-        box.setFillColor(sf::Color(16, 11, 8, 230));
-        box.setOutlineColor(stats[i].col);
-        box.setOutlineThickness(1.f);
-        window.draw(box);
-
-        sf::Text sLbl(stats[i].label, *font, 9);
-        sLbl.setFillColor(sf::Color(170, 170, 170));
-        sLbl.setPosition(bx + 6.f, curY + 2.f);
-        window.draw(sLbl);
-
-        sf::Text sVal(std::to_string(stats[i].val), *font, 13);
-        sVal.setFillColor(sf::Color::White);
-        sVal.setStyle(sf::Text::Bold);
-        sVal.setPosition(bx + 6.f, curY + 14.f);
-        window.draw(sVal);
-    }
-
-    curY += 42.f;
-
-    sf::Text traitsHeader("CHARACTER TRAITS", *font, 9);
-    traitsHeader.setFillColor(sf::Color(185, 145, 65));
-    traitsHeader.setPosition(startX + 14.f, curY);
-    window.draw(traitsHeader);
-    curY += 16.f;
-
-    float tBadgeX = startX + 12.f;
-
-    auto traitToStr = [](sim::Trait t) -> std::string {
-        switch (t) {
-            case sim::Trait::Brave: return "Brave";
-            case sim::Trait::Coward: return "Coward";
-            case sim::Trait::Greedy: return "Greedy";
-            case sim::Trait::Honorable: return "Honorable";
-            case sim::Trait::Cruel: return "Cruel";
-            case sim::Trait::Charismatic: return "Charismatic";
-            case sim::Trait::Lazy: return "Lazy";
-            case sim::Trait::Strategic: return "Strategic";
-            case sim::Trait::Impulsive: return "Impulsive";
-            case sim::Trait::Curious: return "Curious";
-            case sim::Trait::Energetic: return "Energetic";
-            case sim::Trait::Clever: return "Clever";
-            case sim::Trait::Hardworking: return "Hardworking";
-            case sim::Trait::Patient: return "Patient";
-            case sim::Trait::Aggressive: return "Aggressive";
-            case sim::Trait::Perceptive: return "Perceptive";
-            default: return "Trait";
+        int op = 0;
+        sim::ApeData* player = reg.getApe(controlledApeId);
+        if (player) {
+            if (ape->opinions.count(player->id)) op = ape->opinions[player->id];
+            else if (ape->villageId == player->villageId) op = 15;
         }
-    };
+        drawOpinionBar(window, startX, curY, contentW, op);
+        curY += 35.f;
 
-    for (auto t : ape->traits) {
-        std::string tName = traitToStr(t);
-        sf::Text tTxt(tName, *font, 9);
-        sf::FloatRect tb = tTxt.getLocalBounds();
+        std::string roleTitle = "Unassigned Commoner";
+        switch (ape->councilRole) {
+            case sim::CouncilRole::WarChief: roleTitle = "War Chief of the Realm"; break;
+            case sim::CouncilRole::ChiefBuilder: roleTitle = "Chief Builder"; break;
+            case sim::CouncilRole::LeadForager: roleTitle = "Grand Forager"; break;
+            case sim::CouncilRole::Shaman: roleTitle = "Elder Shaman"; break;
+            default: break;
+        }
 
-        sf::RectangleShape badge(sf::Vector2f(tb.width + 10.f, 18.f));
-        badge.setPosition(tBadgeX, curY);
-        badge.setFillColor(sf::Color(38, 28, 20));
-        badge.setOutlineColor(sf::Color(130, 95, 45));
-        badge.setOutlineThickness(1.f);
-        window.draw(badge);
+        sf::RectangleShape dutyBox(sf::Vector2f(contentW, 46.f));
+        dutyBox.setPosition(startX, curY);
+        dutyBox.setFillColor(sf::Color(18, 14, 10));
+        dutyBox.setOutlineColor(sf::Color(120, 85, 45));
+        dutyBox.setOutlineThickness(1.f);
+        window.draw(dutyBox);
 
-        tTxt.setFillColor(sf::Color(235, 215, 165));
-        tTxt.setPosition(tBadgeX + 5.f, curY + 1.f);
-        window.draw(tTxt);
+        sf::Text dH("COUNCIL APPOINTMENT", *font, 9);
+        dH.setStyle(sf::Text::Bold);
+        dH.setFillColor(sf::Color(190, 155, 75));
+        dH.setPosition(startX + 8.f, curY + 6.f);
+        window.draw(dH);
 
-        tBadgeX += tb.width + 16.f;
-        if (tBadgeX > startX + panelWidth - 70.f) {
-            tBadgeX = startX + 12.f;
+        sf::Text rT(roleTitle, *font, 11);
+        rT.setStyle(sf::Text::Bold);
+        rT.setFillColor(sf::Color(255, 240, 200));
+        rT.setPosition(startX + 8.f, curY + 20.f);
+        window.draw(rT);
+
+        sf::Text hKey("[1-4] Assign Council, [0] Revoke", *font, 8);
+        hKey.setFillColor(sf::Color(160, 145, 120));
+        sf::FloatRect hkb = hKey.getLocalBounds();
+        hKey.setPosition(startX + contentW - hkb.width - 8.f, curY + 23.f);
+        window.draw(hKey);
+
+    } else if (activeTab == CharacterTab::Kinship) {
+        auto drawRelCard = [&](const std::string& relationLabel, sim::EntityID targetId) {
+            sim::ApeData* rel = reg.getApe(targetId);
+            std::string nameStr = rel ? rel->name : "Unknown / Wild Ancestry";
+            std::string subStr = rel ? ("Age " + std::to_string(static_cast<int>(rel->age))) : "No lineage record";
+
+            sf::RectangleShape card(sf::Vector2f(contentW, 36.f));
+            card.setPosition(startX, curY);
+            card.setFillColor(rel ? sf::Color(32, 23, 16) : sf::Color(20, 15, 12));
+            card.setOutlineColor(rel ? sf::Color(165, 125, 60) : sf::Color(70, 50, 35));
+            card.setOutlineThickness(1.f);
+            window.draw(card);
+
+            sf::Text lbl(relationLabel, *font, 9);
+            lbl.setStyle(sf::Text::Bold);
+            lbl.setFillColor(sf::Color(210, 175, 95));
+            lbl.setPosition(startX + 8.f, curY + 4.f);
+            window.draw(lbl);
+
+            sf::Text nTxt(nameStr, *font, 11);
+            nTxt.setStyle(sf::Text::Bold);
+            nTxt.setFillColor(rel ? sf::Color(255, 245, 215) : sf::Color(130, 120, 110));
+            nTxt.setPosition(startX + 8.f, curY + 16.f);
+            window.draw(nTxt);
+
+            if (rel) {
+                sf::Text insp("[Inspect ->]", *font, 8);
+                insp.setFillColor(sf::Color(245, 205, 80));
+                sf::FloatRect ib = insp.getLocalBounds();
+                insp.setPosition(startX + contentW - ib.width - 8.f, curY + 18.f);
+                window.draw(insp);
+
+                registerButton(card.getGlobalBounds(), [this, targetId]() {
+                    inspectCharacter(targetId);
+                });
+            }
+
+            curY += 42.f;
+        };
+
+        if (fam.liegeId != 0) {
+            drawRelCard("Sovereign Liege (" + fam.liegeTitle + ")", fam.liegeId);
+        }
+
+        drawRelCard("Father", fam.fatherId);
+        drawRelCard("Mother", fam.motherId);
+
+        sim::EntityID spouse = fam.spouseIds.empty() ? 0 : fam.spouseIds.front();
+        drawRelCard("Pair-Bond (Consort)", spouse);
+
+        sf::Text chH("CHILDREN (" + std::to_string(fam.childrenIds.size()) + ")", *font, 9);
+        chH.setStyle(sf::Text::Bold);
+        chH.setFillColor(sf::Color(200, 165, 90));
+        chH.setPosition(startX, curY);
+        window.draw(chH);
+        curY += 14.f;
+
+        if (fam.childrenIds.empty()) {
+            sf::Text nc("No recorded offspring", *font, 9);
+            nc.setFillColor(sf::Color(135, 125, 115));
+            nc.setPosition(startX, curY);
+            window.draw(nc);
             curY += 22.f;
+        } else {
+            for (size_t i = 0; i < std::min<size_t>(fam.childrenIds.size(), 3); ++i) {
+                drawRelCard("Child", fam.childrenIds[i]);
+            }
+        }
+
+    } else if (activeTab == CharacterTab::Realm) {
+        if (fam.liegeId != 0) {
+            sim::ApeData* liege = reg.getApe(fam.liegeId);
+            std::string lName = liege ? liege->name : "Monarch";
+
+            sf::RectangleShape liegeBox(sf::Vector2f(contentW, 44.f));
+            liegeBox.setPosition(startX, curY);
+            liegeBox.setFillColor(sf::Color(32, 22, 28));
+            liegeBox.setOutlineColor(sf::Color(175, 120, 205));
+            liegeBox.setOutlineThickness(1.2f);
+            window.draw(liegeBox);
+
+            sf::Text lH("FEUDAL OBLIGATION", *font, 9);
+            lH.setStyle(sf::Text::Bold);
+            lH.setFillColor(sf::Color(215, 175, 245));
+            lH.setPosition(startX + 8.f, curY + 5.f);
+            window.draw(lH);
+
+            sf::Text lN("Sworn Vassal to " + lName + " (" + fam.liegeTitle + ")", *font, 10);
+            lN.setStyle(sf::Text::Bold);
+            lN.setFillColor(sf::Color::White);
+            lN.setPosition(startX + 8.f, curY + 20.f);
+            window.draw(lN);
+
+            if (liege) {
+                registerButton(liegeBox.getGlobalBounds(), [this, liege]() {
+                    inspectCharacter(liege->id);
+                });
+            }
+            curY += 52.f;
+        }
+
+        if (apeVillage) {
+            sf::RectangleShape cCard(sf::Vector2f(contentW, 50.f));
+            cCard.setPosition(startX, curY);
+            cCard.setFillColor(sf::Color(28, 20, 14));
+            cCard.setOutlineColor(sf::Color(190, 140, 60));
+            cCard.setOutlineThickness(1.2f);
+            window.draw(cCard);
+
+            sf::Text cH("HOME SEAT & DOMAIN", *font, 9);
+            cH.setStyle(sf::Text::Bold);
+            cH.setFillColor(sf::Color(230, 190, 85));
+            cH.setPosition(startX + 8.f, curY + 5.f);
+            window.draw(cH);
+
+            sf::Text cN(apeVillage->name + " (County)", *font, 12);
+            cN.setStyle(sf::Text::Bold);
+            cN.setFillColor(sf::Color(255, 240, 190));
+            cN.setPosition(startX + 8.f, curY + 18.f);
+            window.draw(cN);
+
+            std::string sub = "Tier " + std::to_string(static_cast<int>(apeVillage->tier)) + " | Population: " + std::to_string(apeVillage->members.size());
+            sf::Text cSub(sub, *font, 9);
+            cSub.setFillColor(sf::Color(180, 165, 140));
+            cSub.setPosition(startX + 8.f, curY + 34.f);
+            window.draw(cSub);
+
+            sf::Text vBtn("[Inspect County ->]", *font, 9);
+            vBtn.setFillColor(sf::Color(255, 215, 80));
+            sf::FloatRect vbb = vBtn.getLocalBounds();
+            vBtn.setPosition(startX + contentW - vbb.width - 8.f, curY + 32.f);
+            window.draw(vBtn);
+
+            sim::VillageID vId = apeVillage->id;
+            registerButton(cCard.getGlobalBounds(), [this, vId]() {
+                inspectVillage(vId);
+            });
+            curY += 58.f;
         }
     }
+}
 
-    curY += 28.f;
+void ProfileViewManager::drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId, sim::SimulationRegistry& reg) {
+    sim::VillageData* v = reg.getVillage(vId);
+    if (!v) return;
 
-    int personalOp = 0;
-    sim::ApeData* player = reg.getApe(controlledApeId);
-    if (player) {
-        if (ape->opinions.count(player->id)) personalOp = ape->opinions[player->id];
-        else if (ape->villageId == player->villageId) {
-            personalOp = 20;
-            ape->opinions[player->id] = personalOp;
-        }
+    sim::KingdomData* kd = (v->kingdomId != 0) ? reg.getKingdom(v->kingdomId) : nullptr;
+    std::string realmStr = kd ? ("Kingdom of " + kd->name) : "Independent County";
+
+    drawHeader(window, v->name + " (County)", realmStr, sf::Color(255, 230, 120));
+
+    float startX = profilePanelPos.x + 12.f;
+    float curY = profilePanelPos.y + 48.f;
+    float contentW = panelWidth - 24.f;
+
+    sim::ApeData* ruler = reg.getApe(v->leaderId);
+    std::string rulerName = ruler ? ruler->name : "Unknown Chieftain";
+
+    sf::RectangleShape rBox(sf::Vector2f(contentW, 46.f));
+    rBox.setPosition(startX, curY);
+    rBox.setFillColor(sf::Color(36, 24, 16));
+    rBox.setOutlineColor(sf::Color(215, 165, 60));
+    rBox.setOutlineThickness(1.2f);
+    window.draw(rBox);
+
+    sf::Text rH("RULING CHIEFTAIN", *font, 9);
+    rH.setStyle(sf::Text::Bold);
+    rH.setFillColor(sf::Color(210, 170, 75));
+    rH.setPosition(startX + 8.f, curY + 5.f);
+    window.draw(rH);
+
+    sf::Text rN(rulerName, *font, 12);
+    rN.setStyle(sf::Text::Bold);
+    rN.setFillColor(sf::Color(255, 240, 200));
+    rN.setPosition(startX + 8.f, curY + 18.f);
+    window.draw(rN);
+
+    if (ruler) {
+        sf::Text clickPrompt("[Inspect Ruler ->]", *font, 9);
+        clickPrompt.setFillColor(sf::Color(255, 215, 75));
+        sf::FloatRect cpb = clickPrompt.getLocalBounds();
+        clickPrompt.setPosition(startX + contentW - cpb.width - 8.f, curY + 28.f);
+        window.draw(clickPrompt);
+
+        registerButton(rBox.getGlobalBounds(), [this, ruler]() {
+            inspectCharacter(ruler->id);
+        });
     }
+    curY += 56.f;
 
-    std::string relText = "Opinion of You: " + (personalOp >= 0 ? ("+" + std::to_string(personalOp)) : std::to_string(personalOp));
-    sf::Color relCol = (personalOp >= 30) ? sf::Color(100, 235, 100) : (personalOp >= 0 ? sf::Color(180, 225, 140) : sf::Color(240, 70, 70));
+    sf::RectangleShape resBox(sf::Vector2f(contentW, 44.f));
+    resBox.setPosition(startX, curY);
+    resBox.setFillColor(sf::Color(16, 12, 9));
+    resBox.setOutlineColor(sf::Color(115, 80, 40));
+    resBox.setOutlineThickness(1.f);
+    window.draw(resBox);
 
-    sf::Text opTxt(relText, *font, 10);
-    opTxt.setFillColor(relCol);
-    opTxt.setPosition(startX + 14.f, curY);
-    window.draw(opTxt);
+    sf::Text resH("COUNTY STOCKPILES", *font, 9);
+    resH.setStyle(sf::Text::Bold);
+    resH.setFillColor(sf::Color(190, 155, 75));
+    resH.setPosition(startX + 8.f, curY + 5.f);
+    window.draw(resH);
+
+    std::string resStr = "Food: " + std::to_string(v->food) + "  Wood: " + std::to_string(v->wood) + "  Stone: " + std::to_string(v->stone) + "  Amber: " + std::to_string(v->amber);
+    sf::Text resVals(resStr, *font, 10);
+    resVals.setStyle(sf::Text::Bold);
+    resVals.setFillColor(sf::Color(235, 225, 205));
+    resVals.setPosition(startX + 8.f, curY + 22.f);
+    window.draw(resVals);
+    curY += 54.f;
+
+    auto drawField = [&](const std::string& label, const std::string& val, sf::Color valCol = sf::Color(240, 230, 210)) {
+        sf::Text l(label, *font, 9);
+        l.setFillColor(sf::Color(165, 145, 120));
+        l.setPosition(startX, curY);
+        window.draw(l);
+        curY += 12.f;
+
+        drawWrappedText(window, val, startX, curY, contentW, 11, valCol, true);
+        curY += 6.f;
+    };
+
+    drawField("Settlement Development", "Tier " + std::to_string(static_cast<int>(v->tier)) + " Fortress Center", sf::Color(245, 205, 75));
+    drawField("Total Inhabitants", std::to_string(v->members.size()) + " clan apes");
+    drawField("Constructed Structures", std::to_string(v->finishedStructures.size()) + " buildings");
 }
 
 void ProfileViewManager::drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId, sim::SimulationRegistry& reg, sim::EntityID controlledApeId) {
     sim::KingdomData* k = reg.getKingdom(kId);
     if (!k) return;
 
-    float startX = profilePanelPos.x;
-    float startY = profilePanelPos.y;
+    drawHeader(window, "KINGDOM OF " + k->name, "Realm Capital Seat & Sovereignty", k->color);
 
-    sf::RectangleShape shadow(sf::Vector2f(panelWidth + 4.f, panelHeight + 4.f));
-    shadow.setPosition(startX + 2.f, startY + 2.f);
-    shadow.setFillColor(sf::Color(0, 0, 0, 185));
-    window.draw(shadow);
-
-    sf::RectangleShape panel(sf::Vector2f(panelWidth, panelHeight));
-    panel.setPosition(startX, startY);
-    panel.setFillColor(sf::Color(24, 17, 13, 252));
-    panel.setOutlineColor(sf::Color(185, 140, 65));
-    panel.setOutlineThickness(1.5f);
-    window.draw(panel);
-
-    sf::RectangleShape hPlate(sf::Vector2f(panelWidth - 6.f, 32.f));
-    hPlate.setPosition(startX + 3.f, startY + 3.f);
-    hPlate.setFillColor(sf::Color(48, 32, 20));
-    window.draw(hPlate);
-
-    float titleX = (!navHistory.empty()) ? (startX + 68.f) : (startX + 12.f);
-    float titleY = startY + 8.f;
-    drawWrappedText(window, "KINGDOM OF " + k->name, titleX, titleY, panelWidth - 95.f, 13, k->color, true);
-
-    if (!navHistory.empty()) drawBackButton(window, startX + 8.f, startY + 6.f);
-    drawCloseButton(window, startX + panelWidth - 26.f, startY + 6.f);
-
-    float curY = startY + 44.f;
+    float startX = profilePanelPos.x + 12.f;
+    float curY = profilePanelPos.y + 48.f;
+    float contentW = panelWidth - 24.f;
 
     sim::ApeData* ruler = reg.getApe(k->currentKingId);
     std::string rulerName = ruler ? ruler->name : "Monarch";
 
-    sf::RectangleShape kBox(sf::Vector2f(panelWidth - 24.f, 48.f));
-    kBox.setPosition(startX + 12.f, curY);
-    kBox.setFillColor(sf::Color(38, 26, 18));
-    kBox.setOutlineColor(sf::Color(215, 170, 70));
+    sf::RectangleShape kBox(sf::Vector2f(contentW, 46.f));
+    kBox.setPosition(startX, curY);
+    kBox.setFillColor(sf::Color(36, 24, 16));
+    kBox.setOutlineColor(sf::Color(215, 165, 60));
     kBox.setOutlineThickness(1.2f);
     window.draw(kBox);
 
     sf::Text rH("SOVEREIGN MONARCH", *font, 9);
-    rH.setFillColor(sf::Color(200, 160, 80));
     rH.setStyle(sf::Text::Bold);
-    rH.setPosition(startX + 20.f, curY + 6.f);
+    rH.setFillColor(sf::Color(210, 170, 75));
+    rH.setPosition(startX + 8.f, curY + 5.f);
     window.draw(rH);
 
-    sf::Text rNameTxt(rulerName, *font, 13);
-    rNameTxt.setFillColor(sf::Color(255, 240, 190));
-    rNameTxt.setStyle(sf::Text::Bold);
-    rNameTxt.setPosition(startX + 20.f, curY + 18.f);
-    window.draw(rNameTxt);
-
-    sf::Text clickPrompt("[Inspect Monarch ->]", *font, 9);
-    clickPrompt.setStyle(sf::Text::Bold);
-    clickPrompt.setFillColor(sf::Color(255, 215, 75));
-    sf::FloatRect cpb = clickPrompt.getLocalBounds();
-    clickPrompt.setPosition(startX + panelWidth - cpb.width - 20.f, curY + 30.f);
-    window.draw(clickPrompt);
+    sf::Text rN(rulerName, *font, 12);
+    rN.setStyle(sf::Text::Bold);
+    rN.setFillColor(sf::Color(255, 240, 200));
+    rN.setPosition(startX + 8.f, curY + 18.f);
+    window.draw(rN);
 
     if (ruler) {
+        sf::Text clickPrompt("[Inspect Monarch ->]", *font, 9);
+        clickPrompt.setFillColor(sf::Color(255, 215, 75));
+        sf::FloatRect cpb = clickPrompt.getLocalBounds();
+        clickPrompt.setPosition(startX + contentW - cpb.width - 8.f, curY + 28.f);
+        window.draw(clickPrompt);
+
         registerButton(kBox.getGlobalBounds(), [this, ruler]() {
             inspectCharacter(ruler->id);
         });
     }
+    curY += 56.f;
 
-    curY += 60.f;
-
-    auto drawField = [&](const std::string& label, const std::string& val, sf::Color valCol = sf::Color(240, 230, 210), bool bold = false) {
-        sf::Text l(label, *font, 10);
-        l.setFillColor(sf::Color(165, 145, 120));
-        l.setPosition(startX + 14.f, curY);
-        window.draw(l);
-        curY += 13.f;
-
-        drawWrappedText(window, val, startX + 14.f, curY, panelWidth - 28.f, 11, valCol, bold);
-        curY += 5.f;
-    };
-
-    sim::VillageData* cap = reg.getVillage(k->capitalVillageId);
-    std::string capName = cap ? cap->name : "Capital";
-    drawField("Capital Seat", capName);
-    drawField("Realm Scale", std::to_string(k->population) + " apes | " + std::to_string(k->controlledVillages.size()) + " settlements");
-
-    sf::RectangleShape resBox(sf::Vector2f(panelWidth - 28.f, 44.f));
-    resBox.setPosition(startX + 14.f, curY);
-    resBox.setFillColor(sf::Color(16, 11, 8, 230));
-    resBox.setOutlineColor(sf::Color(120, 85, 45));
+    sf::RectangleShape resBox(sf::Vector2f(contentW, 44.f));
+    resBox.setPosition(startX, curY);
+    resBox.setFillColor(sf::Color(16, 12, 9));
+    resBox.setOutlineColor(sf::Color(115, 80, 40));
     resBox.setOutlineThickness(1.f);
     window.draw(resBox);
 
     sf::Text resH("ROYAL TREASURY", *font, 9);
-    resH.setFillColor(sf::Color(180, 145, 75));
     resH.setStyle(sf::Text::Bold);
-    resH.setPosition(resBox.getPosition().x + 8.f, resBox.getPosition().y + 5.f);
+    resH.setFillColor(sf::Color(190, 155, 75));
+    resH.setPosition(startX + 8.f, curY + 5.f);
     window.draw(resH);
 
     std::string resContent = "Food: " + std::to_string(k->treasuryFood) + "  Wood: " + std::to_string(k->treasuryWood) + "  Stone: " + std::to_string(k->treasuryStone);
-    sf::Text resVals(resContent, *font, 11);
-    resVals.setFillColor(sf::Color(220, 215, 195));
+    sf::Text resVals(resContent, *font, 10);
     resVals.setStyle(sf::Text::Bold);
-    resVals.setPosition(resBox.getPosition().x + 8.f, resBox.getPosition().y + 20.f);
+    resVals.setFillColor(sf::Color(235, 225, 205));
+    resVals.setPosition(startX + 8.f, curY + 22.f);
     window.draw(resVals);
+    curY += 54.f;
 
-    curY += 52.f;
+    auto drawField = [&](const std::string& label, const std::string& val, sf::Color valCol = sf::Color(240, 230, 210), bool bold = false) {
+        sf::Text l(label, *font, 9);
+        l.setFillColor(sf::Color(165, 145, 120));
+        l.setPosition(startX, curY);
+        window.draw(l);
+        curY += 12.f;
 
-    drawField("Military Power", std::to_string(k->militaryStrength) + " strength", sf::Color(245, 130, 130), true);
+        drawWrappedText(window, val, startX, curY, contentW, 11, valCol, bold);
+        curY += 6.f;
+    };
+
+    sim::VillageData* cap = reg.getVillage(k->capitalVillageId);
+    std::string capName = cap ? cap->name : "Capital";
+    drawField("Capital County", capName);
+    drawField("Realm Strength", std::to_string(k->population) + " subjects | " + std::to_string(k->controlledVillages.size()) + " counties");
+    drawField("Army Mobilization", std::to_string(k->militaryStrength) + " warriors", sf::Color(245, 130, 130), true);
 
     std::string relStr = "Neutral";
     sf::Color relCol = sf::Color(200, 200, 200);
@@ -912,7 +923,6 @@ void ProfileViewManager::drawKingdomProfile(sf::RenderWindow& window, sim::Kingd
                 case sim::DiplomacyStatus::Rival: relStr = "Rival"; relCol = sf::Color(245, 140, 50); break;
                 case sim::DiplomacyStatus::Alliance: relStr = "Alliance"; relCol = sf::Color(80, 180, 255); break;
                 case sim::DiplomacyStatus::Trade: relStr = "Trade Partner"; relCol = sf::Color(120, 235, 120); break;
-                case sim::DiplomacyStatus::Friendly: relStr = "Friendly"; relCol = sf::Color(140, 240, 140); break;
                 default: break;
             }
         }

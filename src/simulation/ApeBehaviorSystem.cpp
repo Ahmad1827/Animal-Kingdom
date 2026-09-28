@@ -96,8 +96,7 @@ void ApeBehaviorSystem::updateApeRoleRoutine(ApeData& ape, VillageData& village,
                 } else {
                     ape.hasTravelDestination = false;
                     ape.currentJob = Job::Combat;
-                    ape.skills.combat = std::min(10.0f, ape.skills.combat + dt * 0.04f);
-                    ape.skills.leadership = std::min(10.0f, ape.skills.leadership + dt * 0.03f);
+                    ape.skills.combat = std::min(20.0f, ape.skills.combat + dt * 0.04f);
                 }
 
                 int traineeSlot = 0;

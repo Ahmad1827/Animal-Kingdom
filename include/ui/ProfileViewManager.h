@@ -14,6 +14,12 @@ public:
         Kingdom
     };
 
+    enum class CharacterTab {
+        Overview = 0,
+        Kinship = 1,
+        Realm = 2
+    };
+
     struct HistoryEntry {
         ViewType type = ViewType::None;
         uint32_t id = 0;
@@ -42,16 +48,20 @@ public:
 private:
     const sf::Font* font;
     ViewType currentView;
+    CharacterTab activeTab;
     sim::EntityID inspectedApeId;
     sim::VillageID selectedVillageId;
     sim::KingdomID selectedKingdomId;
 
-    std::vector<HistoryEntry> navHistory;
-    std::vector<ClickableButton> interactiveButtons;
-
+    bool isDragging;
+    sf::Vector2f dragOffset;
     sf::Vector2f profilePanelPos;
     float panelWidth;
     float panelHeight;
+    sf::FloatRect headerDragBounds;
+
+    std::vector<HistoryEntry> navHistory;
+    std::vector<ClickableButton> interactiveButtons;
 
     struct FamilyInfo {
         sim::EntityID liegeId = 0;
@@ -69,8 +79,10 @@ private:
     void drawVillageProfile(sf::RenderWindow& window, sim::VillageID vId, sim::SimulationRegistry& reg);
     void drawKingdomProfile(sf::RenderWindow& window, sim::KingdomID kId, sim::SimulationRegistry& reg, sim::EntityID controlledApeId);
 
-    void drawCloseButton(sf::RenderWindow& window, float x, float y);
-    void drawBackButton(sf::RenderWindow& window, float x, float y);
+    void drawHeader(sf::RenderWindow& window, const std::string& title, const std::string& subtitle, sf::Color titleColor = sf::Color(255, 225, 130));
+    void drawTabs(sf::RenderWindow& window);
+    void drawStatBox(sf::RenderWindow& window, float x, float y, float w, float h, const std::string& label, int val, sf::Color accent);
+    void drawOpinionBar(sf::RenderWindow& window, float x, float y, float w, int opinion);
     void drawWrappedText(sf::RenderWindow& window, const std::string& text, float x, float& y, float maxW, unsigned int size, sf::Color col, bool bold = false);
     void registerButton(sf::FloatRect bounds, const std::function<void()>& action);
 };

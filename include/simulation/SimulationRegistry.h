@@ -129,6 +129,24 @@ struct ArmyData {
     ArmyObjective objective = ArmyObjective::Muster;
 };
 
+struct ActiveWar {
+    uint32_t id = 0;
+    KingdomID attackerKingdom = 0;
+    KingdomID defenderKingdom = 0;
+    VillageID targetVillageId = 0;
+    std::string casusBelli = "De Jure County Claim";
+    float warScore = 0.f;
+    float battleScore = 0.f;
+    float occupationScore = 0.f;
+    float tickingScore = 0.f;
+    float tickingTimer = 0.f;
+    std::unordered_set<VillageID> occupiedByAttacker;
+    std::unordered_set<VillageID> occupiedByDefender;
+    int startYear = 1;
+    int startDay = 1;
+    bool isResolved = false;
+};
+
 struct KingdomData {
     KingdomID id = 0;
     std::string name = "Kingdom";
@@ -156,6 +174,7 @@ struct KingdomData {
     std::unordered_set<EntityID> permittedApes;
     std::unordered_map<KingdomID, DiplomacyStatus> relations;
     std::unordered_map<KingdomID, float> borderTension;
+    std::unordered_map<KingdomID, int> truceYears;
     std::vector<EntityID> activeArmies;
 };
 
@@ -182,6 +201,10 @@ private:
     std::unordered_map<VillageID, Clan> clans;
     std::vector<HistoricalRecord> history;
 
+    std::vector<ActiveWar> activeWars;
+    std::unordered_map<VillageID, KingdomID> deJureCountyMap;
+    std::unordered_map<VillageID, KingdomID> countyOccupiers;
+
 public:
     void setWorldManager(::WorldManager* wm) { worldManager = wm; }
     ::WorldManager* getWorldManager() const { return worldManager; }
@@ -202,7 +225,12 @@ public:
     std::vector<HistoricalRecord>& getHistory() { return history; }
 
     void registerApe(const ApeData& ape) { apes[ape.id] = ape; }
-    void registerVillage(const VillageData& v) { villages[v.id] = v; }
+    void registerVillage(const VillageData& v) {
+        villages[v.id] = v;
+        if (deJureCountyMap.find(v.id) == deJureCountyMap.end()) {
+            deJureCountyMap[v.id] = v.kingdomId;
+        }
+    }
     void registerKingdom(const KingdomData& k) { kingdoms[k.id] = k; }
     void registerDynasty(const DynastyData& d) { dynasties[d.id] = d; }
     void registerStructure(const StructureData& s) { structures[s.id] = s; }
@@ -241,6 +269,62 @@ public:
 
     const std::vector<Faction>& getFactions() const { return factions; }
     std::vector<Faction>& getFactions() { return factions; }
+
+    void setDeJureKingdom(VillageID vId, KingdomID kId) { deJureCountyMap[vId] = kId; }
+    KingdomID getDeJureKingdom(VillageID vId) const {
+        auto it = deJureCountyMap.find(vId);
+        return (it != deJureCountyMap.end()) ? it->second : 0;
+    }
+
+    void setCountyOccupier(VillageID vId, KingdomID occupierId) {
+        if (occupierId == 0) countyOccupiers.erase(vId);
+        else countyOccupiers[vId] = occupierId;
+    }
+
+    KingdomID getCountyOccupier(VillageID vId) const {
+        auto it = countyOccupiers.find(vId);
+        return (it != countyOccupiers.end()) ? it->second : 0;
+    }
+
+    void registerWar(const ActiveWar& w) { activeWars.push_back(w); }
+
+    std::vector<ActiveWar>& getAllActiveWars() { return activeWars; }
+    const std::vector<ActiveWar>& getAllActiveWars() const { return activeWars; }
+
+    ActiveWar* getWar(uint32_t warId) {
+        for (auto& w : activeWars) {
+            if (w.id == warId && !w.isResolved) return &w;
+        }
+        return nullptr;
+    }
+
+    ActiveWar* getWarBetween(KingdomID k1, KingdomID k2) {
+        for (auto& w : activeWars) {
+            if (!w.isResolved &&
+                ((w.attackerKingdom == k1 && w.defenderKingdom == k2) ||
+                 (w.attackerKingdom == k2 && w.defenderKingdom == k1))) {
+                return &w;
+            }
+        }
+        return nullptr;
+    }
+
+    ActiveWar* getActiveWarForKingdom(KingdomID kId) {
+        if (kId == 0) return nullptr;
+        for (auto& w : activeWars) {
+            if (!w.isResolved && (w.attackerKingdom == kId || w.defenderKingdom == kId)) {
+                return &w;
+            }
+        }
+        return nullptr;
+    }
+
+    void removeResolvedWars() {
+        activeWars.erase(
+            std::remove_if(activeWars.begin(), activeWars.end(), [](const ActiveWar& w) { return w.isResolved; }),
+            activeWars.end()
+        );
+    }
 
     void updatePolitics(float, EntityID) {}
     void executeSuccession(DynastyID, EntityID) {}

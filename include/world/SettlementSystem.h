@@ -6,10 +6,11 @@
 #include "simulation/SimulationRegistry.h"
 
 enum class MapLens {
-    Realms = 0,
-    Diplomacy = 1,
-    Tension = 2,
-    Economy = 3
+    DeFacto = 0,
+    DeJure = 1,
+    Vassals = 2,
+    Diplomacy = 3,
+    Economy = 4
 };
 
 struct CountyDef {
@@ -90,8 +91,8 @@ private:
     float westCoastX = -32800.f;
     float eastCoastX = 368000.f;
 
-    MapLens currentLens = MapLens::Realms;
-    sf::FloatRect lensTabBounds[4];
+    MapLens currentLens = MapLens::DeFacto;
+    sf::FloatRect lensTabBounds[5];
 
     int targetMapMode = 0;
     float miniAnimT = 0.f;

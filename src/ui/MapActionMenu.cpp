@@ -91,12 +91,50 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
             [this, playerVillage]() {
                 if (playerVillage && playerVillage->food >= 35) {
                     playerVillage->food -= 35;
-                    statusMessage = "Clan Loyalty Reinforced";
+                    SettlementSystem::swayVassal(targetSettlement.countyName, 10);
+                    statusMessage = "Clan Loyalty Reinforced (+10 Opinion)";
                     statusColor = sf::Color(115, 225, 115);
                     statusTimer = 2.5f;
                 }
             }
         });
+
+        int vOpinion = SettlementSystem::getVassalOpinion(targetSettlement.countyName);
+        bool inFaction = SettlementSystem::isCountyInFaction(targetSettlement.countyName);
+
+        std::string swayCost = (curAmber >= 20) ? "-20 Amber" : "Need 20 Amber";
+        options.push_back({
+            "Sway Chieftain (" + (vOpinion >= 0 ? "+" : "") + std::to_string(vOpinion) + ")",
+            inFaction ? "Bribe chieftain to abandon rebel faction" : "Send diplomatic gifts to ensure loyalty",
+            swayCost,
+            (curAmber >= 20),
+            inFaction ? sf::Color(235, 160, 50) : sf::Color(110, 205, 125),
+            [this, player]() {
+                if (player && player->amberCount >= 20) {
+                    player->amberCount -= 20;
+                    SettlementSystem::swayVassal(targetSettlement.countyName, 25);
+                    statusMessage = "Chieftain Swayed (+25 Opinion)!";
+                    statusColor = sf::Color(120, 230, 130);
+                    statusTimer = 3.0f;
+                }
+            }
+        });
+
+        if (inFaction) {
+            options.push_back({
+                "Confront Faction (Provoke)",
+                "Force rebels into open war on your terms",
+                "Revolt",
+                true,
+                sf::Color(225, 55, 45),
+                [this]() {
+                    SettlementSystem::triggerCivilWar(targetSettlement.countyName);
+                    statusMessage = "Civil War Broken Out in " + targetSettlement.countyName + "!";
+                    statusColor = sf::Color(245, 60, 50);
+                    statusTimer = 3.0f;
+                }
+            });
+        }
 
         const auto* warChiefTask = SettlementSystem::getCouncilAssignment(sim::CouncilRole::WarChief);
         bool isDrillingHere = (warChiefTask && warChiefTask->mission == CouncilMissionType::TrainLevies && warChiefTask->targetCounty == targetSettlement.countyName);

@@ -28,6 +28,14 @@ struct CountyDef {
     float siegeProgress = 0.f;
     bool isOccupied = false;
     std::string occupierKingdom;
+    int vassalOpinion = 20;
+    bool inFaction = false;
+};
+
+struct FactionState {
+    std::string name = "Independence Faction";
+    float discontent = 0.f;
+    std::vector<std::string> memberCounties;
 };
 
 struct MapArmy {
@@ -150,6 +158,7 @@ private:
     std::vector<MapArmy> mapArmies;
     int selectedArmyId = -1;
     std::vector<CouncilAssignment> councilAssignments;
+    FactionState independenceFaction;
     sf::FloatRect enforceBtnBounds;
     sf::FloatRect whitePeaceBtnBounds;
     sf::FloatRect surrenderBtnBounds;
@@ -198,6 +207,12 @@ public:
     static void assignCouncilMission(sim::CouncilRole role, CouncilMissionType mission, const std::string& county);
     static const std::vector<CouncilAssignment>& getAllCouncilAssignments();
     static const CouncilAssignment* getCouncilAssignment(sim::CouncilRole role);
+
+    static void swayVassal(const std::string& county, int delta);
+    static int getVassalOpinion(const std::string& county);
+    static bool isCountyInFaction(const std::string& county);
+    static void triggerCivilWar(const std::string& county);
+    static const FactionState& getFactionState();
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

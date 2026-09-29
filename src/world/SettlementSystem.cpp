@@ -63,6 +63,55 @@ const CouncilAssignment* SettlementSystem::getCouncilAssignment(sim::CouncilRole
     return nullptr;
 }
 
+void SettlementSystem::swayVassal(const std::string& county, int delta) {
+    if (!s_instance) return;
+    for (auto& c : s_instance->counties) {
+        if (c.countyName == county) {
+            c.vassalOpinion = std::clamp(c.vassalOpinion + delta, -100, 100);
+            if (c.vassalOpinion >= 0) {
+                c.inFaction = false;
+            }
+            break;
+        }
+    }
+}
+
+int SettlementSystem::getVassalOpinion(const std::string& county) {
+    if (!s_instance) return 0;
+    for (const auto& c : s_instance->counties) {
+        if (c.countyName == county) return c.vassalOpinion;
+    }
+    return 0;
+}
+
+bool SettlementSystem::isCountyInFaction(const std::string& county) {
+    if (!s_instance) return false;
+    for (const auto& c : s_instance->counties) {
+        if (c.countyName == county) return c.inFaction;
+    }
+    return false;
+}
+
+void SettlementSystem::triggerCivilWar(const std::string& county) {
+    if (!s_instance) return;
+    for (auto& c : s_instance->counties) {
+        if (c.countyName == county) {
+            c.kingdomName = "Rebels";
+            c.inFaction = false;
+            break;
+        }
+    }
+    spawnArmy(county, "Rebels", 24);
+    startWar(county, "Wessex", "Rebels", "Crush Independence Revolt");
+    s_instance->independenceFaction.discontent = 0.f;
+}
+
+const FactionState& SettlementSystem::getFactionState() {
+    static const FactionState empty;
+    if (!s_instance) return empty;
+    return s_instance->independenceFaction;
+}
+
 void SettlementSystem::spawnArmy(const std::string& county, const std::string& kingdom, int strength) {
     if (!s_instance) return;
 
@@ -118,8 +167,18 @@ void SettlementSystem::annexCounty(const std::string& county, const std::string&
         s_instance->mapArmies.end()
     );
 
+    for (auto& c : s_instance->counties) {
+        if (c.countyName == county) {
+            c.vassalOpinion = 25;
+            c.inFaction = false;
+            break;
+        }
+    }
+
     getPlayerClaims().erase(county);
-    s_instance->kingdomTruces[enemyK] = 5;
+    if (enemyK != "Rebels") {
+        s_instance->kingdomTruces[enemyK] = 5;
+    }
     s_instance->activeWar.active = false;
     s_instance->peaceModalOpen = false;
 }
@@ -246,6 +305,14 @@ void SettlementSystem::buildOrganicCounties() {
     addCounty(15, "Meath", "Dublin", "Dublin", "Ireland", "Ireland", {
         {230.f, 335.f}, {270.f, 325.f}, {285.f, 360.f}, {275.f, 415.f}, {250.f, 475.f}, {205.f, 485.f}, {180.f, 430.f}, {195.f, 360.f}
     });
+
+    for (auto& c : counties) {
+        if (c.countyName == "Hampshire") c.vassalOpinion = 65;
+        else if (c.countyName == "Wight") c.vassalOpinion = 40;
+        else if (c.countyName == "Berkshire") c.vassalOpinion = -18;
+        else if (c.countyName == "Middlesex") c.vassalOpinion = -25;
+        else c.vassalOpinion = 15;
+    }
 }
 
 void SettlementSystem::buildAuthenticMapGeometry() {
@@ -945,6 +1012,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
     window.setView(letterboxView);
 
     auto getKingdomBaseColor = [&](const std::string& kName) -> sf::Color {
+        if (kName.find("Rebels") != std::string::npos) return sf::Color(150, 25, 30);
         if (kName.find("Wessex") != std::string::npos) return sf::Color(185, 55, 65);
         if (kName.find("Mercia") != std::string::npos) return sf::Color(205, 115, 65);
         if (kName.find("Northumbria") != std::string::npos) return sf::Color(155, 65, 95);
@@ -1061,10 +1129,13 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         } else if (currentLens == MapLens::DeJure) {
             fillCol = getKingdomBaseColor(c.deJureKingdom);
         } else if (currentLens == MapLens::Vassals) {
-            int pseudoOpinion = ((static_cast<int>(c.countyId) * 37) % 70) - 20;
-            if (pseudoOpinion >= 25) fillCol = sf::Color(70, 165, 70);
-            else if (pseudoOpinion >= 0) fillCol = sf::Color(200, 170, 55);
-            else fillCol = sf::Color(190, 55, 45);
+            if (c.kingdomName == "Wessex") {
+                if (c.vassalOpinion >= 25) fillCol = sf::Color(65, 170, 65);
+                else if (c.vassalOpinion >= 0) fillCol = sf::Color(215, 175, 55);
+                else fillCol = sf::Color(210, 45, 40);
+            } else {
+                fillCol = sf::Color(135, 130, 120);
+            }
         } else if (currentLens == MapLens::Diplomacy) {
             if (c.kingdomName.find("Wessex") != std::string::npos) fillCol = sf::Color(55, 125, 215);
             else if (c.kingdomName.find("Cornwall") != std::string::npos) fillCol = sf::Color(45, 185, 220);
@@ -1344,6 +1415,35 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             sName.setOrigin(sb.left + sb.width * 0.5f, sb.top + sb.height * 0.5f);
             sName.setPosition(c.center.x, c.center.y + 7.f);
             mapCanvas.draw(sName);
+
+            if (currentLens == MapLens::Vassals && c.kingdomName == "Wessex") {
+                std::string opStr = (c.vassalOpinion >= 0 ? "+" : "") + std::to_string(c.vassalOpinion);
+                sf::Text opTxt(opStr, font, 9);
+                opTxt.setStyle(sf::Text::Bold);
+                opTxt.setFillColor(c.vassalOpinion >= 0 ? sf::Color(255, 245, 180) : sf::Color(255, 210, 210));
+                sf::FloatRect ob = opTxt.getLocalBounds();
+                opTxt.setOrigin(ob.left + ob.width * 0.5f, ob.top + ob.height * 0.5f);
+                opTxt.setPosition(c.center.x, c.center.y + 20.f);
+                mapCanvas.draw(opTxt);
+
+                if (c.inFaction) {
+                    sf::RectangleShape fBadge(sf::Vector2f(66.f, 13.f));
+                    fBadge.setOrigin(33.f, 6.5f);
+                    fBadge.setPosition(c.center.x, c.center.y - 19.f);
+                    fBadge.setFillColor(sf::Color(145, 20, 15, 240));
+                    fBadge.setOutlineColor(sf::Color(255, 225, 120));
+                    fBadge.setOutlineThickness(1.f);
+                    mapCanvas.draw(fBadge);
+
+                    sf::Text fbTxt("FACTION", font, 7);
+                    fbTxt.setStyle(sf::Text::Bold);
+                    fbTxt.setFillColor(sf::Color::White);
+                    sf::FloatRect ftb = fbTxt.getLocalBounds();
+                    fbTxt.setOrigin(ftb.left + ftb.width * 0.5f, ftb.top + ftb.height * 0.5f);
+                    fbTxt.setPosition(fBadge.getPosition());
+                    mapCanvas.draw(fbTxt);
+                }
+            }
         }
     }
 
@@ -1409,7 +1509,29 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         }
     }
 
-    for (const auto& ca : councilAssignments) {
+    independenceFaction.memberCounties.clear();
+    for (auto& c : counties) {
+        if (c.kingdomName == "Wessex") {
+            if (c.vassalOpinion < 0) {
+                c.inFaction = true;
+                independenceFaction.memberCounties.push_back(c.countyName);
+            } else {
+                c.inFaction = false;
+            }
+        }
+    }
+
+    if (!independenceFaction.memberCounties.empty() && !activeWar.active) {
+        independenceFaction.discontent = std::min(100.f, independenceFaction.discontent + dt * 2.8f);
+        if (independenceFaction.discontent >= 100.f) {
+            std::string rebelCounty = independenceFaction.memberCounties.front();
+            triggerCivilWar(rebelCounty);
+        }
+    } else {
+        independenceFaction.discontent = std::max(0.f, independenceFaction.discontent - dt * 4.0f);
+    }
+
+    for (auto& ca : councilAssignments) {
         if (ca.mission == CouncilMissionType::None) continue;
         sf::Vector2f cPos(0.f, 0.f);
         for (const auto& c : counties) {
@@ -1596,6 +1718,34 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             tabTxt.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
             tabTxt.setPosition(tx + tabW * 0.5f, tabY + tabH * 0.5f);
             window.draw(tabTxt);
+        }
+
+        if (!independenceFaction.memberCounties.empty() && !activeWar.active) {
+            float fPulse = 0.5f + 0.5f * std::sin(pulseTime * 7.f);
+            bool isCritical = (independenceFaction.discontent >= 75.f);
+
+            sf::RectangleShape fBanner(sf::Vector2f(500.f, 24.f));
+            fBanner.setPosition(390.f, 112.f);
+            fBanner.setFillColor(sf::Color(24, 14, 12, uiAlpha));
+            fBanner.setOutlineColor(isCritical ? sf::Color(245, 55, 45, static_cast<sf::Uint8>(180 + fPulse * 75))
+                                               : sf::Color(220, 160, 50, uiAlpha));
+            fBanner.setOutlineThickness(1.2f);
+            window.draw(fBanner);
+
+            std::string membersStr = "";
+            for (size_t m = 0; m < independenceFaction.memberCounties.size(); ++m) {
+                if (m > 0) membersStr += ", ";
+                membersStr += independenceFaction.memberCounties[m];
+            }
+
+            std::string fText = "FACTION THREAT: Independence (" + std::to_string(static_cast<int>(independenceFaction.discontent)) + "%) | Disloyal: " + membersStr;
+            sf::Text fWarn(fText, font, 9);
+            fWarn.setStyle(sf::Text::Bold);
+            fWarn.setFillColor(isCritical ? sf::Color(255, 205, 185, uiAlpha) : sf::Color(255, 230, 165, uiAlpha));
+            sf::FloatRect fwb = fWarn.getLocalBounds();
+            fWarn.setOrigin(fwb.left + fwb.width * 0.5f, fwb.top + fwb.height * 0.5f);
+            fWarn.setPosition(640.f, 124.f);
+            window.draw(fWarn);
         }
 
         sf::RectangleShape footerRibbon(sf::Vector2f(1012.f, 26.f));

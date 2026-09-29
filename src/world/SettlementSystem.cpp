@@ -112,13 +112,37 @@ const FactionState& SettlementSystem::getFactionState() {
     return s_instance->independenceFaction;
 }
 
+int SettlementSystem::getCountySupplyLimit(const std::string& county) {
+    if (!s_instance) return 30;
+    for (const auto& c : s_instance->counties) {
+        if (c.countyName == county) return c.supplyLimit;
+    }
+    return 30;
+}
+
+int SettlementSystem::getCountyTroops(const std::string& county) {
+    if (!s_instance) return 0;
+    int sum = 0;
+    for (const auto& a : s_instance->mapArmies) {
+        if (a.currentCounty == county) sum += a.strength;
+    }
+    return sum;
+}
+
 void SettlementSystem::spawnArmy(const std::string& county, const std::string& kingdom, int strength) {
     if (!s_instance) return;
+
+    for (auto& a : s_instance->mapArmies) {
+        if (a.currentCounty == county && a.ownerKingdom == kingdom) {
+            a.strength += strength;
+            return;
+        }
+    }
 
     sf::Vector2f spawnPos(440.f, 525.f);
     for (const auto& c : s_instance->counties) {
         if (c.countyName == county) {
-            spawnPos = c.center;
+            spawnPos = c.center + sf::Vector2f(20.f, -12.f);
             break;
         }
     }
@@ -133,9 +157,34 @@ void SettlementSystem::spawnArmy(const std::string& county, const std::string& k
     army.currentCounty = county;
     army.targetCounty = county;
     army.isMoving = false;
+    army.supply = 100.f;
 
     s_instance->mapArmies.push_back(army);
     s_instance->selectedArmyId = static_cast<int>(army.id);
+}
+
+void SettlementSystem::disbandArmyInCounty(const std::string& county, const std::string& kingdom) {
+    if (!s_instance) return;
+    for (auto it = s_instance->mapArmies.begin(); it != s_instance->mapArmies.end();) {
+        if (it->currentCounty == county && it->ownerKingdom == kingdom) {
+            if (s_instance->selectedArmyId == static_cast<int>(it->id)) {
+                s_instance->selectedArmyId = -1;
+            }
+            it = s_instance->mapArmies.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
+
+bool SettlementSystem::hasArmyInCounty(const std::string& county, const std::string& kingdom) {
+    if (!s_instance) return false;
+    for (const auto& a : s_instance->mapArmies) {
+        if (a.currentCounty == county && a.ownerKingdom == kingdom) {
+            return true;
+        }
+    }
+    return false;
 }
 
 void SettlementSystem::annexCounty(const std::string& county, const std::string& newKingdom) {
@@ -307,11 +356,18 @@ void SettlementSystem::buildOrganicCounties() {
     });
 
     for (auto& c : counties) {
-        if (c.countyName == "Hampshire") c.vassalOpinion = 65;
-        else if (c.countyName == "Wight") c.vassalOpinion = 40;
-        else if (c.countyName == "Berkshire") c.vassalOpinion = -18;
-        else if (c.countyName == "Middlesex") c.vassalOpinion = -25;
-        else c.vassalOpinion = 15;
+        if (c.countyName == "Hampshire") { c.vassalOpinion = 65; c.supplyLimit = 45; }
+        else if (c.countyName == "Middlesex") { c.vassalOpinion = -25; c.supplyLimit = 40; }
+        else if (c.countyName == "Wight") { c.vassalOpinion = 40; c.supplyLimit = 25; }
+        else if (c.countyName == "Berkshire") { c.vassalOpinion = -18; c.supplyLimit = 30; }
+        else if (c.countyName == "Norfolk") { c.vassalOpinion = 15; c.supplyLimit = 35; }
+        else if (c.countyName == "Yorkshire") { c.vassalOpinion = 15; c.supplyLimit = 38; }
+        else if (c.countyName == "Chester") { c.vassalOpinion = 15; c.supplyLimit = 24; }
+        else if (c.countyName == "Bamburgh") { c.vassalOpinion = 15; c.supplyLimit = 18; }
+        else if (c.countyName == "Cornwall") { c.vassalOpinion = 15; c.supplyLimit = 22; }
+        else if (c.countyName == "Lothian") { c.vassalOpinion = 15; c.supplyLimit = 24; }
+        else if (c.countyName == "Gowrie") { c.vassalOpinion = 15; c.supplyLimit = 20; }
+        else { c.vassalOpinion = 15; c.supplyLimit = 28; }
     }
 }
 
@@ -536,6 +592,55 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
         }
     }
 
+    std::unordered_map<std::string, int> countyTroopCounts;
+    for (const auto& a : mapArmies) {
+        if (!a.currentCounty.empty()) {
+            countyTroopCounts[a.currentCounty] += a.strength;
+        }
+    }
+
+    for (auto& a : mapArmies) {
+        if (a.isMoving) continue;
+        int limit = 30;
+        bool isHostileUnoccupied = false;
+        for (const auto& c : counties) {
+            if (c.countyName == a.currentCounty) {
+                limit = c.supplyLimit;
+                if (activeWar.active && a.ownerKingdom == activeWar.attackerKingdom &&
+                    (c.kingdomName == activeWar.enemyKingdom || c.countyName == activeWar.targetCounty) &&
+                    !c.isOccupied) {
+                    isHostileUnoccupied = true;
+                    limit = static_cast<int>(static_cast<float>(limit) * 0.55f);
+                }
+                break;
+            }
+        }
+
+        int presentTroops = countyTroopCounts[a.currentCounty];
+        bool overLimit = (presentTroops > limit);
+
+        if (overLimit) {
+            a.supply = std::max(0.f, a.supply - dt * 12.f);
+        } else if (isHostileUnoccupied) {
+            a.supply = std::max(0.f, a.supply - dt * 3.5f);
+        } else {
+            a.supply = std::min(100.f, a.supply + dt * 8.f);
+        }
+
+        if (a.supply <= 0.f || overLimit) {
+            a.sufferingAttrition = true;
+            a.attritionTimer += dt;
+            if (a.attritionTimer >= 1.5f) {
+                a.attritionTimer = 0.f;
+                int loss = std::max(1, static_cast<int>(static_cast<float>(a.strength) * 0.05f));
+                a.strength = std::max(1, a.strength - loss);
+            }
+        } else {
+            a.sufferingAttrition = false;
+            a.attritionTimer = 0.f;
+        }
+    }
+
     for (size_t i = 0; i < mapArmies.size(); ++i) {
         mapArmies[i].inCombat = false;
     }
@@ -653,6 +758,55 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
         bannerTimer += dt;
         if (bannerTimer >= 5.2f) {
             showBanner = false;
+        }
+    }
+
+    independenceFaction.memberCounties.clear();
+    for (auto& c : counties) {
+        if (c.kingdomName == "Wessex") {
+            if (c.vassalOpinion < 0) {
+                c.inFaction = true;
+                independenceFaction.memberCounties.push_back(c.countyName);
+            } else {
+                c.inFaction = false;
+            }
+        }
+    }
+
+    if (!independenceFaction.memberCounties.empty() && !activeWar.active) {
+        independenceFaction.discontent = std::min(100.f, independenceFaction.discontent + dt * 2.8f);
+        if (independenceFaction.discontent >= 100.f) {
+            std::string rebelCounty = independenceFaction.memberCounties.front();
+            triggerCivilWar(rebelCounty);
+        }
+    } else {
+        independenceFaction.discontent = std::max(0.f, independenceFaction.discontent - dt * 4.0f);
+    }
+
+    for (auto& ca : councilAssignments) {
+        if (ca.mission == CouncilMissionType::FabricateClaim) {
+            ca.progress = std::min(ca.maxProgress, ca.progress + dt * 6.5f);
+            if (ca.progress >= ca.maxProgress) {
+                getPlayerClaims().insert(ca.targetCounty);
+                ca.mission = CouncilMissionType::None;
+            }
+        } else if (ca.mission == CouncilMissionType::TrainLevies) {
+            ca.progress = std::min(ca.maxProgress, ca.progress + dt * 4.f);
+        } else if (ca.mission == CouncilMissionType::DevelopCounty) {
+            ca.progress += dt * 3.5f;
+            if (ca.progress >= ca.maxProgress) {
+                ca.progress = 0.f;
+                for (auto& v : realSettlements) {
+                    if (v.countyName == ca.targetCounty) {
+                        sim::VillageData* vd = registry.getVillage(v.villageId);
+                        if (vd) {
+                            vd->food += 30;
+                            vd->wood += 20;
+                        }
+                        break;
+                    }
+                }
+            }
         }
     }
 }
@@ -949,7 +1103,7 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
                     if (pointInPolygon(counties[i].points, worldClick)) {
                         for (auto& a : mapArmies) {
                             if (static_cast<int>(a.id) == selectedArmyId) {
-                                a.targetPos = counties[i].center;
+                                a.targetPos = counties[i].center + sf::Vector2f(20.f, -12.f);
                                 a.targetCounty = counties[i].countyName;
                                 a.isMoving = true;
                                 break;
@@ -1447,90 +1601,6 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         }
     }
 
-    for (const auto& a : mapArmies) {
-        if (a.isMoving) {
-            sf::Vertex path[] = {
-                sf::Vertex(a.pos, sf::Color(255, 220, 100, 180)),
-                sf::Vertex(a.targetPos, sf::Color(255, 220, 100, 60))
-            };
-            mapCanvas.draw(path, 2, sf::Lines);
-        }
-
-        bool isSel = (static_cast<int>(a.id) == selectedArmyId);
-
-        sf::CircleShape banner(12.f);
-        banner.setOrigin(12.f, 12.f);
-        banner.setPosition(a.pos);
-        banner.setFillColor(getKingdomBaseColor(a.ownerKingdom));
-        banner.setOutlineColor(isSel ? sf::Color(255, 230, 80) : sf::Color(30, 20, 14));
-        banner.setOutlineThickness(isSel ? 2.5f : 1.5f);
-        mapCanvas.draw(banner);
-
-        sf::Text aStrength(std::to_string(a.strength), font, 9);
-        aStrength.setStyle(sf::Text::Bold);
-        aStrength.setFillColor(sf::Color::White);
-        sf::FloatRect sb = aStrength.getLocalBounds();
-        aStrength.setOrigin(sb.left + sb.width * 0.5f, sb.top + sb.height * 0.5f);
-        aStrength.setPosition(a.pos.x, a.pos.y - 1.f);
-        mapCanvas.draw(aStrength);
-
-        if (isSel) {
-            sf::Text selPrompt("SELECTED", font, 7);
-            selPrompt.setStyle(sf::Text::Bold);
-            selPrompt.setFillColor(sf::Color(255, 225, 100));
-            sf::FloatRect spb = selPrompt.getLocalBounds();
-            selPrompt.setOrigin(spb.left + spb.width * 0.5f, spb.top + spb.height * 0.5f);
-            selPrompt.setPosition(a.pos.x, a.pos.y - 16.f);
-            mapCanvas.draw(selPrompt);
-        }
-
-        if (a.inCombat) {
-            float p = 0.5f + 0.5f * std::sin(pulseTime * 14.f);
-            sf::Color swCol(255, static_cast<sf::Uint8>(60 + p * 150), 40);
-
-            sf::Vertex sw1[] = {
-                sf::Vertex(sf::Vector2f(a.pos.x - 9.f, a.pos.y - 20.f), swCol),
-                sf::Vertex(sf::Vector2f(a.pos.x + 9.f, a.pos.y - 36.f), swCol)
-            };
-            sf::Vertex sw2[] = {
-                sf::Vertex(sf::Vector2f(a.pos.x + 9.f, a.pos.y - 20.f), swCol),
-                sf::Vertex(sf::Vector2f(a.pos.x - 9.f, a.pos.y - 36.f), swCol)
-            };
-            mapCanvas.draw(sw1, 2, sf::Lines);
-            mapCanvas.draw(sw2, 2, sf::Lines);
-
-            sf::Text clTxt("BATTLE", font, 8);
-            clTxt.setStyle(sf::Text::Bold);
-            clTxt.setFillColor(sf::Color(255, 235, 120));
-            sf::FloatRect cb = clTxt.getLocalBounds();
-            clTxt.setOrigin(cb.left + cb.width * 0.5f, cb.top + cb.height * 0.5f);
-            clTxt.setPosition(a.pos.x, a.pos.y - 42.f);
-            mapCanvas.draw(clTxt);
-        }
-    }
-
-    independenceFaction.memberCounties.clear();
-    for (auto& c : counties) {
-        if (c.kingdomName == "Wessex") {
-            if (c.vassalOpinion < 0) {
-                c.inFaction = true;
-                independenceFaction.memberCounties.push_back(c.countyName);
-            } else {
-                c.inFaction = false;
-            }
-        }
-    }
-
-    if (!independenceFaction.memberCounties.empty() && !activeWar.active) {
-        independenceFaction.discontent = std::min(100.f, independenceFaction.discontent + dt * 2.8f);
-        if (independenceFaction.discontent >= 100.f) {
-            std::string rebelCounty = independenceFaction.memberCounties.front();
-            triggerCivilWar(rebelCounty);
-        }
-    } else {
-        independenceFaction.discontent = std::max(0.f, independenceFaction.discontent - dt * 4.0f);
-    }
-
     for (auto& ca : councilAssignments) {
         if (ca.mission == CouncilMissionType::None) continue;
         sf::Vector2f cPos(0.f, 0.f);
@@ -1614,6 +1684,105 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
     youTxt.setOrigin(yb.left + yb.width * 0.5f, yb.top + yb.height);
     youTxt.setPosition(playerCoord.x, playerCoord.y - 8.f);
     mapCanvas.draw(youTxt);
+
+    for (const auto& a : mapArmies) {
+        if (a.isMoving) {
+            sf::Vertex path[] = {
+                sf::Vertex(a.pos, sf::Color(255, 220, 100, 190)),
+                sf::Vertex(a.targetPos, sf::Color(255, 220, 100, 70))
+            };
+            mapCanvas.draw(path, 2, sf::Lines);
+        }
+
+        bool isSel = (static_cast<int>(a.id) == selectedArmyId);
+
+        sf::RectangleShape banner(sf::Vector2f(28.f, 18.f));
+        banner.setOrigin(14.f, 9.f);
+        banner.setPosition(a.pos);
+        banner.setFillColor(getKingdomBaseColor(a.ownerKingdom));
+        banner.setOutlineColor(isSel ? sf::Color(255, 230, 80) : sf::Color(25, 15, 10));
+        banner.setOutlineThickness(isSel ? 2.5f : 1.5f);
+        mapCanvas.draw(banner);
+
+        sf::RectangleShape pole(sf::Vector2f(2.f, 24.f));
+        pole.setPosition(a.pos.x - 14.f, a.pos.y - 9.f);
+        pole.setFillColor(sf::Color(235, 215, 160));
+        mapCanvas.draw(pole);
+
+        sf::Text aStrength(std::to_string(a.strength), font, 10);
+        aStrength.setStyle(sf::Text::Bold);
+        aStrength.setFillColor(sf::Color::White);
+        sf::FloatRect sb = aStrength.getLocalBounds();
+        aStrength.setOrigin(sb.left + sb.width * 0.5f, sb.top + sb.height * 0.5f);
+        aStrength.setPosition(a.pos.x + 1.f, a.pos.y - 1.f);
+        mapCanvas.draw(aStrength);
+
+        if (isSel) {
+            sf::Text selPrompt("SELECTED", font, 8);
+            selPrompt.setStyle(sf::Text::Bold);
+            selPrompt.setFillColor(sf::Color(255, 230, 90));
+            sf::FloatRect spb = selPrompt.getLocalBounds();
+            selPrompt.setOrigin(spb.left + spb.width * 0.5f, spb.top + spb.height * 0.5f);
+            selPrompt.setPosition(a.pos.x, a.pos.y - 16.f);
+            mapCanvas.draw(selPrompt);
+        }
+
+        float sBarW = 24.f;
+        float sBarH = 3.f;
+        sf::RectangleShape supBg(sf::Vector2f(sBarW, sBarH));
+        supBg.setOrigin(sBarW * 0.5f, 0.f);
+        supBg.setPosition(a.pos.x, a.pos.y + 11.f);
+        supBg.setFillColor(sf::Color(18, 12, 10, 220));
+        supBg.setOutlineColor(sf::Color(65, 50, 38));
+        supBg.setOutlineThickness(0.6f);
+        mapCanvas.draw(supBg);
+
+        float fillW = sBarW * (a.supply / 100.f);
+        if (fillW > 0.f) {
+            sf::RectangleShape supFill(sf::Vector2f(fillW, sBarH));
+            supFill.setOrigin(sBarW * 0.5f, 0.f);
+            supFill.setPosition(a.pos.x, a.pos.y + 11.f);
+            sf::Color sCol = (a.supply > 55.f) ? sf::Color(85, 205, 85)
+                           : ((a.supply > 25.f) ? sf::Color(225, 185, 45) : sf::Color(235, 50, 40));
+            supFill.setFillColor(sCol);
+            mapCanvas.draw(supFill);
+        }
+
+        if (a.sufferingAttrition) {
+            float p = 0.5f + 0.5f * std::sin(pulseTime * 9.f);
+            sf::Text attTxt("ATTRITION", font, 7);
+            attTxt.setStyle(sf::Text::Bold);
+            attTxt.setFillColor(sf::Color(255, 60, 50, static_cast<sf::Uint8>(180 + p * 75)));
+            sf::FloatRect atb = attTxt.getLocalBounds();
+            attTxt.setOrigin(atb.left + atb.width * 0.5f, atb.top + atb.height * 0.5f);
+            attTxt.setPosition(a.pos.x, a.pos.y + 18.f);
+            mapCanvas.draw(attTxt);
+        }
+
+        if (a.inCombat) {
+            float p = 0.5f + 0.5f * std::sin(pulseTime * 14.f);
+            sf::Color swCol(255, static_cast<sf::Uint8>(60 + p * 150), 40);
+
+            sf::Vertex sw1[] = {
+                sf::Vertex(sf::Vector2f(a.pos.x - 9.f, a.pos.y - 20.f), swCol),
+                sf::Vertex(sf::Vector2f(a.pos.x + 9.f, a.pos.y - 36.f), swCol)
+            };
+            sf::Vertex sw2[] = {
+                sf::Vertex(sf::Vector2f(a.pos.x + 9.f, a.pos.y - 20.f), swCol),
+                sf::Vertex(sf::Vector2f(a.pos.x - 9.f, a.pos.y - 36.f), swCol)
+            };
+            mapCanvas.draw(sw1, 2, sf::Lines);
+            mapCanvas.draw(sw2, 2, sf::Lines);
+
+            sf::Text clTxt("BATTLE", font, 8);
+            clTxt.setStyle(sf::Text::Bold);
+            clTxt.setFillColor(sf::Color(255, 235, 120));
+            sf::FloatRect cb = clTxt.getLocalBounds();
+            clTxt.setOrigin(cb.left + cb.width * 0.5f, cb.top + cb.height * 0.5f);
+            clTxt.setPosition(a.pos.x, a.pos.y - 42.f);
+            mapCanvas.draw(clTxt);
+        }
+    }
 
     mapCanvas.display();
 

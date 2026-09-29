@@ -30,6 +30,7 @@ struct CountyDef {
     std::string occupierKingdom;
     int vassalOpinion = 20;
     bool inFaction = false;
+    int supplyLimit = 30;
 };
 
 struct FactionState {
@@ -49,6 +50,9 @@ struct MapArmy {
     bool isMoving = false;
     bool inCombat = false;
     float combatTimer = 0.f;
+    float supply = 100.f;
+    float attritionTimer = 0.f;
+    bool sufferingAttrition = false;
 };
 
 enum class CouncilMissionType {
@@ -204,6 +208,8 @@ public:
     static bool isAtWarWith(const std::string& kingdom);
     static bool hasTruceWith(const std::string& kingdom);
     static void spawnArmy(const std::string& county, const std::string& kingdom, int strength);
+    static void disbandArmyInCounty(const std::string& county, const std::string& kingdom);
+    static bool hasArmyInCounty(const std::string& county, const std::string& kingdom);
     static void assignCouncilMission(sim::CouncilRole role, CouncilMissionType mission, const std::string& county);
     static const std::vector<CouncilAssignment>& getAllCouncilAssignments();
     static const CouncilAssignment* getCouncilAssignment(sim::CouncilRole role);
@@ -213,6 +219,8 @@ public:
     static bool isCountyInFaction(const std::string& county);
     static void triggerCivilWar(const std::string& county);
     static const FactionState& getFactionState();
+    static int getCountySupplyLimit(const std::string& county);
+    static int getCountyTroops(const std::string& county);
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

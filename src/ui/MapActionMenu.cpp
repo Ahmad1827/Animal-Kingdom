@@ -51,6 +51,7 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
     sim::VillageData* targetVillage = reg.getVillage(targetSettlement.villageId);
 
     std::string playerKName = playerKingdom ? playerKingdom->name : "Wessex";
+    int curAmber = player ? player->amberCount : 0;
 
     bool isForeignOccupied = (targetSettlement.kingdomName == "East Anglia" ||
                               targetSettlement.kingdomName == "Mercia" ||
@@ -65,22 +66,40 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
                                               targetSettlement.kingdomName == playerKName);
 
     if (isSelfRealm) {
-        options.push_back({
-            "Muster Warband",
-            "Assemble defense levies at hearth",
-            "Free",
-            true,
-            sf::Color(245, 195, 65),
-            [this, &reg, playerKingdom, targetVillage, playerApeId, playerKName]() {
-                if (playerKingdom && targetVillage) {
-                    sim::WarfareManager::issueMusterOrder(reg, playerKingdom->id, targetVillage->id, playerApeId);
+        bool hasArmyHere = SettlementSystem::hasArmyInCounty(targetSettlement.countyName, playerKName);
+
+        if (!hasArmyHere) {
+            options.push_back({
+                "Muster Warband",
+                "Assemble defense levies at hearth",
+                "Free",
+                true,
+                sf::Color(245, 195, 65),
+                [this, &reg, playerKingdom, targetVillage, playerApeId, playerKName]() {
+                    if (playerKingdom && targetVillage) {
+                        sim::WarfareManager::issueMusterOrder(reg, playerKingdom->id, targetVillage->id, playerApeId);
+                    }
+                    SettlementSystem::spawnArmy(targetSettlement.countyName, playerKName, 25);
+                    statusMessage = "Warband Called to Arms!";
+                    statusColor = sf::Color(100, 240, 100);
+                    statusTimer = 2.5f;
                 }
-                SettlementSystem::spawnArmy(targetSettlement.countyName, playerKName, 25);
-                statusMessage = "Warband Called to Arms!";
-                statusColor = sf::Color(100, 240, 100);
-                statusTimer = 2.5f;
-            }
-        });
+            });
+        } else {
+            options.push_back({
+                "Disband Warband",
+                "Stand down levies and return to hearth",
+                "Disband",
+                true,
+                sf::Color(225, 110, 80),
+                [this, playerKName]() {
+                    SettlementSystem::disbandArmyInCounty(targetSettlement.countyName, playerKName);
+                    statusMessage = "Warband Disbanded";
+                    statusColor = sf::Color(240, 150, 100);
+                    statusTimer = 2.5f;
+                }
+            });
+        }
 
         options.push_back({
             "Distribute Rations",
@@ -103,8 +122,9 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
         bool inFaction = SettlementSystem::isCountyInFaction(targetSettlement.countyName);
 
         std::string swayCost = (curAmber >= 20) ? "-20 Amber" : "Need 20 Amber";
+        std::string swayTitle = std::string("Sway Chieftain (") + (vOpinion >= 0 ? "+" : "") + std::to_string(vOpinion) + ")";
         options.push_back({
-            "Sway Chieftain (" + (vOpinion >= 0 ? "+" : "") + std::to_string(vOpinion) + ")",
+            swayTitle,
             inFaction ? "Bribe chieftain to abandon rebel faction" : "Send diplomatic gifts to ensure loyalty",
             swayCost,
             (curAmber >= 20),
@@ -176,8 +196,6 @@ bool alreadyAtWar = SettlementSystem::isAtWarWith(targetSettlement.kingdomName);
     if (!alreadyAtWar && playerKingdom && targetKingdom && playerKingdom->relations.count(targetKingdom->id)) {
         alreadyAtWar = (playerKingdom->relations[targetKingdom->id] == sim::DiplomacyStatus::War);
     }
-
-    int curAmber = player ? player->amberCount : 0;
 
     bool hasDeJureClaim = (!targetSettlement.deJureKingdom.empty() &&
                           (targetSettlement.deJureKingdom == playerKName ||
@@ -452,7 +470,9 @@ void MapActionMenu::draw(sf::RenderWindow& window) {
     titleText.setPosition(position.x + 8.f, position.y + 7.f);
     window.draw(titleText);
 
-    std::string subTitle = isKingdomLevel ? "Realm" : targetSettlement.historicalName;
+    int sLimit = SettlementSystem::getCountySupplyLimit(targetSettlement.countyName);
+    int curTroops = SettlementSystem::getCountyTroops(targetSettlement.countyName);
+    std::string subTitle = isKingdomLevel ? "Realm" : ("Supply: " + std::to_string(curTroops) + "/" + std::to_string(sLimit));
     sf::Text realmSub(subTitle, *font, 9);
     realmSub.setFillColor(sf::Color(190, 175, 145));
     sf::FloatRect rsb = realmSub.getLocalBounds();

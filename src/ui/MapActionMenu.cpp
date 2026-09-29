@@ -516,12 +516,14 @@ void MapActionMenu::draw(sf::RenderWindow& window) {
         optTitle.setPosition(ob.left + 8.f, ob.top + 4.f);
         window.draw(optTitle);
 
-        sf::Text optCost(opt.costText, *font, 9);
-        optCost.setStyle(sf::Text::Bold);
-        optCost.setFillColor(opt.isEnabled ? opt.accentColor : sf::Color(115, 100, 95));
-        sf::FloatRect ocb = optCost.getLocalBounds();
-        optCost.setPosition(ob.left + ob.width - ocb.width - 6.f, ob.top + 5.f);
-        window.draw(optCost);
+        if (isHov) {
+            sf::Text optCost(opt.costText, *font, 9);
+            optCost.setStyle(sf::Text::Bold);
+            optCost.setFillColor(opt.isEnabled ? opt.accentColor : sf::Color(115, 100, 95));
+            sf::FloatRect ocb = optCost.getLocalBounds();
+            optCost.setPosition(ob.left + ob.width - ocb.width - 6.f, ob.top + 5.f);
+            window.draw(optCost);
+        }
 
         sf::Text optSub(opt.subtitle, *font, 9);
         optSub.setStyle(sf::Text::Italic);

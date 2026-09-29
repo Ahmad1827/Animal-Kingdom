@@ -31,6 +31,38 @@ void SettlementSystem::startWar(const std::string& county, const std::string& at
 
     spawnArmy(musterCounty, enemy, 22);
 }
+void SettlementSystem::assignCouncilMission(sim::CouncilRole role, CouncilMissionType mission, const std::string& county) {
+    if (!s_instance) return;
+    for (auto& a : s_instance->councilAssignments) {
+        if (a.role == role) {
+            a.mission = mission;
+            a.targetCounty = county;
+            a.progress = 0.f;
+            return;
+        }
+    }
+    CouncilAssignment a;
+    a.role = role;
+    a.mission = mission;
+    a.targetCounty = county;
+    a.progress = 0.f;
+    s_instance->councilAssignments.push_back(a);
+}
+
+const std::vector<CouncilAssignment>& SettlementSystem::getAllCouncilAssignments() {
+    static const std::vector<CouncilAssignment> empty;
+    if (!s_instance) return empty;
+    return s_instance->councilAssignments;
+}
+
+const CouncilAssignment* SettlementSystem::getCouncilAssignment(sim::CouncilRole role) {
+    if (!s_instance) return nullptr;
+    for (const auto& a : s_instance->councilAssignments) {
+        if (a.role == role) return &a;
+    }
+    return nullptr;
+}
+
 void SettlementSystem::spawnArmy(const std::string& county, const std::string& kingdom, int strength) {
     if (!s_instance) return;
 
@@ -1374,6 +1406,63 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             clTxt.setOrigin(cb.left + cb.width * 0.5f, cb.top + cb.height * 0.5f);
             clTxt.setPosition(a.pos.x, a.pos.y - 42.f);
             mapCanvas.draw(clTxt);
+        }
+    }
+
+    for (const auto& ca : councilAssignments) {
+        if (ca.mission == CouncilMissionType::None) continue;
+        sf::Vector2f cPos(0.f, 0.f);
+        for (const auto& c : counties) {
+            if (c.countyName == ca.targetCounty) {
+                cPos = c.center + sf::Vector2f(-22.f, -14.f);
+                break;
+            }
+        }
+        if (cPos.x == 0.f && cPos.y == 0.f) continue;
+
+        sf::Color pinCol = sf::Color(160, 110, 220);
+        std::string badgeLetter = "S";
+        if (ca.role == sim::CouncilRole::WarChief) {
+            pinCol = sf::Color(220, 65, 55);
+            badgeLetter = "W";
+        } else if (ca.role == sim::CouncilRole::ChiefBuilder) {
+            pinCol = sf::Color(70, 175, 95);
+            badgeLetter = "B";
+        }
+
+        sf::CircleShape pin(9.f);
+        pin.setOrigin(9.f, 9.f);
+        pin.setPosition(cPos);
+        pin.setFillColor(pinCol);
+        pin.setOutlineColor(sf::Color(255, 235, 170));
+        pin.setOutlineThickness(1.2f);
+        mapCanvas.draw(pin);
+
+        sf::Text bTxt(badgeLetter, font, 9);
+        bTxt.setStyle(sf::Text::Bold);
+        bTxt.setFillColor(sf::Color::White);
+        sf::FloatRect btb = bTxt.getLocalBounds();
+        bTxt.setOrigin(btb.left + btb.width * 0.5f, btb.top + btb.height * 0.5f);
+        bTxt.setPosition(cPos.x, cPos.y - 1.f);
+        mapCanvas.draw(bTxt);
+
+        if (ca.mission == CouncilMissionType::FabricateClaim) {
+            float pW = 28.f;
+            float pH = 4.f;
+            sf::RectangleShape pBg(sf::Vector2f(pW, pH));
+            pBg.setPosition(cPos.x - pW * 0.5f, cPos.y + 11.f);
+            pBg.setFillColor(sf::Color(16, 12, 10, 220));
+            pBg.setOutlineColor(sf::Color(65, 45, 35));
+            pBg.setOutlineThickness(0.8f);
+            mapCanvas.draw(pBg);
+
+            float fillW = pW * (ca.progress / ca.maxProgress);
+            if (fillW > 0.f) {
+                sf::RectangleShape pFill(sf::Vector2f(fillW, pH));
+                pFill.setPosition(cPos.x - pW * 0.5f, cPos.y + 11.f);
+                pFill.setFillColor(pinCol);
+                mapCanvas.draw(pFill);
+            }
         }
     }
 

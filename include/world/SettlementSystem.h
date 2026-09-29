@@ -43,6 +43,21 @@ struct MapArmy {
     float combatTimer = 0.f;
 };
 
+enum class CouncilMissionType {
+    None,
+    FabricateClaim,
+    TrainLevies,
+    DevelopCounty
+};
+
+struct CouncilAssignment {
+    sim::CouncilRole role = sim::CouncilRole::None;
+    CouncilMissionType mission = CouncilMissionType::None;
+    std::string targetCounty;
+    float progress = 0.f;
+    float maxProgress = 100.f;
+};
+
 struct RealSettlement {
     sim::VillageID villageId = 0;
     sim::KingdomID kingdomId = 0;
@@ -134,6 +149,7 @@ private:
     sf::FloatRect warBadgeBounds;
     std::vector<MapArmy> mapArmies;
     int selectedArmyId = -1;
+    std::vector<CouncilAssignment> councilAssignments;
     sf::FloatRect enforceBtnBounds;
     sf::FloatRect whitePeaceBtnBounds;
     sf::FloatRect surrenderBtnBounds;
@@ -179,6 +195,9 @@ public:
     static bool isAtWarWith(const std::string& kingdom);
     static bool hasTruceWith(const std::string& kingdom);
     static void spawnArmy(const std::string& county, const std::string& kingdom, int strength);
+    static void assignCouncilMission(sim::CouncilRole role, CouncilMissionType mission, const std::string& county);
+    static const std::vector<CouncilAssignment>& getAllCouncilAssignments();
+    static const CouncilAssignment* getCouncilAssignment(sim::CouncilRole role);
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

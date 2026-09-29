@@ -97,6 +97,40 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
                 }
             }
         });
+
+        const auto* warChiefTask = SettlementSystem::getCouncilAssignment(sim::CouncilRole::WarChief);
+        bool isDrillingHere = (warChiefTask && warChiefTask->mission == CouncilMissionType::TrainLevies && warChiefTask->targetCounty == targetSettlement.countyName);
+
+        options.push_back({
+            isDrillingHere ? "Drilling Levies (Active)" : "Task War Chief: Train Levies",
+            isDrillingHere ? "War Chief is actively drilling recruits" : "Station War Chief to fortify garrison",
+            isDrillingHere ? "Active" : "War Chief",
+            !isDrillingHere,
+            isDrillingHere ? sf::Color(120, 210, 120) : sf::Color(225, 80, 65),
+            [this]() {
+                SettlementSystem::assignCouncilMission(sim::CouncilRole::WarChief, CouncilMissionType::TrainLevies, targetSettlement.countyName);
+                statusMessage = "War Chief Stationed to Train Levies";
+                statusColor = sf::Color(235, 110, 85);
+                statusTimer = 2.5f;
+            }
+        });
+
+        const auto* builderTask = SettlementSystem::getCouncilAssignment(sim::CouncilRole::ChiefBuilder);
+        bool isBuildingHere = (builderTask && builderTask->mission == CouncilMissionType::DevelopCounty && builderTask->targetCounty == targetSettlement.countyName);
+
+        options.push_back({
+            isBuildingHere ? "Developing County (Active)" : "Task Builder: Develop County",
+            isBuildingHere ? "Chief Builder oversees local expansion" : "Station Builder to boost food & wood",
+            isBuildingHere ? "Active" : "Builder",
+            !isBuildingHere,
+            isBuildingHere ? sf::Color(120, 210, 120) : sf::Color(85, 185, 105),
+            [this]() {
+                SettlementSystem::assignCouncilMission(sim::CouncilRole::ChiefBuilder, CouncilMissionType::DevelopCounty, targetSettlement.countyName);
+                statusMessage = "Chief Builder Stationed to Develop County";
+                statusColor = sf::Color(95, 215, 115);
+                statusTimer = 2.5f;
+            }
+        });
         return;
     }
 
@@ -224,17 +258,30 @@ bool alreadyAtWar = SettlementSystem::isAtWarWith(targetSettlement.kingdomName);
             }
         });
         
+        const auto* shamanTask = SettlementSystem::getCouncilAssignment(sim::CouncilRole::Shaman);
+        bool isForgingHere = (shamanTask && shamanTask->mission == CouncilMissionType::FabricateClaim && shamanTask->targetCounty == targetSettlement.countyName);
+
+        std::string shamTitle = hasFabricatedClaim ? "Claim Fabricated"
+                              : (isForgingHere ? ("Shaman Forging Claim (" + std::to_string(static_cast<int>(shamanTask->progress)) + "%)")
+                                               : "Deploy Shaman: Fabricate Claim");
+        std::string shamDesc = hasFabricatedClaim ? "Ancestral rights firmly established"
+                             : (isForgingHere ? "Shaman researching ancient lineage records"
+                                              : "Send Shaman to forge legal Casus Belli");
+        std::string shamCost = hasFabricatedClaim ? "Claimed" : (isForgingHere ? "Active" : "-25 Amber");
+
+        bool canDeployShaman = (!hasFabricatedClaim && !hasDeJureClaim && !isForgingHere && curAmber >= 25);
+
         options.push_back({
-            hasFabricatedClaim ? "Claim Fabricated" : "Fabricate Claim",
-            hasFabricatedClaim ? "Shaman established ancestral rights" : "Send Shaman to forge legal claim",
-            hasFabricatedClaim ? "Claimed" : "-30 Amber",
-            (!hasFabricatedClaim && !hasDeJureClaim && curAmber >= 30),
-            hasFabricatedClaim ? sf::Color(120, 210, 120) : sf::Color(190, 130, 240),
+            shamTitle,
+            shamDesc,
+            shamCost,
+            canDeployShaman,
+            hasFabricatedClaim ? sf::Color(120, 210, 120) : (isForgingHere ? sf::Color(220, 180, 70) : sf::Color(190, 130, 240)),
             [this, player]() {
-                if (player && player->amberCount >= 30) {
-                    player->amberCount -= 30;
-                    SettlementSystem::getPlayerClaims().insert(targetSettlement.countyName);
-                    statusMessage = "Casus Belli Fabricated on " + targetSettlement.countyName + "!";
+                if (player && player->amberCount >= 25) {
+                    player->amberCount -= 25;
+                    SettlementSystem::assignCouncilMission(sim::CouncilRole::Shaman, CouncilMissionType::FabricateClaim, targetSettlement.countyName);
+                    statusMessage = "Shaman Deployed to " + targetSettlement.countyName;
                     statusColor = sf::Color(205, 145, 255);
                     statusTimer = 3.0f;
                 }

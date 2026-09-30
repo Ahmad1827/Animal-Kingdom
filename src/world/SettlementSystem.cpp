@@ -129,6 +129,26 @@ int SettlementSystem::getCountyTroops(const std::string& county) {
     return sum;
 }
 
+int SettlementSystem::getCountyFortTier(const std::string& county) {
+    if (!s_instance) return 0;
+    for (const auto& c : s_instance->counties) {
+        if (c.countyName == county) return c.fortTier;
+    }
+    return 0;
+}
+
+void SettlementSystem::upgradeCountyFort(const std::string& county) {
+    if (!s_instance) return;
+    for (auto& c : s_instance->counties) {
+        if (c.countyName == county) {
+            c.fortTier = std::min(2, c.fortTier + 1);
+            if (c.fortTier == 1) c.supplyLimit += 10;
+            else if (c.fortTier == 2) c.supplyLimit += 15;
+            break;
+        }
+    }
+}
+
 void SettlementSystem::triggerSuccession() {
     if (!s_instance) return;
 
@@ -780,15 +800,22 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
 
         if (activeWar.active && armyPresent && !battleInCounty && !c.isOccupied) {
             if (sieger == activeWar.attackerKingdom && (c.kingdomName == activeWar.enemyKingdom || c.countyName == activeWar.targetCounty)) {
-                c.siegeProgress = std::min(100.f, c.siegeProgress + dt * 8.f);
-                if (c.siegeProgress >= 100.f) {
-                    c.isOccupied = true;
-                    c.occupierKingdom = sieger;
-                    c.siegeProgress = 0.f;
-                    if (c.countyName == activeWar.targetCounty) {
-                        activeWar.warScore = 100.f;
-                    } else {
-                        activeWar.warScore = std::min(100.f, activeWar.warScore + 35.f);
+                int totalSiegeTroops = countyTroopCounts[c.countyName];
+                int minRequired = (c.fortTier == 0) ? 8 : ((c.fortTier == 1) ? 16 : 24);
+
+                if (totalSiegeTroops >= minRequired) {
+                    float resistance = 1.0f + c.fortTier * 1.6f;
+                    c.siegeProgress = std::min(100.f, c.siegeProgress + (dt * 8.f) / resistance);
+
+                    if (c.siegeProgress >= 100.f) {
+                        c.isOccupied = true;
+                        c.occupierKingdom = sieger;
+                        c.siegeProgress = 0.f;
+                        if (c.countyName == activeWar.targetCounty) {
+                            activeWar.warScore = 100.f;
+                        } else {
+                            activeWar.warScore = std::min(100.f, activeWar.warScore + 35.f);
+                        }
                     }
                 }
             }
@@ -838,25 +865,41 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
     }
 
     independenceFaction.memberCounties.clear();
+    int factionLevyStrength = 0;
+    int royalLevyStrength = 0;
+
+    for (const auto& a : mapArmies) {
+        if (a.ownerKingdom == "Wessex") {
+            royalLevyStrength += a.strength;
+        }
+    }
+    royalLevyStrength = std::max(20, royalLevyStrength);
+
     for (auto& c : counties) {
         if (c.kingdomName == "Wessex") {
             if (c.vassalOpinion < 0) {
                 c.inFaction = true;
                 independenceFaction.memberCounties.push_back(c.countyName);
+                factionLevyStrength += 18;
             } else {
                 c.inFaction = false;
             }
         }
     }
 
+    independenceFaction.powerRatio = (static_cast<float>(factionLevyStrength) / static_cast<float>(royalLevyStrength)) * 100.f;
+
     if (!independenceFaction.memberCounties.empty() && !activeWar.active) {
-        independenceFaction.discontent = std::min(100.f, independenceFaction.discontent + dt * 2.8f);
-        if (independenceFaction.discontent >= 100.f) {
+        float growthMultiplier = (shortReignTimer > 0.f ? 1.5f : 1.0f);
+        float growthSpeed = (independenceFaction.powerRatio >= 65.f) ? (0.28f * growthMultiplier) : (0.08f * growthMultiplier);
+        independenceFaction.discontent = std::min(100.f, independenceFaction.discontent + dt * growthSpeed);
+
+        if (independenceFaction.discontent >= 100.f && independenceFaction.powerRatio >= 60.f) {
             std::string rebelCounty = independenceFaction.memberCounties.front();
             triggerCivilWar(rebelCounty);
         }
     } else {
-        independenceFaction.discontent = std::max(0.f, independenceFaction.discontent - dt * 4.0f);
+        independenceFaction.discontent = std::max(0.f, independenceFaction.discontent - dt * 0.45f);
     }
 
     for (auto& ca : councilAssignments) {
@@ -1015,6 +1058,7 @@ bool SettlementSystem::handleMapLensInput(const sf::Event& event, const sf::Rend
         if (event.key.code == sf::Keyboard::E) { currentLens = MapLens::Vassals; return true; }
         if (event.key.code == sf::Keyboard::R) { currentLens = MapLens::Diplomacy; return true; }
         if (event.key.code == sf::Keyboard::T) { currentLens = MapLens::Economy; return true; }
+        if (event.key.code == sf::Keyboard::F) { factionModalOpen = !factionModalOpen; return true; }
     }
 
     if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
@@ -1100,6 +1144,22 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
         bool isClick = (dx * dx + dy * dy < 36);
 
         sf::Vector2f mPos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), letterboxView);
+
+        if (isClick && factionsTabBounds.contains(mPos)) {
+            factionModalOpen = !factionModalOpen;
+            return true;
+        }
+
+        if (isClick && factionModalOpen) {
+            if (closeFactionModalBounds.contains(mPos)) {
+                factionModalOpen = false;
+                return true;
+            }
+            sf::FloatRect fModalRect(360.f, 140.f, 560.f, 390.f);
+            if (fModalRect.contains(mPos)) {
+                return true;
+            }
+        }
 
         if (isClick && successionModalOpen) {
             if (closeSuccessionModalBounds.contains(mPos) || confirmSuccessionBtnBounds.contains(mPos)) {
@@ -1658,6 +1718,26 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             sName.setPosition(c.center.x, c.center.y + 7.f);
             mapCanvas.draw(sName);
 
+            if (c.fortTier > 0) {
+                sf::Vector2f fPos = c.center + sf::Vector2f(22.f, 16.f);
+                sf::RectangleShape fortBg(sf::Vector2f(34.f, 12.f));
+                fortBg.setOrigin(17.f, 6.f);
+                fortBg.setPosition(fPos);
+                fortBg.setFillColor(sf::Color(32, 22, 16, 230));
+                fortBg.setOutlineColor(c.fortTier == 2 ? sf::Color(180, 200, 220) : sf::Color(185, 140, 75));
+                fortBg.setOutlineThickness(1.f);
+                mapCanvas.draw(fortBg);
+
+                std::string fStr = (c.fortTier == 2) ? "FORT II" : "FORT I";
+                sf::Text fTxt(fStr, font, 7);
+                fTxt.setStyle(sf::Text::Bold);
+                fTxt.setFillColor(c.fortTier == 2 ? sf::Color(215, 235, 255) : sf::Color(245, 215, 150));
+                sf::FloatRect ftb = fTxt.getLocalBounds();
+                fTxt.setOrigin(ftb.left + ftb.width * 0.5f, ftb.top + ftb.height * 0.5f);
+                fTxt.setPosition(fPos);
+                mapCanvas.draw(fTxt);
+            }
+
             if (currentLens == MapLens::Vassals && c.kingdomName == "Wessex") {
                 std::string opStr = (c.vassalOpinion >= 0 ? "+" : "") + std::to_string(c.vassalOpinion);
                 sf::Text opTxt(opStr, font, 9);
@@ -1935,11 +2015,11 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         subText.setPosition(148.f, 89.f);
         window.draw(subText);
 
-        float tabStartX = 538.f;
+        float tabStartX = 470.f;
         float tabY = 74.f;
-        float tabW = 96.f;
+        float tabW = 88.f;
         float tabH = 26.f;
-        float tabGap = 5.f;
+        float tabGap = 4.f;
 
         const std::string tabLabels[5] = {
             "[Q] De Facto",
@@ -1968,7 +2048,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             }
             window.draw(tabBox);
 
-            sf::Text tabTxt(tabLabels[i], font, 10);
+            sf::Text tabTxt(tabLabels[i], font, 9);
             tabTxt.setStyle(isActive ? sf::Text::Bold : sf::Text::Regular);
             tabTxt.setFillColor(isActive ? sf::Color(255, 245, 205, uiAlpha) : sf::Color(180, 150, 110, uiAlpha));
             sf::FloatRect tb = tabTxt.getLocalBounds();
@@ -1977,32 +2057,195 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             window.draw(tabTxt);
         }
 
-        if (!independenceFaction.memberCounties.empty() && !activeWar.active) {
-            float fPulse = 0.5f + 0.5f * std::sin(pulseTime * 7.f);
-            bool isCritical = (independenceFaction.discontent >= 75.f);
+        float fTabX = tabStartX + 5 * (tabW + tabGap);
+        float fTabW = 100.f;
+        factionsTabBounds = sf::FloatRect(fTabX, tabY, fTabW, tabH);
 
-            sf::RectangleShape fBanner(sf::Vector2f(500.f, 24.f));
-            fBanner.setPosition(390.f, 112.f);
-            fBanner.setFillColor(sf::Color(24, 14, 12, uiAlpha));
-            fBanner.setOutlineColor(isCritical ? sf::Color(245, 55, 45, static_cast<sf::Uint8>(180 + fPulse * 75))
-                                               : sf::Color(220, 160, 50, uiAlpha));
-            fBanner.setOutlineThickness(1.2f);
-            window.draw(fBanner);
+        bool hasFactions = !independenceFaction.memberCounties.empty();
+        sf::RectangleShape fTabBox(sf::Vector2f(fTabW, tabH));
+        fTabBox.setPosition(fTabX, tabY);
+        fTabBox.setFillColor(factionModalOpen ? sf::Color(135, 35, 30, uiAlpha)
+                                             : (hasFactions ? sf::Color(45, 22, 18, uiAlpha) : sf::Color(22, 16, 12, uiAlpha)));
+        fTabBox.setOutlineColor(hasFactions ? sf::Color(235, 75, 60, uiAlpha) : sf::Color(110, 80, 50, uiAlpha));
+        fTabBox.setOutlineThickness(factionModalOpen ? 1.8f : 1.f);
+        window.draw(fTabBox);
 
-            std::string membersStr = "";
-            for (size_t m = 0; m < independenceFaction.memberCounties.size(); ++m) {
-                if (m > 0) membersStr += ", ";
-                membersStr += independenceFaction.memberCounties[m];
+        sf::Text fTabTxt("[F] Factions", font, 9);
+        fTabTxt.setStyle(sf::Text::Bold);
+        fTabTxt.setFillColor(hasFactions ? sf::Color(255, 205, 195, uiAlpha) : sf::Color(190, 170, 145, uiAlpha));
+        sf::FloatRect ftb = fTabTxt.getLocalBounds();
+        fTabTxt.setOrigin(ftb.left + ftb.width * 0.5f, ftb.top + ftb.height * 0.5f);
+        fTabTxt.setPosition(fTabX + fTabW * 0.5f, tabY + tabH * 0.5f);
+        window.draw(fTabTxt);
+
+        if (hasFactions) {
+            sf::CircleShape pip(4.f);
+            pip.setOrigin(4.f, 4.f);
+            pip.setPosition(fTabX + fTabW - 8.f, tabY + 8.f);
+            pip.setFillColor(sf::Color(235, 55, 45, uiAlpha));
+            window.draw(pip);
+        }
+
+        if (factionModalOpen) {
+            sf::FloatRect fR(360.f, 140.f, 560.f, 390.f);
+
+            sf::RectangleShape shadow(sf::Vector2f(fR.width + 8.f, fR.height + 8.f));
+            shadow.setPosition(fR.left + 4.f, fR.top + 4.f);
+            shadow.setFillColor(sf::Color(0, 0, 0, 225));
+            window.draw(shadow);
+
+            sf::RectangleShape modal(sf::Vector2f(fR.width, fR.height));
+            modal.setPosition(fR.left, fR.top);
+            modal.setFillColor(sf::Color(20, 14, 10, 252));
+            modal.setOutlineColor(sf::Color(215, 165, 75));
+            modal.setOutlineThickness(1.8f);
+            window.draw(modal);
+
+            sf::RectangleShape header(sf::Vector2f(fR.width - 6.f, 36.f));
+            header.setPosition(fR.left + 3.f, fR.top + 3.f);
+            header.setFillColor(sf::Color(44, 26, 18));
+            window.draw(header);
+
+            sf::Text mTitle("REALM FACTIONS & INTERNAL THREATS", font, 12);
+            mTitle.setStyle(sf::Text::Bold);
+            mTitle.setFillColor(sf::Color(255, 230, 140));
+            mTitle.setPosition(fR.left + 16.f, fR.top + 9.f);
+            window.draw(mTitle);
+
+            closeFactionModalBounds = sf::FloatRect(fR.left + fR.width - 28.f, fR.top + 7.f, 20.f, 20.f);
+            sf::RectangleShape closeBtn(sf::Vector2f(20.f, 20.f));
+            closeBtn.setPosition(closeFactionModalBounds.left, closeFactionModalBounds.top);
+            closeBtn.setFillColor(sf::Color(140, 25, 20));
+            closeBtn.setOutlineColor(sf::Color(240, 200, 75));
+            closeBtn.setOutlineThickness(1.f);
+            window.draw(closeBtn);
+
+            sf::Text xT("x", font, 12);
+            xT.setStyle(sf::Text::Bold);
+            xT.setFillColor(sf::Color::White);
+            xT.setPosition(closeFactionModalBounds.left + 6.f, closeFactionModalBounds.top + 1.f);
+            window.draw(xT);
+
+            float curY = fR.top + 48.f;
+
+            if (independenceFaction.memberCounties.empty()) {
+                sf::Text calmTxt("There are no active factions threatening your realm. The realm is at peace.", font, 11);
+                calmTxt.setStyle(sf::Text::Italic);
+                calmTxt.setFillColor(sf::Color(145, 215, 140));
+                calmTxt.setPosition(fR.left + 24.f, curY + 40.f);
+                window.draw(calmTxt);
+            } else {
+                sf::Text fName("Faction: " + independenceFaction.name, font, 11);
+                fName.setStyle(sf::Text::Bold);
+                fName.setFillColor(sf::Color(245, 185, 115));
+                fName.setPosition(fR.left + 18.f, curY);
+                window.draw(fName);
+                curY += 22.f;
+
+                sf::Text discLabel("Discontent Progress: " + std::to_string(static_cast<int>(independenceFaction.discontent)) + "%", font, 10);
+                discLabel.setFillColor(sf::Color(230, 210, 180));
+                discLabel.setPosition(fR.left + 18.f, curY);
+                window.draw(discLabel);
+
+                std::string powStr = "Military Strength: " + std::to_string(static_cast<int>(independenceFaction.powerRatio)) + "% of Liege (Threshold: 60%)";
+                sf::Text powTxt(powStr, font, 10);
+                powTxt.setStyle(sf::Text::Bold);
+                powTxt.setFillColor(independenceFaction.powerRatio >= 60.f ? sf::Color(245, 65, 55) : sf::Color(240, 200, 80));
+                sf::FloatRect ptb = powTxt.getLocalBounds();
+                powTxt.setPosition(fR.left + fR.width - ptb.width - 24.f, curY);
+                window.draw(powTxt);
+                curY += 20.f;
+
+                float bW = fR.width - 36.f;
+                sf::RectangleShape barBg(sf::Vector2f(bW, 8.f));
+                barBg.setPosition(fR.left + 18.f, curY);
+                barBg.setFillColor(sf::Color(14, 10, 8, 240));
+                barBg.setOutlineColor(sf::Color(65, 45, 30));
+                barBg.setOutlineThickness(1.f);
+                window.draw(barBg);
+
+                float fillW = bW * (independenceFaction.discontent / 100.f);
+                if (fillW > 0.f) {
+                    sf::RectangleShape barFill(sf::Vector2f(fillW, 8.f));
+                    barFill.setPosition(fR.left + 18.f, curY);
+                    barFill.setFillColor(independenceFaction.discontent >= 75.f ? sf::Color(235, 55, 45) : sf::Color(235, 175, 50));
+                    window.draw(barFill);
+                }
+                curY += 22.f;
+
+                sf::RectangleShape tblHead(sf::Vector2f(bW, 22.f));
+                tblHead.setPosition(fR.left + 18.f, curY);
+                tblHead.setFillColor(sf::Color(32, 22, 16));
+                window.draw(tblHead);
+
+                sf::Text th1("COUNTY BACKER", font, 9);
+                th1.setStyle(sf::Text::Bold);
+                th1.setFillColor(sf::Color(245, 215, 140));
+                th1.setPosition(fR.left + 26.f, curY + 4.f);
+                window.draw(th1);
+
+                sf::Text th2("LEVY CONTRIBUTION", font, 9);
+                th2.setStyle(sf::Text::Bold);
+                th2.setFillColor(sf::Color(245, 215, 140));
+                th2.setPosition(fR.left + 180.f, curY + 4.f);
+                window.draw(th2);
+
+                sf::Text th3("OPINION", font, 9);
+                th3.setStyle(sf::Text::Bold);
+                th3.setFillColor(sf::Color(245, 215, 140));
+                th3.setPosition(fR.left + 350.f, curY + 4.f);
+                window.draw(th3);
+
+                sf::Text th4("STATUS", font, 9);
+                th4.setStyle(sf::Text::Bold);
+                th4.setFillColor(sf::Color(245, 215, 140));
+                th4.setPosition(fR.left + 450.f, curY + 4.f);
+                window.draw(th4);
+                curY += 26.f;
+
+                for (size_t m = 0; m < independenceFaction.memberCounties.size(); ++m) {
+                    const std::string& cName = independenceFaction.memberCounties[m];
+                    int op = getVassalOpinion(cName);
+
+                    sf::RectangleShape row(sf::Vector2f(bW, 30.f));
+                    row.setPosition(fR.left + 18.f, curY);
+                    row.setFillColor((m % 2 == 0) ? sf::Color(26, 18, 14, 210) : sf::Color(18, 12, 10, 210));
+                    row.setOutlineColor(sf::Color(65, 45, 30));
+                    row.setOutlineThickness(0.8f);
+                    window.draw(row);
+
+                    sf::Text cTxt(cName, font, 10);
+                    cTxt.setStyle(sf::Text::Bold);
+                    cTxt.setFillColor(sf::Color::White);
+                    cTxt.setPosition(fR.left + 26.f, curY + 7.f);
+                    window.draw(cTxt);
+
+                    sf::Text lTxt("~18 Warriors", font, 9);
+                    lTxt.setFillColor(sf::Color(210, 195, 165));
+                    lTxt.setPosition(fR.left + 180.f, curY + 8.f);
+                    window.draw(lTxt);
+
+                    sf::Text opTxt(std::to_string(op), font, 10);
+                    opTxt.setStyle(sf::Text::Bold);
+                    opTxt.setFillColor(sf::Color(245, 80, 70));
+                    opTxt.setPosition(fR.left + 350.f, curY + 7.f);
+                    window.draw(opTxt);
+
+                    sf::Text stTxt("Rebellious", font, 9);
+                    stTxt.setStyle(sf::Text::Bold);
+                    stTxt.setFillColor(sf::Color(245, 145, 60));
+                    stTxt.setPosition(fR.left + 450.f, curY + 8.f);
+                    window.draw(stTxt);
+
+                    curY += 34.f;
+                }
+
+                sf::Text adviceTxt("Tip: Right-click rebel counties on the map and select 'Sway Chieftain' to restore loyalty.", font, 9);
+                adviceTxt.setStyle(sf::Text::Italic);
+                adviceTxt.setFillColor(sf::Color(175, 155, 125));
+                adviceTxt.setPosition(fR.left + 20.f, fR.top + fR.height - 30.f);
+                window.draw(adviceTxt);
             }
-
-            std::string fText = "FACTION THREAT: Independence (" + std::to_string(static_cast<int>(independenceFaction.discontent)) + "%) | Disloyal: " + membersStr;
-            sf::Text fWarn(fText, font, 9);
-            fWarn.setStyle(sf::Text::Bold);
-            fWarn.setFillColor(isCritical ? sf::Color(255, 205, 185, uiAlpha) : sf::Color(255, 230, 165, uiAlpha));
-            sf::FloatRect fwb = fWarn.getLocalBounds();
-            fWarn.setOrigin(fwb.left + fwb.width * 0.5f, fwb.top + fwb.height * 0.5f);
-            fWarn.setPosition(640.f, 124.f);
-            window.draw(fWarn);
         }
 
         sf::RectangleShape footerRibbon(sf::Vector2f(1012.f, 26.f));

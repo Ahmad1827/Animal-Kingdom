@@ -31,11 +31,13 @@ struct CountyDef {
     int vassalOpinion = 20;
     bool inFaction = false;
     int supplyLimit = 30;
+    int fortTier = 0;
 };
 
 struct FactionState {
-    std::string name = "Independence Faction";
+    std::string name = "Independence League";
     float discontent = 0.f;
+    float powerRatio = 0.f;
     std::vector<std::string> memberCounties;
 };
 
@@ -170,6 +172,9 @@ private:
     int selectedArmyId = -1;
     std::vector<CouncilAssignment> councilAssignments;
     FactionState independenceFaction;
+    bool factionModalOpen = false;
+    sf::FloatRect factionsTabBounds;
+    sf::FloatRect closeFactionModalBounds;
     bool successionModalOpen = false;
     std::string deceasedKingTitle = "King Cynewulf";
     std::string successorTitle = "Ecgberht I";
@@ -236,6 +241,8 @@ public:
     static int getCountySupplyLimit(const std::string& county);
     static int getCountyTroops(const std::string& county);
     static void triggerSuccession();
+    static int getCountyFortTier(const std::string& county);
+    static void upgradeCountyFort(const std::string& county);
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

@@ -190,6 +190,58 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
             }
         });
 
+        int curFort = SettlementSystem::getCountyFortTier(targetSettlement.countyName);
+        int curWood = playerVillage ? playerVillage->wood : 0;
+
+        if (curFort == 0) {
+            bool canBuildPalisade = (curWood >= 40 && curAmber >= 15);
+            options.push_back({
+                "Build Wooden Palisade",
+                "Erect timber ramparts (+10 Supply, 2x Siege Delay)",
+                "-40 Wood, -15 Amber",
+                canBuildPalisade,
+                canBuildPalisade ? sf::Color(185, 140, 75) : sf::Color(95, 88, 85),
+                [this, player, playerVillage]() {
+                    if (player && playerVillage && playerVillage->wood >= 40 && player->amberCount >= 15) {
+                        playerVillage->wood -= 40;
+                        player->amberCount -= 15;
+                        SettlementSystem::upgradeCountyFort(targetSettlement.countyName);
+                        statusMessage = "Wooden Palisade Erected in " + targetSettlement.countyName + "!";
+                        statusColor = sf::Color(215, 175, 95);
+                        statusTimer = 3.0f;
+                    }
+                }
+            });
+        } else if (curFort == 1) {
+            bool canBuildHillfort = (curWood >= 70 && curAmber >= 25);
+            options.push_back({
+                "Erect Stone Hillfort",
+                "Upgrade to masonry citadel (+15 Supply, 4x Siege Delay)",
+                "-70 Wood, -25 Amber",
+                canBuildHillfort,
+                canBuildHillfort ? sf::Color(140, 180, 215) : sf::Color(95, 88, 85),
+                [this, player, playerVillage]() {
+                    if (player && playerVillage && playerVillage->wood >= 70 && player->amberCount >= 25) {
+                        playerVillage->wood -= 70;
+                        player->amberCount -= 25;
+                        SettlementSystem::upgradeCountyFort(targetSettlement.countyName);
+                        statusMessage = "Stone Hillfort Completed in " + targetSettlement.countyName + "!";
+                        statusColor = sf::Color(160, 205, 245);
+                        statusTimer = 3.0f;
+                    }
+                }
+            });
+        } else {
+            options.push_back({
+                "Hillfort Stronghold (Max)",
+                "Citadel is fortified to maximum tier",
+                "Max Tier",
+                false,
+                sf::Color(105, 95, 90),
+                nullptr
+            });
+        }
+
         if (targetSettlement.countyName == "Hampshire") {
             options.push_back({
                 "Dynastic Succession",

@@ -129,6 +129,78 @@ int SettlementSystem::getCountyTroops(const std::string& county) {
     return sum;
 }
 
+void SettlementSystem::triggerSuccession() {
+    if (!s_instance) return;
+
+    static int rulerGen = 1;
+    rulerGen++;
+    s_instance->deceasedKingTitle = s_instance->successorTitle;
+    s_instance->successorTitle = "Ecgberht " + std::to_string(rulerGen);
+
+    s_instance->successionEntries.clear();
+
+    std::vector<CountyDef*> ownedCounties;
+    for (auto& c : s_instance->counties) {
+        if (c.kingdomName == "Wessex") {
+            ownedCounties.push_back(&c);
+        }
+    }
+
+    if (ownedCounties.empty()) return;
+
+    s_instance->successionEntries.push_back({
+        "Hampshire",
+        s_instance->successorTitle + " (Primary Heir)",
+        "Capital Realm Seat",
+        "Retained",
+        sf::Color(90, 225, 90)
+    });
+
+    std::vector<std::string> juniorNames = {"Prince Aethelweard", "Prince Cynric", "Prince Osric"};
+    size_t juniorIdx = 0;
+
+    for (auto* c : ownedCounties) {
+        if (c->countyName == "Hampshire") {
+            c->vassalOpinion = std::clamp(c->vassalOpinion - 10, -100, 100);
+            continue;
+        }
+
+        std::string jName = (juniorIdx < juniorNames.size()) ? juniorNames[juniorIdx++] : "Junior Kin";
+
+        if (c->countyName == "Berkshire" || c->countyName == "Middlesex") {
+            c->kingdomName = "Cadet Wessex";
+            c->vassalOpinion = -40;
+            c->inFaction = true;
+
+            s_instance->successionEntries.push_back({
+                c->countyName,
+                jName + " (Junior Sibling)",
+                "Cadet Partition Split",
+                "Seceded Realm",
+                sf::Color(235, 75, 65)
+            });
+
+            spawnArmy(c->countyName, "Cadet Wessex", 18);
+        } else {
+            c->vassalOpinion = std::clamp(c->vassalOpinion - 25, -100, 100);
+            if (c->vassalOpinion < 0) {
+                c->inFaction = true;
+            }
+
+            s_instance->successionEntries.push_back({
+                c->countyName,
+                jName + " (Vassal Lord)",
+                "Secondary Appanage",
+                "Discontent Vassal",
+                sf::Color(240, 195, 65)
+            });
+        }
+    }
+
+    s_instance->shortReignTimer = 180.f;
+    s_instance->successionModalOpen = true;
+}
+
 void SettlementSystem::spawnArmy(const std::string& county, const std::string& kingdom, int strength) {
     if (!s_instance) return;
 
@@ -761,6 +833,10 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
         }
     }
 
+    if (shortReignTimer > 0.f) {
+        shortReignTimer = std::max(0.f, shortReignTimer - dt);
+    }
+
     independenceFaction.memberCounties.clear();
     for (auto& c : counties) {
         if (c.kingdomName == "Wessex") {
@@ -1025,6 +1101,17 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
 
         sf::Vector2f mPos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), letterboxView);
 
+        if (isClick && successionModalOpen) {
+            if (closeSuccessionModalBounds.contains(mPos) || confirmSuccessionBtnBounds.contains(mPos)) {
+                successionModalOpen = false;
+                return true;
+            }
+            sf::FloatRect succRect(350.f, 130.f, 580.f, 410.f);
+            if (succRect.contains(mPos)) {
+                return true;
+            }
+        }
+
         if (isClick && activeWar.active && warBadgeBounds.contains(mPos)) {
             peaceModalOpen = !peaceModalOpen;
             return true;
@@ -1167,6 +1254,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
 
     auto getKingdomBaseColor = [&](const std::string& kName) -> sf::Color {
         if (kName.find("Rebels") != std::string::npos) return sf::Color(150, 25, 30);
+        if (kName.find("Cadet Wessex") != std::string::npos) return sf::Color(165, 80, 120);
         if (kName.find("Wessex") != std::string::npos) return sf::Color(185, 55, 65);
         if (kName.find("Mercia") != std::string::npos) return sf::Color(205, 115, 65);
         if (kName.find("Northumbria") != std::string::npos) return sf::Color(155, 65, 95);
@@ -1944,6 +2032,153 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         legend.setOrigin(legB.left + legB.width / 2.f, legB.top + legB.height / 2.f);
         legend.setPosition(640.f, 647.f);
         window.draw(legend);
+
+        if (shortReignTimer > 0.f && !successionModalOpen) {
+            sf::RectangleShape srBadge(sf::Vector2f(210.f, 22.f));
+            srBadge.setPosition(148.f, 114.f);
+            srBadge.setFillColor(sf::Color(24, 16, 12, 235));
+            srBadge.setOutlineColor(sf::Color(225, 120, 50));
+            srBadge.setOutlineThickness(1.f);
+            window.draw(srBadge);
+
+            sf::Text srTxt("SHORT REIGN: -15 Vassal Loyalty", font, 9);
+            srTxt.setStyle(sf::Text::Bold);
+            srTxt.setFillColor(sf::Color(255, 185, 120));
+            srTxt.setPosition(156.f, 118.f);
+            window.draw(srTxt);
+        }
+
+        if (successionModalOpen) {
+            sf::FloatRect sR(350.f, 130.f, 580.f, 410.f);
+
+            sf::RectangleShape shadow(sf::Vector2f(sR.width + 8.f, sR.height + 8.f));
+            shadow.setPosition(sR.left + 4.f, sR.top + 4.f);
+            shadow.setFillColor(sf::Color(0, 0, 0, 225));
+            window.draw(shadow);
+
+            sf::RectangleShape modal(sf::Vector2f(sR.width, sR.height));
+            modal.setPosition(sR.left, sR.top);
+            modal.setFillColor(sf::Color(22, 15, 10, 252));
+            modal.setOutlineColor(sf::Color(215, 170, 75));
+            modal.setOutlineThickness(2.f);
+            window.draw(modal);
+
+            sf::RectangleShape header(sf::Vector2f(sR.width - 6.f, 38.f));
+            header.setPosition(sR.left + 3.f, sR.top + 3.f);
+            header.setFillColor(sf::Color(48, 28, 16));
+            window.draw(header);
+
+            sf::Text mTitle("THE KING IS DEAD - CONFEDERATE PARTITION", font, 12);
+            mTitle.setStyle(sf::Text::Bold);
+            mTitle.setFillColor(sf::Color(255, 230, 140));
+            mTitle.setPosition(sR.left + 16.f, sR.top + 10.f);
+            window.draw(mTitle);
+
+            closeSuccessionModalBounds = sf::FloatRect(sR.left + sR.width - 28.f, sR.top + 8.f, 20.f, 20.f);
+            sf::RectangleShape closeBtn(sf::Vector2f(20.f, 20.f));
+            closeBtn.setPosition(closeSuccessionModalBounds.left, closeSuccessionModalBounds.top);
+            closeBtn.setFillColor(sf::Color(140, 25, 20));
+            closeBtn.setOutlineColor(sf::Color(240, 200, 75));
+            closeBtn.setOutlineThickness(1.f);
+            window.draw(closeBtn);
+
+            sf::Text xT("x", font, 12);
+            xT.setStyle(sf::Text::Bold);
+            xT.setFillColor(sf::Color::White);
+            xT.setPosition(closeSuccessionModalBounds.left + 6.f, closeSuccessionModalBounds.top + 1.f);
+            window.draw(xT);
+
+            float curY = sR.top + 48.f;
+
+            sf::Text passingTxt("The reign of " + deceasedKingTitle + " has ended. The council acknowledges " + successorTitle + " as Alpha.", font, 10);
+            passingTxt.setStyle(sf::Text::Italic);
+            passingTxt.setFillColor(sf::Color(210, 195, 165));
+            passingTxt.setPosition(sR.left + 18.f, curY);
+            window.draw(passingTxt);
+            curY += 22.f;
+
+            sf::Text lawTxt("Succession Law: Realm lands partitioned among eligible heirs.", font, 9);
+            lawTxt.setFillColor(sf::Color(185, 165, 130));
+            lawTxt.setPosition(sR.left + 18.f, curY);
+            window.draw(lawTxt);
+            curY += 22.f;
+
+            sf::RectangleShape divHeader(sf::Vector2f(sR.width - 36.f, 22.f));
+            divHeader.setPosition(sR.left + 18.f, curY);
+            divHeader.setFillColor(sf::Color(35, 24, 16));
+            window.draw(divHeader);
+
+            sf::Text cHead("COUNTY", font, 9);
+            cHead.setStyle(sf::Text::Bold);
+            cHead.setFillColor(sf::Color(245, 215, 140));
+            cHead.setPosition(sR.left + 26.f, curY + 4.f);
+            window.draw(cHead);
+
+            sf::Text hHead("INHERITOR", font, 9);
+            hHead.setStyle(sf::Text::Bold);
+            hHead.setFillColor(sf::Color(245, 215, 140));
+            hHead.setPosition(sR.left + 140.f, curY + 4.f);
+            window.draw(hHead);
+
+            sf::Text sHead("DIVISION STATUS", font, 9);
+            sHead.setStyle(sf::Text::Bold);
+            sHead.setFillColor(sf::Color(245, 215, 140));
+            sHead.setPosition(sR.left + 380.f, curY + 4.f);
+            window.draw(sHead);
+            curY += 26.f;
+
+            for (size_t e = 0; e < successionEntries.size(); ++e) {
+                const auto& item = successionEntries[e];
+                sf::RectangleShape row(sf::Vector2f(sR.width - 36.f, 32.f));
+                row.setPosition(sR.left + 18.f, curY);
+                row.setFillColor((e % 2 == 0) ? sf::Color(26, 18, 14, 210) : sf::Color(18, 12, 10, 210));
+                row.setOutlineColor(sf::Color(65, 45, 30));
+                row.setOutlineThickness(0.8f);
+                window.draw(row);
+
+                sf::Text cTxt(item.countyName, font, 10);
+                cTxt.setStyle(sf::Text::Bold);
+                cTxt.setFillColor(sf::Color(255, 245, 220));
+                cTxt.setPosition(sR.left + 26.f, curY + 8.f);
+                window.draw(cTxt);
+
+                sf::Text hTxt(item.heirName, font, 9);
+                hTxt.setFillColor(sf::Color(215, 200, 175));
+                hTxt.setPosition(sR.left + 140.f, curY + 4.f);
+                window.draw(hTxt);
+
+                sf::Text tTxt(item.titleType, font, 8);
+                tTxt.setStyle(sf::Text::Italic);
+                tTxt.setFillColor(sf::Color(165, 145, 120));
+                tTxt.setPosition(sR.left + 140.f, curY + 17.f);
+                window.draw(tTxt);
+
+                sf::Text stTxt(item.status, font, 9);
+                stTxt.setStyle(sf::Text::Bold);
+                stTxt.setFillColor(item.statusColor);
+                stTxt.setPosition(sR.left + 380.f, curY + 8.f);
+                window.draw(stTxt);
+
+                curY += 36.f;
+            }
+
+            confirmSuccessionBtnBounds = sf::FloatRect(sR.left + 180.f, sR.top + sR.height - 46.f, 220.f, 32.f);
+            sf::RectangleShape confBtn(sf::Vector2f(confirmSuccessionBtnBounds.width, confirmSuccessionBtnBounds.height));
+            confBtn.setPosition(confirmSuccessionBtnBounds.left, confirmSuccessionBtnBounds.top);
+            confBtn.setFillColor(sf::Color(55, 35, 20));
+            confBtn.setOutlineColor(sf::Color(235, 195, 75));
+            confBtn.setOutlineThickness(1.5f);
+            window.draw(confBtn);
+
+            sf::Text bLabel("LONG LIVE THE ALPHA", font, 10);
+            bLabel.setStyle(sf::Text::Bold);
+            bLabel.setFillColor(sf::Color(255, 235, 160));
+            sf::FloatRect blb = bLabel.getLocalBounds();
+            bLabel.setOrigin(blb.left + blb.width * 0.5f, blb.top + blb.height * 0.5f);
+            bLabel.setPosition(confirmSuccessionBtnBounds.left + confirmSuccessionBtnBounds.width * 0.5f,
+                               confirmSuccessionBtnBounds.top + confirmSuccessionBtnBounds.height * 0.5f);
+            window.draw(bLabel);
+        }
 
         if (activeWar.active) {
             sf::RectangleShape badge(sf::Vector2f(warBadgeBounds.width, warBadgeBounds.height));

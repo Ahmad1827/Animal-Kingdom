@@ -39,6 +39,13 @@ struct FactionState {
     std::vector<std::string> memberCounties;
 };
 
+struct SuccessionPartitionEntry {
+    std::string countyName;
+    std::string heirName;
+    std::string titleType;
+    std::string status;
+    sf::Color statusColor;
+};
 struct MapArmy {
     uint32_t id = 0;
     std::string ownerKingdom;
@@ -163,6 +170,13 @@ private:
     int selectedArmyId = -1;
     std::vector<CouncilAssignment> councilAssignments;
     FactionState independenceFaction;
+    bool successionModalOpen = false;
+    std::string deceasedKingTitle = "King Cynewulf";
+    std::string successorTitle = "Ecgberht I";
+    std::vector<SuccessionPartitionEntry> successionEntries;
+    sf::FloatRect closeSuccessionModalBounds;
+    sf::FloatRect confirmSuccessionBtnBounds;
+    float shortReignTimer = 0.f;
     sf::FloatRect enforceBtnBounds;
     sf::FloatRect whitePeaceBtnBounds;
     sf::FloatRect surrenderBtnBounds;
@@ -221,6 +235,7 @@ public:
     static const FactionState& getFactionState();
     static int getCountySupplyLimit(const std::string& county);
     static int getCountyTroops(const std::string& county);
+    static void triggerSuccession();
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

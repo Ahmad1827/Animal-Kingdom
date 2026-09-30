@@ -189,8 +189,24 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
                 statusTimer = 2.5f;
             }
         });
+
+        if (targetSettlement.countyName == "Hampshire") {
+            options.push_back({
+                "Dynastic Succession",
+                "Pass mantle of Alpha and partition realm",
+                "Demise",
+                true,
+                sf::Color(220, 160, 60),
+                [this]() {
+                    SettlementSystem::triggerSuccession();
+                    statusMessage = "Succession Triggered!";
+                    statusColor = sf::Color(255, 215, 90);
+                    statusTimer = 3.0f;
+                }
+            });
+        }
         return;
-    }
+    }   
 
 bool alreadyAtWar = SettlementSystem::isAtWarWith(targetSettlement.kingdomName);
     if (!alreadyAtWar && playerKingdom && targetKingdom && playerKingdom->relations.count(targetKingdom->id)) {

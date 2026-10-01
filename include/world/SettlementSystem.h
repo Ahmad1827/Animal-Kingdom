@@ -187,6 +187,16 @@ private:
     sf::FloatRect callAllyBtnBounds;
     std::string callAllyStatusMsg;
     float callAllyStatusTimer = 0.f;
+
+    int crownAuthority = 2; // 1: Autonomous, 2: Limited, 3: High, 4: Absolute
+    int selectedAuthorityTier = 2;
+    float lawCooldownTimer = 0.f;
+    std::string lawStatusMsg;
+    float lawStatusTimer = 0.f;
+    sf::FloatRect authorityTierBounds[4];
+    sf::FloatRect enactLawBtnBounds;
+    sim::SimulationRegistry* cachedRegistry = nullptr;
+
     FactionState independenceFaction;
     bool factionModalOpen = false;
     sf::FloatRect factionsTabBounds;
@@ -271,6 +281,12 @@ public:
     static bool isWarActive();
     static void callAllyToWar(const std::string& allyKingdom);
     static bool isAllyInWar(const std::string& allyKingdom);
+
+    static int getCrownAuthority();
+    static void setCrownAuthority(int level);
+    static float getAuthorityTaxMultiplier();
+    static int getAuthorityLevyPerCounty();
+    static int getAuthorityVassalOpinionMod();
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

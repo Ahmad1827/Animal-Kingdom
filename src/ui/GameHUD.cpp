@@ -55,7 +55,8 @@ void GameHUD::update(float dt, sim::ApeData* playerApe, sim::SimulationRegistry&
     float upkeep = SettlementSystem::getKingdomArmyUpkeep("Wessex");
     bool atWar = SettlementSystem::isWarActive();
 
-    float baseTaxes = 3.5f + static_cast<float>(demesneCount) * 2.2f;
+    float taxMult = SettlementSystem::getAuthorityTaxMultiplier();
+    float baseTaxes = (3.5f + static_cast<float>(demesneCount) * 2.2f) * taxMult;
     cachedAmberRate = baseTaxes + tradeInc - upkeep - (atWar ? 2.5f : 0.f);
 
     const auto& fState = SettlementSystem::getFactionState();
@@ -380,7 +381,8 @@ void GameHUD::draw(sf::RenderWindow& window, const sim::ApeData* playerApe, sim:
     window.draw(domTxt);
 
     int raisedTroops = SettlementSystem::getKingdomRaisedTroops("Wessex");
-    int maxLevies = std::max(25, demesneCount * 25);
+    int levyQuota = SettlementSystem::getAuthorityLevyPerCounty();
+    int maxLevies = std::max(25, demesneCount * levyQuota);
 
     float swordX = realmPanelX + 124.f;
     sf::Color swCol = (raisedTroops > 0) ? sf::Color(245, 120, 50) : sf::Color(190, 175, 150);
@@ -591,9 +593,13 @@ void GameHUD::draw(sf::RenderWindow& window, const sim::ApeData* playerApe, sim:
                          "Exceeding limit penalizes vassal loyalty and tax income.",
                          sf::Color(245, 215, 120));
     } else if (leviesHitBox.contains(mCoords)) {
+        int auth = SettlementSystem::getCrownAuthority();
+        static const std::string authNames[] = { "Autonomous", "Limited", "High", "Absolute" };
+        std::string authLabel = (auth >= 1 && auth <= 4) ? authNames[auth - 1] : "Standard";
+
         drawHoverTooltip(leviesHitBox.left + leviesHitBox.width * 0.5f,
                          "REALM LEVIES (" + std::to_string(raisedTroops) + "/" + std::to_string(maxLevies) + ")",
-                         "Warrior muster pool from hearths and loyal clan chieftains.",
+                         "Warrior muster pool (Crown Authority: " + authLabel + " - " + std::to_string(levyQuota) + "/county).",
                          "Armies raised in the field consume monthly upkeep.",
                          sf::Color(245, 140, 85));
     }

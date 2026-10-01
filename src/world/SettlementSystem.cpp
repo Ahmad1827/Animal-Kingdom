@@ -81,6 +81,40 @@ bool SettlementSystem::isAllyInWar(const std::string& allyKingdom) {
     }
     return false;
 }
+
+int SettlementSystem::getCrownAuthority() {
+    return s_instance ? s_instance->crownAuthority : 2;
+}
+
+void SettlementSystem::setCrownAuthority(int level) {
+    if (!s_instance) return;
+    s_instance->crownAuthority = std::clamp(level, 1, 4);
+    s_instance->selectedAuthorityTier = s_instance->crownAuthority;
+}
+
+float SettlementSystem::getAuthorityTaxMultiplier() {
+    int auth = getCrownAuthority();
+    if (auth == 1) return 1.0f;
+    if (auth == 2) return 1.15f;
+    if (auth == 3) return 1.30f;
+    return 1.50f;
+}
+
+int SettlementSystem::getAuthorityLevyPerCounty() {
+    int auth = getCrownAuthority();
+    if (auth == 1) return 15;
+    if (auth == 2) return 22;
+    if (auth == 3) return 30;
+    return 40;
+}
+
+int SettlementSystem::getAuthorityVassalOpinionMod() {
+    int auth = getCrownAuthority();
+    if (auth == 1) return 10;
+    if (auth == 2) return 0;
+    if (auth == 3) return -12;
+    return -25;
+}
 void SettlementSystem::assignCouncilMission(sim::CouncilRole role, CouncilMissionType mission, const std::string& county) {
     if (!s_instance) return;
     for (auto& a : s_instance->councilAssignments) {
@@ -1102,6 +1136,10 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
         shortReignTimer = std::max(0.f, shortReignTimer - dt);
     }
 
+    cachedRegistry = &registry;
+    if (lawCooldownTimer > 0.f) lawCooldownTimer = std::max(0.f, lawCooldownTimer - dt);
+    if (lawStatusTimer > 0.f) lawStatusTimer = std::max(0.f, lawStatusTimer - dt);
+
     independenceFaction.memberCounties.clear();
     int factionLevyStrength = 0;
     int royalLevyStrength = 0;
@@ -1113,9 +1151,11 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
     }
     royalLevyStrength = std::max(20, royalLevyStrength);
 
+    int authOpMod = getAuthorityVassalOpinionMod();
     for (auto& c : counties) {
         if (c.kingdomName == "Wessex") {
-            if (c.vassalOpinion < 0) {
+            int netOpinion = c.vassalOpinion + authOpMod;
+            if (netOpinion < 0) {
                 c.inFaction = true;
                 independenceFaction.memberCounties.push_back(c.countyName);
                 factionLevyStrength += 18;
@@ -1129,7 +1169,13 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
 
     if (!independenceFaction.memberCounties.empty() && !activeWar.active) {
         float growthMultiplier = (shortReignTimer > 0.f ? 1.5f : 1.0f);
-        float growthSpeed = (independenceFaction.powerRatio >= 65.f) ? (0.28f * growthMultiplier) : (0.08f * growthMultiplier);
+        float authDiscontentMult = (crownAuthority == 1) ? 0.55f :
+                                   ((crownAuthority == 2) ? 1.0f :
+                                   ((crownAuthority == 3) ? 1.45f : 2.2f));
+        float growthSpeed = (independenceFaction.powerRatio >= 65.f)
+            ? (0.28f * growthMultiplier * authDiscontentMult)
+            : (0.08f * growthMultiplier * authDiscontentMult);
+
         independenceFaction.discontent = std::min(100.f, independenceFaction.discontent + dt * growthSpeed);
 
         if (independenceFaction.discontent >= 100.f && independenceFaction.powerRatio >= 60.f) {
@@ -1393,7 +1439,47 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
                 factionModalOpen = false;
                 return true;
             }
-            sf::FloatRect fModalRect(360.f, 140.f, 560.f, 390.f);
+
+            for (int t = 0; t < 4; ++t) {
+                if (authorityTierBounds[t].contains(mPos)) {
+                    selectedAuthorityTier = t + 1;
+                    return true;
+                }
+            }
+
+            if (enactLawBtnBounds.contains(mPos)) {
+                if (selectedAuthorityTier == crownAuthority) {
+                    lawStatusMsg = "Law is already enacted in the realm.";
+                    lawStatusTimer = 2.5f;
+                    return true;
+                }
+
+                sim::ApeData* playerApe = cachedRegistry ? cachedRegistry->getApe(cachedRegistry->getControlledApe()) : nullptr;
+                int curPrestige = playerApe ? playerApe->prestige : 0;
+
+                if (curPrestige < 100) {
+                    lawStatusMsg = "Need 100 Prestige to pass new Crown Law! (Current: " + std::to_string(curPrestige) + ")";
+                    lawStatusTimer = 3.0f;
+                    return true;
+                }
+
+                if (lawCooldownTimer > 0.f) {
+                    lawStatusMsg = "Crown Laws can only be reformed once per reign cycle.";
+                    lawStatusTimer = 3.0f;
+                    return true;
+                }
+
+                if (playerApe) playerApe->prestige -= 100;
+                crownAuthority = selectedAuthorityTier;
+                lawCooldownTimer = 45.f;
+
+                static const std::string authNames[] = { "Autonomous Chieftains", "Limited Authority", "High Authority", "Absolute Alpha Rule" };
+                lawStatusMsg = "Crown Law Reformed: " + authNames[crownAuthority - 1] + "! Vassals have reacted.";
+                lawStatusTimer = 4.0f;
+                return true;
+            }
+
+            sf::FloatRect fModalRect(330.f, 85.f, 620.f, 500.f);
             if (fModalRect.contains(mPos)) {
                 return true;
             }
@@ -2407,7 +2493,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         }
 
         if (factionModalOpen) {
-            sf::FloatRect fR(360.f, 140.f, 560.f, 390.f);
+            sf::FloatRect fR(330.f, 85.f, 620.f, 500.f);
 
             sf::RectangleShape shadow(sf::Vector2f(fR.width + 8.f, fR.height + 8.f));
             shadow.setPosition(fR.left + 4.f, fR.top + 4.f);
@@ -2421,16 +2507,140 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             modal.setOutlineThickness(1.8f);
             window.draw(modal);
 
-            sf::RectangleShape header(sf::Vector2f(fR.width - 6.f, 36.f));
+            sf::RectangleShape header(sf::Vector2f(fR.width - 6.f, 34.f));
             header.setPosition(fR.left + 3.f, fR.top + 3.f);
             header.setFillColor(sf::Color(44, 26, 18));
             window.draw(header);
 
-            sf::Text mTitle("REALM FACTIONS & INTERNAL THREATS", font, 12);
+            sf::Text mTitle("REALM LAWS & CROWN AUTHORITY", font, 12);
             mTitle.setStyle(sf::Text::Bold);
             mTitle.setFillColor(sf::Color(255, 230, 140));
-            mTitle.setPosition(fR.left + 16.f, fR.top + 9.f);
+            mTitle.setPosition(fR.left + 16.f, fR.top + 8.f);
             window.draw(mTitle);
+
+            float curY = fR.top + 44.f;
+
+            sf::Text sec1("CROWN AUTHORITY TIERS", font, 10);
+            sec1.setStyle(sf::Text::Bold);
+            sec1.setFillColor(sf::Color(235, 195, 120));
+            sec1.setPosition(fR.left + 18.f, curY);
+            window.draw(sec1);
+            curY += 16.f;
+
+            static const std::string tierTitles[4] = { "I. Autonomous", "II. Limited", "III. High", "IV. Absolute" };
+            float tBtnW = (fR.width - 36.f - 18.f) / 4.f;
+            float tBtnH = 26.f;
+
+            for (int t = 0; t < 4; ++t) {
+                float tX = fR.left + 18.f + t * (tBtnW + 6.f);
+                authorityTierBounds[t] = sf::FloatRect(tX, curY, tBtnW, tBtnH);
+
+                bool isSelected = (selectedAuthorityTier == t + 1);
+                bool isEnacted = (crownAuthority == t + 1);
+
+                sf::RectangleShape btn(sf::Vector2f(tBtnW, tBtnH));
+                btn.setPosition(tX, curY);
+                if (isSelected) {
+                    btn.setFillColor(sf::Color(95, 58, 24));
+                    btn.setOutlineColor(sf::Color(255, 220, 85));
+                    btn.setOutlineThickness(1.5f);
+                } else if (isEnacted) {
+                    btn.setFillColor(sf::Color(55, 36, 18));
+                    btn.setOutlineColor(sf::Color(190, 150, 75));
+                    btn.setOutlineThickness(1.2f);
+                } else {
+                    btn.setFillColor(sf::Color(26, 18, 12));
+                    btn.setOutlineColor(sf::Color(75, 52, 30));
+                    btn.setOutlineThickness(1.f);
+                }
+                window.draw(btn);
+
+                sf::Text bTxt(tierTitles[t], font, 9);
+                bTxt.setStyle(isSelected ? sf::Text::Bold : sf::Text::Regular);
+                bTxt.setFillColor(isSelected ? sf::Color(255, 240, 190) : (isEnacted ? sf::Color(240, 210, 140) : sf::Color(170, 145, 115)));
+                sf::FloatRect btb = bTxt.getLocalBounds();
+                bTxt.setOrigin(btb.left + btb.width * 0.5f, btb.top + btb.height * 0.5f);
+                bTxt.setPosition(tX + tBtnW * 0.5f, curY + tBtnH * 0.5f);
+                window.draw(bTxt);
+
+                if (isEnacted) {
+                    sf::CircleShape pip(3.f);
+                    pip.setOrigin(3.f, 3.f);
+                    pip.setPosition(tX + tBtnW - 7.f, curY + 7.f);
+                    pip.setFillColor(sf::Color(245, 205, 55));
+                    window.draw(pip);
+                }
+            }
+            curY += 32.f;
+
+            sf::RectangleShape descBox(sf::Vector2f(fR.width - 36.f, 54.f));
+            descBox.setPosition(fR.left + 18.f, curY);
+            descBox.setFillColor(sf::Color(28, 18, 14, 230));
+            descBox.setOutlineColor(sf::Color(85, 55, 30));
+            descBox.setOutlineThickness(1.f);
+            window.draw(descBox);
+
+            std::string d1, d2;
+            if (selectedAuthorityTier == 1) {
+                d1 = "Autonomous: Clans govern locally. Vassal loyalty flourishes, but taxes and levies are low.";
+                d2 = "Effects: Vassal Opinion +10 | Levies: 15/county | Taxes: Base | Faction Growth: -45%";
+            } else if (selectedAuthorityTier == 2) {
+                d1 = "Limited: King arbitrates clan disputes and sets minimum warrior contributions.";
+                d2 = "Effects: Vassal Opinion 0 | Levies: 22/county | Taxes: +15% | Faction Growth: Normal";
+            } else if (selectedAuthorityTier == 3) {
+                d1 = "High: Royal decrees override chieftain councils. High levy quotas cause resentment.";
+                d2 = "Effects: Vassal Opinion -12 | Levies: 30/county | Taxes: +30% | Faction Growth: +45%";
+            } else {
+                d1 = "Absolute Alpha: Total autocracy. Chieftains are subordinates; dissent brews rapidly.";
+                d2 = "Effects: Vassal Opinion -25 | Levies: 40/county | Taxes: +50% | Faction Growth: +120%";
+            }
+
+            sf::Text tLine1(d1, font, 9);
+            tLine1.setFillColor(sf::Color(235, 220, 195));
+            tLine1.setPosition(fR.left + 26.f, curY + 6.f);
+            window.draw(tLine1);
+
+            sf::Text tLine2(d2, font, 9);
+            tLine2.setStyle(sf::Text::Bold);
+            tLine2.setFillColor(sf::Color(245, 205, 115));
+            tLine2.setPosition(fR.left + 26.f, curY + 22.f);
+            window.draw(tLine2);
+
+            bool isCurrentLaw = (selectedAuthorityTier == crownAuthority);
+            enactLawBtnBounds = sf::FloatRect(fR.left + fR.width - 190.f, curY + 28.f, 165.f, 20.f);
+
+            sf::RectangleShape enactBtn(sf::Vector2f(enactLawBtnBounds.width, enactLawBtnBounds.height));
+            enactBtn.setPosition(enactLawBtnBounds.left, enactLawBtnBounds.top);
+            enactBtn.setFillColor(isCurrentLaw ? sf::Color(35, 26, 18) : sf::Color(115, 60, 22));
+            enactBtn.setOutlineColor(isCurrentLaw ? sf::Color(90, 65, 40) : sf::Color(245, 195, 60));
+            enactBtn.setOutlineThickness(1.f);
+            window.draw(enactBtn);
+
+            sf::Text enactTxt(isCurrentLaw ? "ENACTED (Current)" : "ENACT LAW (-100 Prestige)", font, 8);
+            enactTxt.setStyle(sf::Text::Bold);
+            enactTxt.setFillColor(isCurrentLaw ? sf::Color(160, 135, 105) : sf::Color(255, 235, 175));
+            sf::FloatRect etb = enactTxt.getLocalBounds();
+            enactTxt.setOrigin(etb.left + etb.width * 0.5f, etb.top + etb.height * 0.5f);
+            enactTxt.setPosition(enactLawBtnBounds.left + enactLawBtnBounds.width * 0.5f, enactLawBtnBounds.top + enactLawBtnBounds.height * 0.5f);
+            window.draw(enactTxt);
+
+            curY += 60.f;
+
+            if (lawStatusTimer > 0.f && !lawStatusMsg.empty()) {
+                sf::Text sMsg(lawStatusMsg, font, 9);
+                sMsg.setStyle(sf::Text::Bold);
+                sMsg.setFillColor(sf::Color(255, 215, 120));
+                sMsg.setPosition(fR.left + 26.f, curY);
+                window.draw(sMsg);
+                curY += 16.f;
+            }
+
+            sf::Vertex sep[] = {
+                sf::Vertex(sf::Vector2f(fR.left + 18.f, curY), sf::Color(85, 55, 30)),
+                sf::Vertex(sf::Vector2f(fR.left + fR.width - 18.f, curY), sf::Color(85, 55, 30))
+            };
+            window.draw(sep, 2, sf::Lines);
+            curY += 10.f;
 
             closeFactionModalBounds = sf::FloatRect(fR.left + fR.width - 28.f, fR.top + 7.f, 20.f, 20.f);
             sf::RectangleShape closeBtn(sf::Vector2f(20.f, 20.f));
@@ -2445,8 +2655,6 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             xT.setFillColor(sf::Color::White);
             xT.setPosition(closeFactionModalBounds.left + 6.f, closeFactionModalBounds.top + 1.f);
             window.draw(xT);
-
-            float curY = fR.top + 48.f;
 
             if (independenceFaction.memberCounties.empty()) {
                 sf::Text calmTxt("There are no active factions threatening your realm. The realm is at peace.", font, 11);

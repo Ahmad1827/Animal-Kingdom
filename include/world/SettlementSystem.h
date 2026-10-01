@@ -32,6 +32,7 @@ struct CountyDef {
     bool inFaction = false;
     int supplyLimit = 30;
     int fortTier = 0;
+    bool leviesRaised = false;
 };
 
 struct FactionState {
@@ -66,6 +67,7 @@ struct MapArmy {
     sf::Vector2f targetPos;
     std::string currentCounty;
     std::string targetCounty;
+    std::string originCounty;
     bool isMoving = false;
     bool inCombat = false;
     float combatTimer = 0.f;
@@ -188,7 +190,7 @@ private:
     std::string callAllyStatusMsg;
     float callAllyStatusTimer = 0.f;
 
-    int crownAuthority = 2; // 1: Autonomous, 2: Limited, 3: High, 4: Absolute
+    int crownAuthority = 2;
     int selectedAuthorityTier = 2;
     float lawCooldownTimer = 0.f;
     std::string lawStatusMsg;
@@ -287,6 +289,10 @@ public:
     static float getAuthorityTaxMultiplier();
     static int getAuthorityLevyPerCounty();
     static int getAuthorityVassalOpinionMod();
+
+    static bool isCountyLevyRaised(const std::string& county);
+    static bool canMusterCountyLevies(const std::string& county, const std::string& kingdom);
+    static bool musterCountyLevies(const std::string& county, const std::string& kingdom);
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

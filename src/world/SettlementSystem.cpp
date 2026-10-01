@@ -115,6 +115,41 @@ int SettlementSystem::getAuthorityVassalOpinionMod() {
     if (auth == 3) return -12;
     return -25;
 }
+
+bool SettlementSystem::isCountyLevyRaised(const std::string& county) {
+    if (!s_instance) return false;
+    for (const auto& c : s_instance->counties) {
+        if (c.countyName == county) return c.leviesRaised;
+    }
+    return false;
+}
+
+bool SettlementSystem::canMusterCountyLevies(const std::string& county, const std::string& kingdom) {
+    if (!s_instance) return false;
+    for (const auto& c : s_instance->counties) {
+        if (c.countyName == county) {
+            bool match = (c.kingdomName == kingdom ||
+                          kingdom.find(c.kingdomName) != std::string::npos ||
+                          c.kingdomName.find(kingdom) != std::string::npos);
+            if (match) return !c.leviesRaised && !c.isOccupied;
+        }
+    }
+    return false;
+}
+
+bool SettlementSystem::musterCountyLevies(const std::string& county, const std::string& kingdom) {
+    if (!s_instance || !canMusterCountyLevies(county, kingdom)) return false;
+    for (auto& c : s_instance->counties) {
+        if (c.countyName == county) {
+            c.leviesRaised = true;
+            int troops = getAuthorityLevyPerCounty();
+            spawnArmy(county, c.kingdomName, troops);
+            return true;
+        }
+    }
+    return false;
+}
+
 void SettlementSystem::assignCouncilMission(sim::CouncilRole role, CouncilMissionType mission, const std::string& county) {
     if (!s_instance) return;
     for (auto& a : s_instance->councilAssignments) {
@@ -332,8 +367,16 @@ void SettlementSystem::spawnArmy(const std::string& county, const std::string& k
     army.targetPos = spawnPos;
     army.currentCounty = county;
     army.targetCounty = county;
+    army.originCounty = county;
     army.isMoving = false;
     army.supply = 100.f;
+
+    for (auto& c : s_instance->counties) {
+        if (c.countyName == county && c.kingdomName == kingdom) {
+            c.leviesRaised = true;
+            break;
+        }
+    }
 
     s_instance->mapArmies.push_back(army);
     s_instance->selectedArmyId = static_cast<int>(army.id);
@@ -345,6 +388,13 @@ void SettlementSystem::disbandArmyInCounty(const std::string& county, const std:
         if (it->currentCounty == county && it->ownerKingdom == kingdom) {
             if (s_instance->selectedArmyId == static_cast<int>(it->id)) {
                 s_instance->selectedArmyId = -1;
+            }
+            std::string oCounty = it->originCounty;
+            for (auto& c : s_instance->counties) {
+                if (c.countyName == oCounty && c.kingdomName == kingdom) {
+                    c.leviesRaised = false;
+                    break;
+                }
             }
             it = s_instance->mapArmies.erase(it);
         } else {
@@ -1043,6 +1093,12 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
                     activeWar.warScore = std::min(100.f, activeWar.warScore + 30.f);
                 }
             }
+            for (auto& c : counties) {
+                if (c.countyName == it->originCounty && c.kingdomName == it->ownerKingdom) {
+                    c.leviesRaised = false;
+                    break;
+                }
+            }
             if (selectedArmyId == static_cast<int>(it->id)) {
                 selectedArmyId = -1;
             }
@@ -1398,11 +1454,11 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
 
     if (event.type == sf::Event::MouseButtonPressed && (event.mouseButton.button == sf::Mouse::Left || event.mouseButton.button == sf::Mouse::Middle || event.mouseButton.button == sf::Mouse::Right)) {
         sf::Vector2f mPos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), letterboxView);
+        dragStartMouse = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
+        lastDragMouse = dragStartMouse;
         if (canvasRect.contains(mPos)) {
-            isDraggingMap = (event.mouseButton.button != sf::Mouse::Right);
-            lastDragMouse = sf::Vector2i(event.mouseButton.x, event.mouseButton.y);
-            dragStartMouse = lastDragMouse;
-            return (event.mouseButton.button != sf::Mouse::Right);
+            isDraggingMap = (event.mouseButton.button == sf::Mouse::Left || event.mouseButton.button == sf::Mouse::Middle);
+            return true;
         }
     }
 
@@ -1425,7 +1481,7 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
 
         int dx = event.mouseButton.x - dragStartMouse.x;
         int dy = event.mouseButton.y - dragStartMouse.y;
-        bool isClick = (dx * dx + dy * dy < 36);
+        bool isClick = (dx * dx + dy * dy < 256);
 
         sf::Vector2f mPos = window.mapPixelToCoords(sf::Vector2i(event.mouseButton.x, event.mouseButton.y), letterboxView);
 
@@ -1578,19 +1634,24 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
         }
 
         if (isClick && canvasRect.contains(mPos)) {
-            float relX = mPos.x - canvasRect.left;
-            float relY = mPos.y - canvasRect.top;
-            sf::Vector2f worldClick = mapCenter + sf::Vector2f(relX - canvasRect.width * 0.5f, relY - canvasRect.height * 0.5f) * mapZoom;
+                float relX = mPos.x - canvasRect.left;
+                float relY = mPos.y - canvasRect.top;
+                sf::Vector2f worldClick = mapCenter + sf::Vector2f(relX - canvasRect.width * 0.5f, relY - canvasRect.height * 0.5f) * mapZoom;
 
-            if (event.mouseButton.button == sf::Mouse::Left) {
-                for (const auto& a : mapArmies) {
-                    float dist = std::hypot(a.pos.x - worldClick.x, a.pos.y - worldClick.y);
-                    if (dist <= 18.f) {
-                        selectedArmyId = static_cast<int>(a.id);
-                        return true;
+                if (event.mouseButton.button == sf::Mouse::Left) {
+                    bool armyClicked = false;
+                    for (const auto& a : mapArmies) {
+                        float dist = std::hypot(a.pos.x - worldClick.x, a.pos.y - worldClick.y);
+                        if (dist <= 18.f) {
+                            selectedArmyId = static_cast<int>(a.id);
+                            armyClicked = true;
+                            return true;
+                        }
+                    }
+                    if (!armyClicked) {
+                        selectedArmyId = -1;
                     }
                 }
-            }
 
             if (event.mouseButton.button == sf::Mouse::Right && selectedArmyId != -1) {
                 for (size_t i = 0; i < counties.size(); ++i) {
@@ -2070,34 +2131,61 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             }
         }
 
-        struct RealmLabel {
-            std::string text;
-            sf::Vector2f pos;
-            float rotation;
-            unsigned int size;
+        struct RealmCluster {
+            std::string kingdomName;
+            std::string regionTag;
+            sf::Vector2f centerSum{0.f, 0.f};
+            int count = 0;
         };
 
-        std::vector<RealmLabel> rLabels = {
-            {"W E S S E X",           {440.f, 525.f},   0.f, 18},
-            {"M E R C I A",           {440.f, 415.f},  -8.f, 18},
-            {"N O R T H U M B R I A", {465.f, 285.f}, -15.f, 16},
-            {"A L B A",               {435.f, 160.f},   0.f, 18},
-            {"C O R N W A L L",       {295.f, 555.f}, -25.f, 13},
-            {"E A S T  A N G L I A",  {535.f, 445.f},  15.f, 12},
-            {"I R E L A N D",         {235.f, 400.f},  65.f, 16}
-        };
+        std::unordered_map<std::string, RealmCluster> clusters;
+        for (const auto& c : counties) {
+            if (c.kingdomName.empty() || c.kingdomName == "Wilderness") continue;
+            std::string regTag = (c.center.x < 300.f) ? "Ireland" : "Britain";
+            std::string key = c.kingdomName + "_" + regTag;
+            auto& cl = clusters[key];
+            cl.kingdomName = c.kingdomName;
+            cl.regionTag = regTag;
+            cl.centerSum += c.center;
+            cl.count++;
+        }
 
-        for (const auto& rl : rLabels) {
-            sf::Text rTxt(rl.text, font, rl.size);
+        for (const auto& pair : clusters) {
+            const auto& cl = pair.second;
+            if (cl.count <= 0) continue;
+
+            sf::Vector2f centroid(cl.centerSum.x / static_cast<float>(cl.count),
+                                  cl.centerSum.y / static_cast<float>(cl.count));
+
+            unsigned int labelSize = std::clamp(static_cast<unsigned int>(11 + cl.count * 3), 12u, 28u);
+
+            std::string spacedName;
+            for (char ch : cl.kingdomName) {
+                spacedName += static_cast<char>(std::toupper(ch));
+                spacedName += ' ';
+            }
+            if (!spacedName.empty()) spacedName.pop_back();
+
+            float rot = 0.f;
+            if (cl.regionTag == "Ireland") {
+                rot = 60.f;
+            } else {
+                if (cl.kingdomName == "Cornwall") rot = -25.f;
+                else if (cl.kingdomName == "Mercia") rot = -8.f;
+                else if (cl.kingdomName == "Northumbria") rot = -14.f;
+                else if (cl.kingdomName == "East Anglia") rot = 15.f;
+            }
+
+            sf::Text rTxt(spacedName, font, labelSize);
             rTxt.setStyle(sf::Text::Bold);
             rTxt.setFillColor(sf::Color(25, 18, 12, 240));
             rTxt.setOutlineColor(sf::Color(245, 235, 205, 210));
             rTxt.setOutlineThickness(1.5f);
-            rTxt.setRotation(rl.rotation);
+            rTxt.setRotation(rot);
 
             sf::FloatRect b = rTxt.getLocalBounds();
             rTxt.setOrigin(b.left + b.width * 0.5f, b.top + b.height * 0.5f);
-            rTxt.setPosition(rl.pos);
+            rTxt.setPosition(centroid);
             mapCanvas.draw(rTxt);
         }
     } else {

@@ -67,11 +67,14 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
 
     if (isSelfRealm) {
         bool hasArmyHere = SettlementSystem::hasArmyInCounty(targetSettlement.countyName, playerKName);
+        bool levyRaised = SettlementSystem::isCountyLevyRaised(targetSettlement.countyName);
+        bool canMuster = SettlementSystem::canMusterCountyLevies(targetSettlement.countyName, playerKName);
+        int quota = SettlementSystem::getAuthorityLevyPerCounty();
 
-        if (!hasArmyHere) {
+        if (canMuster) {
             options.push_back({
-                "Muster Warband",
-                "Assemble defense levies at hearth",
+                "Muster County Levies",
+                "Call hearth warriors to arms (" + std::to_string(quota) + " warriors)",
                 "Free",
                 true,
                 sf::Color(245, 195, 65),
@@ -79,13 +82,24 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
                     if (playerKingdom && targetVillage) {
                         sim::WarfareManager::issueMusterOrder(reg, playerKingdom->id, targetVillage->id, playerApeId);
                     }
-                    SettlementSystem::spawnArmy(targetSettlement.countyName, playerKName, 25);
+                    SettlementSystem::musterCountyLevies(targetSettlement.countyName, playerKName);
                     statusMessage = "Warband Called to Arms!";
                     statusColor = sf::Color(100, 240, 100);
                     statusTimer = 2.5f;
                 }
             });
-        } else {
+        } else if (levyRaised && !hasArmyHere) {
+            options.push_back({
+                "Levies Mobilized",
+                "County warriors are already deployed in the field",
+                "In Field",
+                false,
+                sf::Color(95, 88, 85),
+                nullptr
+            });
+        }
+
+        if (hasArmyHere) {
             options.push_back({
                 "Disband Warband",
                 "Stand down levies and return to hearth",

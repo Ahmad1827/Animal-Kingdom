@@ -155,8 +155,10 @@ struct ApeData {
     int carriedAmount = 0;
     ToolType equippedTool = ToolType::None;
 
-    int amberCount = 0;
-    int maxAmber = 40;
+    int amberCount = 150;
+    int maxAmber = 999;
+    int prestige = 120;
+    int piety = 75;
 
     bool isCarryingBorder = false;
 

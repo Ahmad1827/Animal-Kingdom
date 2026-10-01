@@ -6,14 +6,12 @@
 namespace sim {
 
 void WorldEventManager::handleSeasons(SimulationRegistry& registry, uint64_t ticks) {
-    int ticksPerDay = 1440;
-    int daysPerSeason = 10;
-    int totalDays = static_cast<int>(ticks / ticksPerDay);
-    
-    registry.setDate((totalDays / (daysPerSeason * 4)) + 1, (totalDays % (daysPerSeason * 4)) + 1);
-    
-    int seasonIndex = (totalDays / daysPerSeason) % 4;
-    registry.setSeason(static_cast<Season>(seasonIndex));
+    (void)ticks;
+    int m = registry.getMonth();
+    if (m >= 3 && m <= 5) registry.setSeason(Season::Spring);
+    else if (m >= 6 && m <= 8) registry.setSeason(Season::Summer);
+    else if (m >= 9 && m <= 11) registry.setSeason(Season::Autumn);
+    else registry.setSeason(Season::Winter);
 }
 
 void WorldEventManager::generateRandomEvents(SimulationRegistry& registry, uint64_t ticks) {

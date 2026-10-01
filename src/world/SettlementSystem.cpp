@@ -335,9 +335,129 @@ bool SettlementSystem::hasTruceWith(const std::string& kingdom) {
     return (it != s_instance->kingdomTruces.end() && it->second > 0);
 }
 
+void SettlementSystem::initTradeRoutes() {
+    tradeRoutes.clear();
+
+    TradeRouteNode thames;
+    thames.name = "Thames River Highway";
+    thames.waypoints = { {370.f, 530.f}, {420.f, 495.f}, {480.f, 520.f}, {540.f, 525.f} };
+    thames.counties = { "Hampshire", "Berkshire", "Middlesex" };
+    thames.baseToll = 3.4f;
+    tradeRoutes.push_back(thames);
+
+    TradeRouteNode watling;
+    watling.name = "Watling Roman Road";
+    watling.waypoints = { {480.f, 520.f}, {435.f, 430.f}, {375.f, 440.f}, {455.f, 350.f} };
+    watling.counties = { "Middlesex", "Warwick", "Chester", "Yorkshire" };
+    watling.baseToll = 4.2f;
+    tradeRoutes.push_back(watling);
+
+    TradeRouteNode northSea;
+    northSea.name = "North Sea Coastway";
+    northSea.waypoints = { {525.f, 465.f}, {495.f, 395.f}, {485.f, 335.f}, {440.f, 245.f}, {425.f, 195.f} };
+    northSea.counties = { "Norfolk", "Lincoln", "Yorkshire", "Bamburgh", "Lothian" };
+    northSea.baseToll = 3.0f;
+    tradeRoutes.push_back(northSea);
+}
+
+const std::vector<TradeRouteNode>& SettlementSystem::getTradeRoutes() {
+    static const std::vector<TradeRouteNode> empty;
+    if (!s_instance) return empty;
+    return s_instance->tradeRoutes;
+}
+
+bool SettlementSystem::isCountyOnTradeRoute(const std::string& county) {
+    if (!s_instance) return false;
+    for (const auto& tr : s_instance->tradeRoutes) {
+        for (const auto& c : tr.counties) {
+            if (c == county) return true;
+        }
+    }
+    return false;
+}
+
+bool SettlementSystem::isTradeRouteRaided(const std::string& routeName) {
+    if (!s_instance) return false;
+    for (const auto& tr : s_instance->tradeRoutes) {
+        if (tr.name == routeName) return tr.isRaided;
+    }
+    return false;
+}
+
+void SettlementSystem::setTradeRouteRaided(const std::string& routeName, bool raided, const std::string& raider) {
+    if (!s_instance) return;
+    for (auto& tr : s_instance->tradeRoutes) {
+        if (tr.name == routeName) {
+            tr.isRaided = raided;
+            tr.raiderKingdom = raider;
+            break;
+        }
+    }
+}
+
+float SettlementSystem::getKingdomTradeIncome(const std::string& kingdom) {
+    if (!s_instance) return 0.f;
+    float income = 0.f;
+    for (const auto& tr : s_instance->tradeRoutes) {
+        if (tr.isRaided && tr.raiderKingdom == kingdom) {
+            income += tr.baseToll * 1.6f;
+            continue;
+        }
+        if (tr.isRaided) continue;
+
+        int ownedConnected = 0;
+        for (const auto& cName : tr.counties) {
+            for (const auto& c : s_instance->counties) {
+                if (c.countyName == cName && c.kingdomName == kingdom) {
+                    ownedConnected++;
+                }
+            }
+        }
+        if (ownedConnected > 0) {
+            income += tr.baseToll * (0.6f + 0.4f * static_cast<float>(ownedConnected));
+        }
+    }
+    return income;
+}
+
+float SettlementSystem::getKingdomArmyUpkeep(const std::string& kingdom) {
+    if (!s_instance) return 0.f;
+    float upkeep = 0.f;
+    for (const auto& a : s_instance->mapArmies) {
+        if (a.ownerKingdom == kingdom) {
+            upkeep += static_cast<float>(a.strength) * 0.12f;
+        }
+    }
+    return upkeep;
+}
+
+int SettlementSystem::getKingdomRaisedTroops(const std::string& kingdom) {
+    if (!s_instance) return 0;
+    int sum = 0;
+    for (const auto& a : s_instance->mapArmies) {
+        if (a.ownerKingdom == kingdom) sum += a.strength;
+    }
+    return sum;
+}
+
+int SettlementSystem::getKingdomDemesneCount(const std::string& kingdom) {
+    if (!s_instance) return 0;
+    int count = 0;
+    for (const auto& c : s_instance->counties) {
+        if (c.kingdomName == kingdom) count++;
+    }
+    return count;
+}
+
+bool SettlementSystem::isWarActive() {
+    if (!s_instance) return false;
+    return s_instance->activeWar.active;
+}
+
 SettlementSystem::SettlementSystem() {
     s_instance = this;
     warBadgeBounds = sf::FloatRect(820.f, 580.f, 310.f, 44.f);
+    initTradeRoutes();
 
     fontLoaded = font.loadFromFile("assets/fonts/Cinzel-Bold.ttf") ||
                  font.loadFromFile("assets/fonts/Cinzel-Regular.ttf") ||
@@ -643,6 +763,27 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
     }
 
     pulseTime += dt;
+
+    for (auto& tr : tradeRoutes) {
+        tr.isRaided = false;
+        tr.raiderKingdom.clear();
+        for (const auto& a : mapArmies) {
+            if (a.isMoving) continue;
+            for (const auto& cName : tr.counties) {
+                if (a.currentCounty == cName) {
+                    for (const auto& c : counties) {
+                        if (c.countyName == cName && c.kingdomName != a.ownerKingdom) {
+                            tr.isRaided = true;
+                            tr.raiderKingdom = a.ownerKingdom;
+                            break;
+                        }
+                    }
+                }
+                if (tr.isRaided) break;
+            }
+            if (tr.isRaided) break;
+        }
+    }
 
     for (auto& a : mapArmies) {
         if (a.isMoving) {
@@ -1634,6 +1775,65 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         }
     }
 
+    if (currentLens == MapLens::Economy) {
+        for (const auto& tr : tradeRoutes) {
+            if (tr.waypoints.size() < 2) continue;
+
+            sf::Color lineCol = tr.isRaided ? sf::Color(225, 45, 35, 210) : sf::Color(245, 195, 55, 200);
+
+            for (size_t w = 0; w + 1 < tr.waypoints.size(); ++w) {
+                sf::Vector2f p1 = tr.waypoints[w];
+                sf::Vector2f p2 = tr.waypoints[w + 1];
+
+                sf::Vertex segment[] = {
+                    sf::Vertex(p1, lineCol),
+                    sf::Vertex(p2, lineCol)
+                };
+                mapCanvas.draw(segment, 2, sf::Lines);
+
+                float pulseOffset = std::fmod(pulseTime * 28.f, 100.f) / 100.f;
+                sf::Vector2f caravanPos = p1 + (p2 - p1) * pulseOffset;
+
+                sf::CircleShape pip(2.5f);
+                pip.setOrigin(2.5f, 2.5f);
+                pip.setPosition(caravanPos);
+                pip.setFillColor(tr.isRaided ? sf::Color(255, 120, 80) : sf::Color(255, 245, 180));
+                pip.setOutlineColor(sf::Color(45, 20, 10));
+                pip.setOutlineThickness(0.8f);
+                mapCanvas.draw(pip);
+            }
+
+            for (const auto& pt : tr.waypoints) {
+                sf::CircleShape hub(4.f);
+                hub.setOrigin(4.f, 4.f);
+                hub.setPosition(pt);
+                hub.setFillColor(tr.isRaided ? sf::Color(190, 35, 25) : sf::Color(235, 180, 45));
+                hub.setOutlineColor(sf::Color(30, 20, 10));
+                hub.setOutlineThickness(1.2f);
+                mapCanvas.draw(hub);
+            }
+
+            if (tr.isRaided && !tr.waypoints.empty()) {
+                sf::Vector2f mid = tr.waypoints[tr.waypoints.size() / 2];
+                sf::RectangleShape rBadge(sf::Vector2f(56.f, 13.f));
+                rBadge.setOrigin(28.f, 6.5f);
+                rBadge.setPosition(mid.x, mid.y - 12.f);
+                rBadge.setFillColor(sf::Color(160, 20, 15, 240));
+                rBadge.setOutlineColor(sf::Color(255, 225, 120));
+                rBadge.setOutlineThickness(1.f);
+                mapCanvas.draw(rBadge);
+
+                sf::Text rbTxt("RAIDED", font, 7);
+                rbTxt.setStyle(sf::Text::Bold);
+                rbTxt.setFillColor(sf::Color::White);
+                sf::FloatRect rbb = rbTxt.getLocalBounds();
+                rbTxt.setOrigin(rbb.left + rbb.width * 0.5f, rbb.top + rbb.height * 0.5f);
+                rbTxt.setPosition(rBadge.getPosition());
+                mapCanvas.draw(rbTxt);
+            }
+        }
+    }
+
     if (isZoomedOut) {
         for (size_t i = 0; i < counties.size(); ++i) {
             const auto& cA = counties[i];
@@ -2266,7 +2466,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         } else if (currentLens == MapLens::Diplomacy) {
             legendStr = "LENS: Diplomacy | Blue: Your Realm & Allies | Red: War Opponents | Grey: Neutral Realms";
         } else if (currentLens == MapLens::Economy) {
-            legendStr = "LENS: Economy | Gold: Wealthy (>1.2k Stockpile) | Green: Developed (>400) | Brown: Subsistence";
+            legendStr = "LENS: Economy & Trade | Golden Arteries: Trade Highways (+Tolls) | Station armies on foreign hubs to Raid";
         }
 
         sf::Text legend(legendStr, font, 10);

@@ -48,6 +48,16 @@ struct SuccessionPartitionEntry {
     std::string status;
     sf::Color statusColor;
 };
+
+struct TradeRouteNode {
+    std::string name;
+    std::vector<sf::Vector2f> waypoints;
+    std::vector<std::string> counties;
+    float baseToll = 3.0f;
+    bool isRaided = false;
+    std::string raiderKingdom;
+};
+
 struct MapArmy {
     uint32_t id = 0;
     std::string ownerKingdom;
@@ -171,6 +181,8 @@ private:
     std::vector<MapArmy> mapArmies;
     int selectedArmyId = -1;
     std::vector<CouncilAssignment> councilAssignments;
+    std::vector<TradeRouteNode> tradeRoutes;
+    void initTradeRoutes();
     FactionState independenceFaction;
     bool factionModalOpen = false;
     sf::FloatRect factionsTabBounds;
@@ -243,6 +255,16 @@ public:
     static void triggerSuccession();
     static int getCountyFortTier(const std::string& county);
     static void upgradeCountyFort(const std::string& county);
+
+    static const std::vector<TradeRouteNode>& getTradeRoutes();
+    static bool isCountyOnTradeRoute(const std::string& county);
+    static bool isTradeRouteRaided(const std::string& routeName);
+    static void setTradeRouteRaided(const std::string& routeName, bool raided, const std::string& raider);
+    static float getKingdomTradeIncome(const std::string& kingdom);
+    static float getKingdomArmyUpkeep(const std::string& kingdom);
+    static int getKingdomRaisedTroops(const std::string& kingdom);
+    static int getKingdomDemesneCount(const std::string& kingdom);
+    static bool isWarActive();
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

@@ -183,8 +183,9 @@ private:
     ::WorldManager* worldManager = nullptr;
     EntityID controlledApeId = 0;
 
-    int currentYear = 1;
-    int currentDay = 1;
+    int currentYear = 843;
+    int currentMonth = 5;
+    int currentDay = 14;
     Season currentSeason = Season::Spring;
 
     std::unordered_map<EntityID, ApeData> apes;
@@ -214,10 +215,62 @@ public:
     void setControlledApe(EntityID id) { controlledApeId = id; }
 
     int getYear() const { return currentYear; }
+    int getMonth() const { return currentMonth; }
     int getDay() const { return currentDay; }
     Season getSeason() const { return currentSeason; }
 
-    void setDate(int year, int day) { currentYear = year; currentDay = day; }
+    static int getDaysInMonth(int m, int y) {
+        if (m == 2) {
+            bool leap = (y % 4 == 0 && (y % 100 != 0 || y % 400 == 0));
+            return leap ? 29 : 28;
+        }
+        if (m == 4 || m == 6 || m == 9 || m == 11) return 30;
+        return 31;
+    }
+
+    static std::string getMonthName(int m) {
+        static const std::string mNames[] = {
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+        };
+        if (m >= 1 && m <= 12) return mNames[m - 1];
+        return "Jan";
+    }
+
+    void advanceDays(int count = 1) {
+        while (count > 0) {
+            currentDay++;
+            if (currentDay > getDaysInMonth(currentMonth, currentYear)) {
+                currentDay = 1;
+                currentMonth++;
+                if (currentMonth > 12) {
+                    currentMonth = 1;
+                    currentYear++;
+                }
+            }
+            count--;
+        }
+        if (currentMonth >= 3 && currentMonth <= 5) currentSeason = Season::Spring;
+        else if (currentMonth >= 6 && currentMonth <= 8) currentSeason = Season::Summer;
+        else if (currentMonth >= 9 && currentMonth <= 11) currentSeason = Season::Autumn;
+        else currentSeason = Season::Winter;
+    }
+
+    void setDate(int year, int month, int day) {
+        currentYear = year;
+        currentMonth = std::clamp(month, 1, 12);
+        currentDay = std::clamp(day, 1, getDaysInMonth(currentMonth, currentYear));
+        if (currentMonth >= 3 && currentMonth <= 5) currentSeason = Season::Spring;
+        else if (currentMonth >= 6 && currentMonth <= 8) currentSeason = Season::Summer;
+        else if (currentMonth >= 9 && currentMonth <= 11) currentSeason = Season::Autumn;
+        else currentSeason = Season::Winter;
+    }
+
+    void setDate(int year, int day) {
+        if (year > 500) currentYear = year;
+        currentDay = std::clamp(day, 1, getDaysInMonth(currentMonth, currentYear));
+    }
+
     void setSeason(Season s) { currentSeason = s; }
 
     void addHistory(const HistoricalRecord& rec) { history.push_back(rec); }

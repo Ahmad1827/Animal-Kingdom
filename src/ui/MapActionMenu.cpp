@@ -358,6 +358,32 @@ bool alreadyAtWar = SettlementSystem::isAtWarWith(targetSettlement.kingdomName);
             cWarDesc = "A truce is currently in effect with " + targetSettlement.kingdomName;
         }
 
+        bool onTradeRoute = SettlementSystem::isCountyOnTradeRoute(targetSettlement.countyName);
+        if (onTradeRoute) {
+            bool isRaided = false;
+            for (const auto& tr : SettlementSystem::getTradeRoutes()) {
+                if (tr.isRaided && tr.raiderKingdom == playerKName) {
+                    for (const auto& c : tr.counties) {
+                        if (c == targetSettlement.countyName) isRaided = true;
+                    }
+                }
+            }
+
+            options.push_back({
+                isRaided ? "Artery Under Raid (Active)" : "Raid Trade Artery",
+                isRaided ? "Warband intercepts and loots caravans" : "Disrupt route to plunder tolls (+Amber, hurts enemy)",
+                isRaided ? "Active" : "Warband",
+                !isRaided,
+                isRaided ? sf::Color(245, 175, 60) : sf::Color(230, 85, 75),
+                [this, playerKName]() {
+                    SettlementSystem::spawnArmy(targetSettlement.countyName, playerKName, 18);
+                    statusMessage = "Warband Dispatched to Raid " + targetSettlement.countyName + "!";
+                    statusColor = sf::Color(245, 145, 55);
+                    statusTimer = 3.0f;
+                }
+            });
+        }
+
         options.push_back({
             cWarTitle,
             cWarDesc,

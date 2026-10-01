@@ -20,6 +20,9 @@ void SettlementSystem::startWar(const std::string& county, const std::string& at
     s_instance->activeWar.warTimer = 0.f;
     s_instance->activeWar.aiThinkTimer = 0.f;
     s_instance->peaceModalOpen = false;
+    s_instance->activeWarAllies.clear();
+    s_instance->callAllyStatusTimer = 0.f;
+    s_instance->callAllyStatusMsg.clear();
 
     std::string musterCounty = county;
     for (const auto& c : s_instance->counties) {
@@ -30,6 +33,53 @@ void SettlementSystem::startWar(const std::string& county, const std::string& at
     }
 
     spawnArmy(musterCounty, enemy, 22);
+}
+
+void SettlementSystem::callAllyToWar(const std::string& allyKingdom) {
+    if (!s_instance || !s_instance->activeWar.active) return;
+    for (const auto& al : s_instance->activeWarAllies) {
+        if (al == allyKingdom) return;
+    }
+
+    s_instance->activeWarAllies.push_back(allyKingdom);
+
+    std::string allyCounty = "Cornwall";
+    for (const auto& c : s_instance->counties) {
+        if (c.kingdomName == allyKingdom) {
+            allyCounty = c.countyName;
+            break;
+        }
+    }
+
+    spawnArmy(allyCounty, allyKingdom, 20);
+
+    sf::Vector2f targetPos(440.f, 525.f);
+    for (const auto& c : s_instance->counties) {
+        if (c.countyName == s_instance->activeWar.targetCounty) {
+            targetPos = c.center + sf::Vector2f(20.f, -12.f);
+            break;
+        }
+    }
+
+    for (auto& a : s_instance->mapArmies) {
+        if (a.ownerKingdom == allyKingdom) {
+            a.targetPos = targetPos;
+            a.targetCounty = s_instance->activeWar.targetCounty;
+            a.isMoving = true;
+            break;
+        }
+    }
+
+    s_instance->callAllyStatusMsg = allyKingdom + " honors the pact! 20 allied warriors marching to front.";
+    s_instance->callAllyStatusTimer = 3.8f;
+}
+
+bool SettlementSystem::isAllyInWar(const std::string& allyKingdom) {
+    if (!s_instance) return false;
+    for (const auto& al : s_instance->activeWarAllies) {
+        if (al == allyKingdom) return true;
+    }
+    return false;
 }
 void SettlementSystem::assignCouncilMission(sim::CouncilRole role, CouncilMissionType mission, const std::string& county) {
     if (!s_instance) return;
@@ -307,6 +357,15 @@ void SettlementSystem::annexCounty(const std::string& county, const std::string&
                        [&enemyK](const MapArmy& a) { return a.ownerKingdom == enemyK; }),
         s_instance->mapArmies.end()
     );
+
+    for (const auto& al : s_instance->activeWarAllies) {
+        s_instance->mapArmies.erase(
+            std::remove_if(s_instance->mapArmies.begin(), s_instance->mapArmies.end(),
+                           [&al](const MapArmy& a) { return a.ownerKingdom == al; }),
+            s_instance->mapArmies.end()
+        );
+    }
+    s_instance->activeWarAllies.clear();
 
     for (auto& c : s_instance->counties) {
         if (c.countyName == county) {
@@ -813,7 +872,7 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
                 }
             }
 
-            for (auto& a : mapArmies) {
+           for (auto& a : mapArmies) {
                 if (a.ownerKingdom == activeWar.enemyKingdom && !a.inCombat && !a.isMoving) {
                     if (a.currentCounty != activeWar.targetCounty) {
                         a.targetPos = targetCountyCenter;
@@ -821,8 +880,27 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
                         a.isMoving = true;
                     }
                 }
+
+                bool isAlly = false;
+                for (const auto& al : activeWarAllies) {
+                    if (a.ownerKingdom == al) {
+                        isAlly = true;
+                        break;
+                    }
+                }
+                if (isAlly && !a.inCombat && !a.isMoving) {
+                    if (a.currentCounty != activeWar.targetCounty) {
+                        a.targetPos = targetCountyCenter + sf::Vector2f(20.f, -12.f);
+                        a.targetCounty = activeWar.targetCounty;
+                        a.isMoving = true;
+                    }
+                }
             }
         }
+    }
+
+    if (callAllyStatusTimer > 0.f) {
+        callAllyStatusTimer = std::max(0.f, callAllyStatusTimer - dt);
     }
 
     std::unordered_map<std::string, int> countyTroopCounts;
@@ -878,9 +956,18 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
         mapArmies[i].inCombat = false;
     }
 
+    auto areArmiesAllied = [&](const std::string& k1, const std::string& k2) -> bool {
+        if (k1 == k2) return true;
+        bool k1PlayerSide = (k1 == "Wessex");
+        for (const auto& al : activeWarAllies) if (k1 == al) k1PlayerSide = true;
+        bool k2PlayerSide = (k2 == "Wessex");
+        for (const auto& al : activeWarAllies) if (k2 == al) k2PlayerSide = true;
+        return (k1PlayerSide && k2PlayerSide);
+    };
+
     for (size_t i = 0; i < mapArmies.size(); ++i) {
         for (size_t j = i + 1; j < mapArmies.size(); ++j) {
-            if (mapArmies[i].ownerKingdom != mapArmies[j].ownerKingdom) {
+            if (!areArmiesAllied(mapArmies[i].ownerKingdom, mapArmies[j].ownerKingdom)) {
                 if (!mapArmies[i].isMoving && !mapArmies[j].isMoving &&
                     mapArmies[i].currentCounty == mapArmies[j].currentCounty &&
                     !mapArmies[i].currentCounty.empty()) {
@@ -911,8 +998,13 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
     for (auto it = mapArmies.begin(); it != mapArmies.end();) {
         if (it->strength <= 0) {
             if (activeWar.active) {
-                if (it->ownerKingdom == activeWar.attackerKingdom) {
-                    activeWar.warScore = std::max(-100.f, activeWar.warScore - 30.f);
+                bool isAttackerSide = (it->ownerKingdom == activeWar.attackerKingdom);
+                for (const auto& al : activeWarAllies) {
+                    if (it->ownerKingdom == al) isAttackerSide = true;
+                }
+
+                if (isAttackerSide) {
+                    activeWar.warScore = std::max(-100.f, activeWar.warScore - 25.f);
                 } else if (it->ownerKingdom == activeWar.enemyKingdom) {
                     activeWar.warScore = std::min(100.f, activeWar.warScore + 30.f);
                 }
@@ -940,7 +1032,12 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
         }
 
         if (activeWar.active && armyPresent && !battleInCounty && !c.isOccupied) {
-            if (sieger == activeWar.attackerKingdom && (c.kingdomName == activeWar.enemyKingdom || c.countyName == activeWar.targetCounty)) {
+            bool isFriendlySieger = (sieger == activeWar.attackerKingdom);
+            for (const auto& al : activeWarAllies) {
+                if (sieger == al) isFriendlySieger = true;
+            }
+
+            if (isFriendlySieger && (c.kingdomName == activeWar.enemyKingdom || c.countyName == activeWar.targetCounty)) {
                 int totalSiegeTroops = countyTroopCounts[c.countyName];
                 int minRequired = (c.fortTier == 0) ? 8 : ((c.fortTier == 1) ? 16 : 24);
 
@@ -1313,6 +1410,13 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
             }
         }
 
+        if (isClick && activeWar.active && callAllyBtnBounds.contains(mPos)) {
+            if (!isAllyInWar("Cornwall")) {
+                callAllyToWar("Cornwall");
+            }
+            return true;
+        }
+
         if (isClick && activeWar.active && warBadgeBounds.contains(mPos)) {
             peaceModalOpen = !peaceModalOpen;
             return true;
@@ -1341,6 +1445,14 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
                                    [&enemyK](const MapArmy& a) { return a.ownerKingdom == enemyK; }),
                     mapArmies.end()
                 );
+                for (const auto& al : activeWarAllies) {
+                    mapArmies.erase(
+                        std::remove_if(mapArmies.begin(), mapArmies.end(),
+                                       [&al](const MapArmy& a) { return a.ownerKingdom == al; }),
+                        mapArmies.end()
+                    );
+                }
+                activeWarAllies.clear();
                 kingdomTruces[enemyK] = 3;
                 activeWar.active = false;
                 peaceModalOpen = false;
@@ -1359,6 +1471,14 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
                                    [&enemyK](const MapArmy& a) { return a.ownerKingdom == enemyK; }),
                     mapArmies.end()
                 );
+                for (const auto& al : activeWarAllies) {
+                    mapArmies.erase(
+                        std::remove_if(mapArmies.begin(), mapArmies.end(),
+                                       [&al](const MapArmy& a) { return a.ownerKingdom == al; }),
+                        mapArmies.end()
+                    );
+                }
+                activeWarAllies.clear();
                 kingdomTruces[enemyK] = 5;
                 activeWar.active = false;
                 peaceModalOpen = false;
@@ -2654,8 +2774,45 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             sf::Text treatyPrompt("[Negotiate Peace ->]", font, 9);
             treatyPrompt.setStyle(sf::Text::Bold);
             treatyPrompt.setFillColor(sf::Color(255, 230, 120));
-            treatyPrompt.setPosition(warBadgeBounds.left + 140.f, warBadgeBounds.top + 22.f);
+            treatyPrompt.setPosition(warBadgeBounds.left + 140.f, warBadgeBounds.top + 24.f);
             window.draw(treatyPrompt);
+
+            bool cornwallJoined = isAllyInWar("Cornwall");
+            callAllyBtnBounds = sf::FloatRect(warBadgeBounds.left + 140.f, warBadgeBounds.top + 5.f, 155.f, 16.f);
+
+            sf::RectangleShape callBox(sf::Vector2f(callAllyBtnBounds.width, callAllyBtnBounds.height));
+            callBox.setPosition(callAllyBtnBounds.left, callAllyBtnBounds.top);
+            callBox.setFillColor(cornwallJoined ? sf::Color(18, 28, 36, 230) : sf::Color(36, 26, 16, 230));
+            callBox.setOutlineColor(cornwallJoined ? sf::Color(100, 210, 245) : sf::Color(235, 185, 65));
+            callBox.setOutlineThickness(1.f);
+            window.draw(callBox);
+
+            std::string cLabel = cornwallJoined ? "Ally: Cornwall (Active)" : "[Call Ally: Cornwall]";
+            sf::Text callTxt(cLabel, font, 9);
+            callTxt.setStyle(sf::Text::Bold);
+            callTxt.setFillColor(cornwallJoined ? sf::Color(135, 225, 255) : sf::Color(255, 225, 130));
+            sf::FloatRect ctb = callTxt.getLocalBounds();
+            callTxt.setOrigin(ctb.left + ctb.width * 0.5f, ctb.top + ctb.height * 0.5f);
+            callTxt.setPosition(callAllyBtnBounds.left + callAllyBtnBounds.width * 0.5f,
+                                callAllyBtnBounds.top + callAllyBtnBounds.height * 0.5f);
+            window.draw(callTxt);
+        }
+
+        if (callAllyStatusTimer > 0.f && !callAllyStatusMsg.empty()) {
+            sf::RectangleShape toast(sf::Vector2f(490.f, 26.f));
+            toast.setPosition(395.f, 114.f);
+            toast.setFillColor(sf::Color(18, 24, 32, 250));
+            toast.setOutlineColor(sf::Color(100, 215, 255));
+            toast.setOutlineThickness(1.2f);
+            window.draw(toast);
+
+            sf::Text tTxt(callAllyStatusMsg, font, 10);
+            tTxt.setStyle(sf::Text::Bold);
+            tTxt.setFillColor(sf::Color(220, 245, 255));
+            sf::FloatRect tb = tTxt.getLocalBounds();
+            tTxt.setOrigin(tb.left + tb.width * 0.5f, tb.top + tb.height * 0.5f);
+            tTxt.setPosition(640.f, 127.f);
+            window.draw(tTxt);
         }
 
         if (activeWar.active && peaceModalOpen) {

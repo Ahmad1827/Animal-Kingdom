@@ -183,6 +183,10 @@ private:
     std::vector<CouncilAssignment> councilAssignments;
     std::vector<TradeRouteNode> tradeRoutes;
     void initTradeRoutes();
+    std::vector<std::string> activeWarAllies;
+    sf::FloatRect callAllyBtnBounds;
+    std::string callAllyStatusMsg;
+    float callAllyStatusTimer = 0.f;
     FactionState independenceFaction;
     bool factionModalOpen = false;
     sf::FloatRect factionsTabBounds;
@@ -265,6 +269,8 @@ public:
     static int getKingdomRaisedTroops(const std::string& kingdom);
     static int getKingdomDemesneCount(const std::string& kingdom);
     static bool isWarActive();
+    static void callAllyToWar(const std::string& allyKingdom);
+    static bool isAllyInWar(const std::string& allyKingdom);
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

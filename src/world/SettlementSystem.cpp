@@ -43,12 +43,15 @@ void SettlementSystem::callAllyToWar(const std::string& allyKingdom) {
 
     s_instance->activeWarAllies.push_back(allyKingdom);
 
-    std::string allyCounty = "Cornwall";
+    std::string allyCounty = "";
     for (const auto& c : s_instance->counties) {
         if (c.kingdomName == allyKingdom) {
             allyCounty = c.countyName;
             break;
         }
+    }
+    if (allyCounty.empty() && !s_instance->counties.empty()) {
+        allyCounty = s_instance->counties.front().countyName;
     }
 
     spawnArmy(allyCounty, allyKingdom, 20);
@@ -843,11 +846,10 @@ void SettlementSystem::updateRealmLabels(float dt) {
         float minY = 99999.f, maxY = -99999.f;
         sf::Vector2f centerSum{0.f, 0.f};
     };
-
-    std::unordered_map<std::string, ClusterData> clusters;
+std::unordered_map<std::string, ClusterData> clusters;
     for (const auto& c : counties) {
         if (c.kingdomName.empty() || c.kingdomName == "Wilderness") continue;
-        std::string regTag = (c.center.x < 300.f) ? "Ireland" : "Britain";
+        std::string regTag = (c.center.x < 300.f) ? "WestIsle" : "Mainland";
         std::string key = c.kingdomName + "_" + regTag;
         auto& cl = clusters[key];
         cl.kingdomId = c.kingdomName;
@@ -899,16 +901,10 @@ void SettlementSystem::updateRealmLabels(float dt) {
         }
 
         float baseRot = 0.f;
-        if (cl.regionTag == "Ireland") {
-            baseRot = 62.f;
-        } else if (cl.kingdomId == "Cornwall") {
-            baseRot = -25.f;
-        } else if (cl.kingdomId == "Mercia") {
-            baseRot = -5.f;
-        } else if (cl.kingdomId == "Northumbria") {
-            baseRot = -8.f;
-        } else if (cl.kingdomId == "East Anglia") {
-            baseRot = 12.f;
+        const auto& kDefs = WorldMapRepository::getInstance().getKingdoms();
+        auto kIt = kDefs.find(cl.kingdomId);
+        if (kIt != kDefs.end()) {
+            baseRot = kIt->second.labelRotation;
         }
         lbl.targetRot = baseRot;
 
@@ -1660,8 +1656,9 @@ bool SettlementSystem::handleWorldMapInput(const sf::Event& event, const sf::Ren
         }
 
         if (isClick && activeWar.active && callAllyBtnBounds.contains(mPos)) {
-            if (!isAllyInWar("Cornwall")) {
-                callAllyToWar("Cornwall");
+            std::string allyK = WorldMapRepository::getInstance().getDefaultAllyKingdom();
+            if (!allyK.empty() && !isAllyInWar(allyK)) {
+                callAllyToWar(allyK);
             }
             return true;
         }
@@ -3133,20 +3130,21 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             treatyPrompt.setPosition(warBadgeBounds.left + 140.f, warBadgeBounds.top + 24.f);
             window.draw(treatyPrompt);
 
-            bool cornwallJoined = isAllyInWar("Cornwall");
+            std::string allyK = WorldMapRepository::getInstance().getDefaultAllyKingdom();
+            bool allyJoined = !allyK.empty() && isAllyInWar(allyK);
             callAllyBtnBounds = sf::FloatRect(warBadgeBounds.left + 140.f, warBadgeBounds.top + 5.f, 155.f, 16.f);
 
             sf::RectangleShape callBox(sf::Vector2f(callAllyBtnBounds.width, callAllyBtnBounds.height));
             callBox.setPosition(callAllyBtnBounds.left, callAllyBtnBounds.top);
-            callBox.setFillColor(cornwallJoined ? sf::Color(18, 28, 36, 230) : sf::Color(36, 26, 16, 230));
-            callBox.setOutlineColor(cornwallJoined ? sf::Color(100, 210, 245) : sf::Color(235, 185, 65));
+            callBox.setFillColor(allyJoined ? sf::Color(18, 28, 36, 230) : sf::Color(36, 26, 16, 230));
+            callBox.setOutlineColor(allyJoined ? sf::Color(100, 210, 245) : sf::Color(235, 185, 65));
             callBox.setOutlineThickness(1.f);
             window.draw(callBox);
 
-            std::string cLabel = cornwallJoined ? "Ally: Cornwall (Active)" : "[Call Ally: Cornwall]";
+            std::string cLabel = allyK.empty() ? "No Allies" : (allyJoined ? ("Ally: " + allyK + " (Active)") : ("[Call Ally: " + allyK + "]"));
             sf::Text callTxt(cLabel, font, 9);
             callTxt.setStyle(sf::Text::Bold);
-            callTxt.setFillColor(cornwallJoined ? sf::Color(135, 225, 255) : sf::Color(255, 225, 130));
+            callTxt.setFillColor(allyJoined ? sf::Color(135, 225, 255) : sf::Color(255, 225, 130));
             sf::FloatRect ctb = callTxt.getLocalBounds();
             callTxt.setOrigin(ctb.left + ctb.width * 0.5f, ctb.top + ctb.height * 0.5f);
             callTxt.setPosition(callAllyBtnBounds.left + callAllyBtnBounds.width * 0.5f,

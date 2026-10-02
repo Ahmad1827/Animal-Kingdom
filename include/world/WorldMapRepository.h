@@ -61,6 +61,14 @@ public:
         return playerCapital;
     }
 
+    const std::string& getDefaultAllyKingdom() const {
+        return defaultAllyKingdom;
+    }
+
+    void setDefaultAllyKingdom(const std::string& id) {
+        defaultAllyKingdom = id;
+    }
+
     std::string getKingdomDisplayName(const std::string& id) const {
         auto it = kingdoms.find(id);
         if (it != kingdoms.end() && !it->second.displayName.empty()) {
@@ -98,6 +106,7 @@ private:
     std::string activeFilepath;
     std::string playerKingdomId = "Wessex";
     std::string playerCapital = "Hampshire";
+    std::string defaultAllyKingdom = "Cornwall";
     std::unordered_map<std::string, KingdomDataDef> kingdoms;
     std::vector<CountyDataDef> counties;
 
@@ -280,6 +289,8 @@ private:
         if (!pk.empty()) playerKingdomId = pk;
         std::string cap = extractString(content, "playerCapital");
         if (!cap.empty()) playerCapital = cap;
+        std::string dak = extractString(content, "defaultAllyKingdom");
+        if (!dak.empty()) defaultAllyKingdom = dak;
 
         size_t kStart = content.find("\"kingdoms\"");
         if (kStart != std::string::npos) {
@@ -361,6 +372,7 @@ private:
         out << "{\n";
         out << "  \"playerKingdom\": \"" << playerKingdomId << "\",\n";
         out << "  \"playerCapital\": \"" << playerCapital << "\",\n";
+        out << "  \"defaultAllyKingdom\": \"" << defaultAllyKingdom << "\",\n";
         out << "  \"kingdoms\": [\n";
 
         size_t kIdx = 0;

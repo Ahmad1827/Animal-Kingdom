@@ -214,6 +214,22 @@ private:
     sf::FloatRect enforceBtnBounds;
     sf::FloatRect whitePeaceBtnBounds;
     sf::FloatRect surrenderBtnBounds;
+    struct SmoothedRealmLabel {
+        std::string text;
+        std::string kingdomId;
+        sf::Vector2f currentPos{0.f, 0.f};
+        sf::Vector2f targetPos{0.f, 0.f};
+        float currentSize = 12.f;
+        float targetSize = 12.f;
+        float currentRot = 0.f;
+        float targetRot = 0.f;
+        float currentAlpha = 0.f;
+        float targetAlpha = 0.f;
+        bool initialized = false;
+    };
+    std::unordered_map<std::string, SmoothedRealmLabel> realmLabels;
+    void updateRealmLabels(float dt);
+
     sf::FloatRect closePeaceModalBounds;
     std::unordered_map<std::string, int> kingdomTruces;
 

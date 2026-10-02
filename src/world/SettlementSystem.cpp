@@ -832,10 +832,164 @@ void SettlementSystem::syncWithWorld(sim::SimulationRegistry& registry) {
     syncDynamicVillages(registry);
 }
 
+void SettlementSystem::updateRealmLabels(float dt) {
+    if (!fontLoaded) return;
+
+    struct ClusterData {
+        std::string kingdomId;
+        std::string regionTag;
+        std::vector<const CountyDef*> memberCounties;
+        float minX = 99999.f, maxX = -99999.f;
+        float minY = 99999.f, maxY = -99999.f;
+        sf::Vector2f centerSum{0.f, 0.f};
+    };
+
+    std::unordered_map<std::string, ClusterData> clusters;
+    for (const auto& c : counties) {
+        if (c.kingdomName.empty() || c.kingdomName == "Wilderness") continue;
+        std::string regTag = (c.center.x < 300.f) ? "Ireland" : "Britain";
+        std::string key = c.kingdomName + "_" + regTag;
+        auto& cl = clusters[key];
+        cl.kingdomId = c.kingdomName;
+        cl.regionTag = regTag;
+        cl.memberCounties.push_back(&c);
+        cl.centerSum += c.center;
+        for (const auto& pt : c.points) {
+            cl.minX = std::min(cl.minX, pt.x);
+            cl.maxX = std::max(cl.maxX, pt.x);
+            cl.minY = std::min(cl.minY, pt.y);
+            cl.maxY = std::max(cl.maxY, pt.y);
+        }
+    }
+
+    for (auto& pair : realmLabels) {
+        pair.second.targetAlpha = 0.f;
+    }
+
+    for (auto& pair : clusters) {
+        const std::string& key = pair.first;
+        auto& cl = pair.second;
+        if (cl.memberCounties.empty()) continue;
+
+        auto& lbl = realmLabels[key];
+        lbl.kingdomId = cl.kingdomId;
+        lbl.targetAlpha = 240.f;
+
+        float spanX = cl.maxX - cl.minX;
+        float spanY = cl.maxY - cl.minY;
+        sf::Vector2f rawCentroid = cl.centerSum / static_cast<float>(cl.memberCounties.size());
+
+        sf::Vector2f validCentroid = rawCentroid;
+        bool inside = false;
+        for (const auto* c : cl.memberCounties) {
+            if (pointInPolygon(c->points, rawCentroid)) {
+                inside = true;
+                break;
+            }
+        }
+        if (!inside) {
+            float bestD = 1e9f;
+            for (const auto* c : cl.memberCounties) {
+                float d = std::hypot(c->center.x - rawCentroid.x, c->center.y - rawCentroid.y);
+                if (d < bestD) {
+                    bestD = d;
+                    validCentroid = c->center;
+                }
+            }
+        }
+
+        float baseRot = 0.f;
+        if (cl.regionTag == "Ireland") {
+            baseRot = 62.f;
+        } else if (cl.kingdomId == "Cornwall") {
+            baseRot = -25.f;
+        } else if (cl.kingdomId == "Mercia") {
+            baseRot = -5.f;
+        } else if (cl.kingdomId == "Northumbria") {
+            baseRot = -8.f;
+        } else if (cl.kingdomId == "East Anglia") {
+            baseRot = 12.f;
+        }
+        lbl.targetRot = baseRot;
+
+        std::string spacedName;
+        for (char ch : cl.kingdomId) {
+            spacedName += static_cast<char>(std::toupper(ch));
+            spacedName += ' ';
+        }
+        if (!spacedName.empty()) spacedName.pop_back();
+
+        std::string compactName;
+        for (char ch : cl.kingdomId) {
+            compactName += static_cast<char>(std::toupper(ch));
+        }
+
+        float rad = std::abs(baseRot * 3.14159265f / 180.f);
+        float effectiveSpan = spanX * std::cos(rad) + spanY * std::sin(rad);
+        float maxAllowedWidth = std::max(48.f, effectiveSpan * 0.65f);
+
+        float candidateSize = std::clamp(static_cast<float>(11 + cl.memberCounties.size() * 2), 11.f, 18.f);
+        sf::Text tMeasure(spacedName, font, static_cast<unsigned int>(candidateSize));
+        float measuredW = tMeasure.getLocalBounds().width;
+
+        std::string chosenText = spacedName;
+        if (measuredW > maxAllowedWidth) {
+            tMeasure.setString(compactName);
+            measuredW = tMeasure.getLocalBounds().width;
+            chosenText = compactName;
+        }
+
+        if (measuredW > maxAllowedWidth && measuredW > 0.001f) {
+            candidateSize = std::clamp(candidateSize * (maxAllowedWidth / measuredW), 8.5f, 18.f);
+            tMeasure.setCharacterSize(static_cast<unsigned int>(candidateSize));
+            measuredW = tMeasure.getLocalBounds().width;
+        }
+
+        lbl.text = chosenText;
+        lbl.targetSize = candidateSize;
+
+        float halfW = measuredW * 0.5f;
+        float padX = halfW * std::cos(rad) + 6.f;
+        float padY = halfW * std::sin(rad) + 6.f;
+
+        if (cl.maxX - padX > cl.minX + padX) {
+            validCentroid.x = std::clamp(validCentroid.x, cl.minX + padX, cl.maxX - padX);
+        } else {
+            validCentroid.x = (cl.minX + cl.maxX) * 0.5f;
+        }
+
+        if (cl.maxY - padY > cl.minY + padY) {
+            validCentroid.y = std::clamp(validCentroid.y, cl.minY + padY, cl.maxY - padY);
+        } else {
+            validCentroid.y = (cl.minY + cl.maxY) * 0.5f;
+        }
+
+        lbl.targetPos = validCentroid;
+    }
+
+    float lerpSpeed = 1.35f;
+    for (auto& pair : realmLabels) {
+        auto& lbl = pair.second;
+        if (!lbl.initialized) {
+            lbl.currentPos = lbl.targetPos;
+            lbl.currentSize = lbl.targetSize;
+            lbl.currentRot = lbl.targetRot;
+            lbl.currentAlpha = lbl.targetAlpha;
+            lbl.initialized = true;
+        } else {
+            lbl.currentPos += (lbl.targetPos - lbl.currentPos) * std::min(1.0f, dt * lerpSpeed);
+            lbl.currentSize += (lbl.targetSize - lbl.currentSize) * std::min(1.0f, dt * lerpSpeed);
+            lbl.currentRot += (lbl.targetRot - lbl.currentRot) * std::min(1.0f, dt * lerpSpeed);
+            lbl.currentAlpha += (lbl.targetAlpha - lbl.currentAlpha) * std::min(1.0f, dt * (lerpSpeed * 1.8f));
+        }
+    }
+}
+
 void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& registry) {
     if (!isInitialized || realSettlements.size() != registry.getAllVillages().size()) {
         syncDynamicVillages(registry);
     }
+    updateRealmLabels(dt);
 
     float targetMini = (targetMapMode != 0) ? 1.0f : 0.0f;
     float targetExpand = (targetMapMode == 2) ? 1.0f : 0.0f;
@@ -2075,61 +2229,23 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
             }
         }
 
-        struct RealmCluster {
-            std::string kingdomName;
-            std::string regionTag;
-            sf::Vector2f centerSum{0.f, 0.f};
-            int count = 0;
-        };
+        for (const auto& pair : realmLabels) {
+            const auto& lbl = pair.second;
+            if (lbl.currentAlpha < 1.0f || lbl.text.empty()) continue;
 
-        std::unordered_map<std::string, RealmCluster> clusters;
-        for (const auto& c : counties) {
-            if (c.kingdomName.empty() || c.kingdomName == "Wilderness") continue;
-            std::string regTag = (c.center.x < 300.f) ? "Ireland" : "Britain";
-            std::string key = c.kingdomName + "_" + regTag;
-            auto& cl = clusters[key];
-            cl.kingdomName = c.kingdomName;
-            cl.regionTag = regTag;
-            cl.centerSum += c.center;
-            cl.count++;
-        }
+            sf::Uint8 a = static_cast<sf::Uint8>(std::clamp(lbl.currentAlpha, 0.f, 255.f));
+            unsigned int sz = static_cast<unsigned int>(std::max(8.f, lbl.currentSize));
 
-        for (const auto& pair : clusters) {
-            const auto& cl = pair.second;
-            if (cl.count <= 0) continue;
-
-            sf::Vector2f centroid(cl.centerSum.x / static_cast<float>(cl.count),
-                                  cl.centerSum.y / static_cast<float>(cl.count));
-
-            unsigned int labelSize = std::clamp(static_cast<unsigned int>(11 + cl.count * 3), 12u, 28u);
-
-            std::string spacedName;
-            for (char ch : cl.kingdomName) {
-                spacedName += static_cast<char>(std::toupper(ch));
-                spacedName += ' ';
-            }
-            if (!spacedName.empty()) spacedName.pop_back();
-
-            float rot = 0.f;
-            if (cl.regionTag == "Ireland") {
-                rot = 60.f;
-            } else {
-                if (cl.kingdomName == "Cornwall") rot = -25.f;
-                else if (cl.kingdomName == "Mercia") rot = -8.f;
-                else if (cl.kingdomName == "Northumbria") rot = -14.f;
-                else if (cl.kingdomName == "East Anglia") rot = 15.f;
-            }
-
-            sf::Text rTxt(spacedName, font, labelSize);
+            sf::Text rTxt(lbl.text, font, sz);
             rTxt.setStyle(sf::Text::Bold);
-            rTxt.setFillColor(sf::Color(25, 18, 12, 240));
-            rTxt.setOutlineColor(sf::Color(245, 235, 205, 210));
-            rTxt.setOutlineThickness(1.5f);
-            rTxt.setRotation(rot);
+            rTxt.setFillColor(sf::Color(25, 18, 12, a));
+            rTxt.setOutlineColor(sf::Color(245, 235, 205, static_cast<sf::Uint8>(a * 0.88f)));
+            rTxt.setOutlineThickness(1.4f);
+            rTxt.setRotation(lbl.currentRot);
 
             sf::FloatRect b = rTxt.getLocalBounds();
             rTxt.setOrigin(b.left + b.width * 0.5f, b.top + b.height * 0.5f);
-            rTxt.setPosition(centroid);
+            rTxt.setPosition(lbl.currentPos);
             mapCanvas.draw(rTxt);
         }
     } else {

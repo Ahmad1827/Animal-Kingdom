@@ -50,20 +50,13 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
     sim::KingdomData* targetKingdom = (targetSettlement.kingdomId != 0) ? reg.getKingdom(targetSettlement.kingdomId) : nullptr;
     sim::VillageData* targetVillage = reg.getVillage(targetSettlement.villageId);
 
-    std::string playerKName = playerKingdom ? playerKingdom->name : "Wessex";
+    std::string playerKName = playerKingdom ? playerKingdom->name : SettlementSystem::getPlayerKingdomId();
     int curAmber = player ? player->amberCount : 0;
 
-    bool isForeignOccupied = (targetSettlement.kingdomName == "East Anglia" ||
-                              targetSettlement.kingdomName == "Mercia" ||
-                              targetSettlement.kingdomName == "Northumbria" ||
-                              targetSettlement.kingdomName == "Alba" ||
-                              targetSettlement.kingdomName == "Ireland" ||
-                              targetSettlement.kingdomName == "Cornwall");
-
-    bool isSelfRealm = !isForeignOccupied && (targetSettlement.countyName == "Hampshire" ||
-                                              targetSettlement.countyName == "Wight" ||
-                                              targetSettlement.kingdomName == "Wessex" ||
-                                              targetSettlement.kingdomName == playerKName);
+    bool isSelfRealm = (targetSettlement.kingdomName == playerKName ||
+                        targetSettlement.kingdomName == SettlementSystem::getPlayerKingdomId() ||
+                        playerKName.find(targetSettlement.kingdomName) != std::string::npos ||
+                        targetSettlement.kingdomName.find(playerKName) != std::string::npos);
 
     if (isSelfRealm) {
         bool hasArmyHere = SettlementSystem::hasArmyInCounty(targetSettlement.countyName, playerKName);
@@ -256,7 +249,7 @@ void MapActionMenu::rebuildOptions(sim::SimulationRegistry& reg, sim::EntityID p
             });
         }
 
-        if (targetSettlement.countyName == "Hampshire") {
+        if (SettlementSystem::isPlayerCapital(targetSettlement.countyName)) {
             options.push_back({
                 "Dynastic Succession",
                 "Pass mantle of Alpha and partition realm",
@@ -281,7 +274,7 @@ bool alreadyAtWar = SettlementSystem::isAtWarWith(targetSettlement.kingdomName);
 
     bool hasDeJureClaim = (!targetSettlement.deJureKingdom.empty() &&
                           (targetSettlement.deJureKingdom == playerKName ||
-                           targetSettlement.deJureKingdom == "Wessex" ||
+                           targetSettlement.deJureKingdom == SettlementSystem::getPlayerKingdomId() ||
                            playerKName.find(targetSettlement.deJureKingdom) != std::string::npos ||
                            targetSettlement.deJureKingdom.find(playerKName) != std::string::npos));
 

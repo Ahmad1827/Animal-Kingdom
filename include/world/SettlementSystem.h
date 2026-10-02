@@ -4,6 +4,7 @@
 #include <vector>
 #include <functional>
 #include "simulation/SimulationRegistry.h"
+#include "world/WorldMapRepository.h"
 
 enum class MapLens {
     DeFacto = 0,
@@ -293,6 +294,13 @@ public:
     static bool isCountyLevyRaised(const std::string& county);
     static bool canMusterCountyLevies(const std::string& county, const std::string& kingdom);
     static bool musterCountyLevies(const std::string& county, const std::string& kingdom);
+
+    static std::string getPlayerKingdomId();
+    static void setPlayerKingdomId(const std::string& id);
+    static std::string getPlayerCapitalCounty();
+    static std::string getKingdomDisplayName(const std::string& id);
+    static sf::Color getKingdomColor(const std::string& id);
+    static bool isPlayerCapital(const std::string& county);
 
     sf::Vector2f getPlayerMapCoord(float playerX) const;
     float getWestCoastLimit() const { return westCoastX; }

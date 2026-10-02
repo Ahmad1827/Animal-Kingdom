@@ -150,6 +150,30 @@ bool SettlementSystem::musterCountyLevies(const std::string& county, const std::
     return false;
 }
 
+std::string SettlementSystem::getPlayerKingdomId() {
+    return WorldMapRepository::getInstance().getPlayerKingdomId();
+}
+
+void SettlementSystem::setPlayerKingdomId(const std::string& id) {
+    WorldMapRepository::getInstance().setPlayerKingdomId(id);
+}
+
+std::string SettlementSystem::getPlayerCapitalCounty() {
+    return WorldMapRepository::getInstance().getPlayerCapital();
+}
+
+std::string SettlementSystem::getKingdomDisplayName(const std::string& id) {
+    return WorldMapRepository::getInstance().getKingdomDisplayName(id);
+}
+
+sf::Color SettlementSystem::getKingdomColor(const std::string& id) {
+    return WorldMapRepository::getInstance().getKingdomColor(id);
+}
+
+bool SettlementSystem::isPlayerCapital(const std::string& county) {
+    return county == getPlayerCapitalCounty();
+}
+
 void SettlementSystem::assignCouncilMission(sim::CouncilRole role, CouncilMissionType mission, const std::string& county) {
     if (!s_instance) return;
     for (auto& a : s_instance->councilAssignments) {
@@ -221,7 +245,7 @@ void SettlementSystem::triggerCivilWar(const std::string& county) {
         }
     }
     spawnArmy(county, "Rebels", 24);
-    startWar(county, "Wessex", "Rebels", "Crush Independence Revolt");
+    startWar(county, getPlayerKingdomId(), "Rebels", "Crush Independence Revolt");
     s_instance->independenceFaction.discontent = 0.f;
 }
 
@@ -278,9 +302,12 @@ void SettlementSystem::triggerSuccession() {
 
     s_instance->successionEntries.clear();
 
+    std::string playerK = getPlayerKingdomId();
+    std::string capital = getPlayerCapitalCounty();
+
     std::vector<CountyDef*> ownedCounties;
     for (auto& c : s_instance->counties) {
-        if (c.kingdomName == "Wessex") {
+        if (c.kingdomName == playerK) {
             ownedCounties.push_back(&c);
         }
     }
@@ -288,7 +315,7 @@ void SettlementSystem::triggerSuccession() {
     if (ownedCounties.empty()) return;
 
     s_instance->successionEntries.push_back({
-        "Hampshire",
+        capital,
         s_instance->successorTitle + " (Primary Heir)",
         "Capital Realm Seat",
         "Retained",
@@ -299,15 +326,15 @@ void SettlementSystem::triggerSuccession() {
     size_t juniorIdx = 0;
 
     for (auto* c : ownedCounties) {
-        if (c->countyName == "Hampshire") {
+        if (c->countyName == capital) {
             c->vassalOpinion = std::clamp(c->vassalOpinion - 10, -100, 100);
             continue;
         }
 
         std::string jName = (juniorIdx < juniorNames.size()) ? juniorNames[juniorIdx++] : "Junior Kin";
 
-        if (c->countyName == "Berkshire" || c->countyName == "Middlesex") {
-            c->kingdomName = "Cadet Wessex";
+        if (juniorIdx <= 2) {
+            c->kingdomName = "Cadet " + playerK;
             c->vassalOpinion = -40;
             c->inFaction = true;
 
@@ -319,7 +346,7 @@ void SettlementSystem::triggerSuccession() {
                 sf::Color(235, 75, 65)
             });
 
-            spawnArmy(c->countyName, "Cadet Wessex", 18);
+            spawnArmy(c->countyName, "Cadet " + playerK, 18);
         } else {
             c->vassalOpinion = std::clamp(c->vassalOpinion - 25, -100, 100);
             if (c->vassalOpinion < 0) {
@@ -426,11 +453,11 @@ void SettlementSystem::annexCounty(const std::string& county, const std::string&
         }
     }
 
-    std::string fullKName = (newKingdom == "Wessex") ? "Kingdom of Wessex" : ("Kingdom of " + newKingdom);
+    std::string fullKName = getKingdomDisplayName(newKingdom);
     for (auto& s : s_instance->realSettlements) {
         if (s.countyName == county) {
             s.kingdomName = fullKName;
-            s.isAllied = (newKingdom == "Wessex");
+            s.isAllied = (newKingdom == getPlayerKingdomId());
             break;
         }
     }
@@ -600,6 +627,7 @@ bool SettlementSystem::isWarActive() {
 SettlementSystem::SettlementSystem() {
     s_instance = this;
     warBadgeBounds = sf::FloatRect(820.f, 580.f, 310.f, 44.f);
+    WorldMapRepository::getInstance().load("assets/data/world_map.json");
     initTradeRoutes();
 
     fontLoaded = font.loadFromFile("assets/fonts/Cinzel-Bold.ttf") ||
@@ -625,104 +653,26 @@ bool SettlementSystem::pointInPolygon(const std::vector<sf::Vector2f>& poly, sf:
 
 void SettlementSystem::buildOrganicCounties() {
     counties.clear();
-
-    auto addCounty = [this](int id, const std::string& cName, const std::string& sName, const std::string& mName,
-                            const std::string& deFactoKName, const std::string& deJureKName,
-                            const std::vector<sf::Vector2f>& pts) {
+    const auto& repoCounties = WorldMapRepository::getInstance().getCounties();
+    for (const auto& rc : repoCounties) {
         CountyDef c;
-        c.countyId = id;
-        c.countyName = cName;
-        c.settlementName = sName;
-        c.modernName = mName;
-        c.kingdomName = deFactoKName;
-        c.deJureKingdom = deJureKName;
-        c.points = pts;
+        c.countyId = rc.countyId;
+        c.countyName = rc.countyName;
+        c.settlementName = rc.settlementName;
+        c.modernName = rc.modernName;
+        c.kingdomName = rc.kingdomId;
+        c.deJureKingdom = rc.deJureKingdomId;
+        c.points = rc.points;
+        c.center = rc.center;
+        c.vassalOpinion = rc.initialOpinion;
+        c.supplyLimit = rc.supplyLimit;
+        c.fortTier = rc.fortTier;
 
-        c.shape.setPointCount(pts.size());
-        float sumX = 0.f;
-        float sumY = 0.f;
-        for (size_t i = 0; i < pts.size(); ++i) {
-            c.shape.setPoint(i, pts[i]);
-            sumX += pts[i].x;
-            sumY += pts[i].y;
+        c.shape.setPointCount(rc.points.size());
+        for (size_t i = 0; i < rc.points.size(); ++i) {
+            c.shape.setPoint(i, rc.points[i]);
         }
-        c.center = sf::Vector2f(sumX / static_cast<float>(pts.size()), sumY / static_cast<float>(pts.size()));
         counties.push_back(c);
-    };
-
-    addCounty(1, "Cornwall", "Kernow", "Tintagel", "Cornwall", "Cornwall", {
-        {260.f, 575.f}, {275.f, 585.f}, {310.f, 570.f}, {340.f, 555.f}, {330.f, 525.f}, {305.f, 532.f}
-    });
-
-    addCounty(2, "Hampshire", "Wintanceaster", "Winchester", "Wessex", "Wessex", {
-        {330.f, 525.f}, {340.f, 555.f}, {395.f, 560.f}, {415.f, 515.f}, {370.f, 502.f}
-    });
-
-    addCounty(3, "Wight", "Hamwic", "Southampton", "Wessex", "Wessex", {
-        {395.f, 560.f}, {440.f, 558.f}, {445.f, 520.f}, {415.f, 515.f}
-    });
-
-    addCounty(4, "Berkshire", "Readingas", "Reading", "Mercia", "Wessex", {
-        {370.f, 502.f}, {415.f, 515.f}, {445.f, 520.f}, {480.f, 485.f}, {470.f, 455.f}, {440.f, 475.f}, {380.f, 480.f}
-    });
-
-    addCounty(5, "Middlesex", "Lundenburh", "London", "East Anglia", "Wessex", {
-        {445.f, 520.f}, {440.f, 558.f}, {485.f, 555.f}, {535.f, 535.f}, {525.f, 505.f}, {480.f, 485.f}
-    });
-
-    addCounty(6, "Norfolk", "Theodford", "Thetford", "East Anglia", "East Anglia", {
-        {480.f, 485.f}, {525.f, 505.f}, {575.f, 470.f}, {540.f, 435.f}, {505.f, 425.f}, {470.f, 455.f}
-    });
-
-    addCounty(7, "Chester", "Legaceaster", "Chester", "Mercia", "Mercia", {
-        {340.f, 420.f}, {360.f, 445.f}, {330.f, 475.f}, {370.f, 500.f}, {380.f, 480.f}, {415.f, 445.f}, {395.f, 395.f}, {365.f, 390.f}
-    });
-
-    addCounty(8, "Warwick", "Tamworthig", "Tamworth", "Mercia", "Mercia", {
-        {380.f, 480.f}, {440.f, 475.f}, {470.f, 455.f}, {460.f, 380.f}, {410.f, 395.f}, {415.f, 445.f}
-    });
-
-    addCounty(9, "Lincoln", "Lindcylene", "Lincoln", "Northumbria", "Mercia", {
-        {470.f, 455.f}, {505.f, 425.f}, {525.f, 390.f}, {530.f, 355.f}, {470.f, 345.f}, {460.f, 380.f}
-    });
-
-    addCounty(10, "Yorkshire", "Jorvik", "York", "Northumbria", "Northumbria", {
-        {410.f, 395.f}, {460.f, 380.f}, {470.f, 345.f}, {530.f, 355.f}, {505.f, 315.f}, {450.f, 305.f}, {395.f, 340.f}
-    });
-
-    addCounty(11, "Durham", "Dunholm", "Durham", "Northumbria", "Northumbria", {
-        {395.f, 340.f}, {450.f, 305.f}, {505.f, 315.f}, {485.f, 260.f}, {435.f, 255.f}, {385.f, 275.f}
-    });
-
-    addCounty(12, "Bamburgh", "Bebbanburg", "Bamburgh", "Northumbria", "Northumbria", {
-        {385.f, 275.f}, {435.f, 255.f}, {485.f, 260.f}, {465.f, 225.f}, {420.f, 215.f}, {380.f, 230.f}
-    });
-
-    addCounty(13, "Lothian", "Dun Eideann", "Edinburgh", "Northumbria", "Alba", {
-        {380.f, 230.f}, {420.f, 215.f}, {465.f, 225.f}, {480.f, 195.f}, {440.f, 175.f}, {385.f, 185.f}
-    });
-
-    addCounty(14, "Gowrie", "Sgain", "Scone", "Alba", "Alba", {
-        {385.f, 185.f}, {440.f, 175.f}, {480.f, 195.f}, {510.f, 155.f}, {455.f, 145.f}, {460.f, 100.f}, {415.f, 110.f}, {395.f, 150.f}, {375.f, 195.f}
-    });
-
-    addCounty(15, "Meath", "Dublin", "Dublin", "Ireland", "Ireland", {
-        {230.f, 335.f}, {270.f, 325.f}, {285.f, 360.f}, {275.f, 415.f}, {250.f, 475.f}, {205.f, 485.f}, {180.f, 430.f}, {195.f, 360.f}
-    });
-
-    for (auto& c : counties) {
-        if (c.countyName == "Hampshire") { c.vassalOpinion = 65; c.supplyLimit = 45; }
-        else if (c.countyName == "Middlesex") { c.vassalOpinion = -25; c.supplyLimit = 40; }
-        else if (c.countyName == "Wight") { c.vassalOpinion = 40; c.supplyLimit = 25; }
-        else if (c.countyName == "Berkshire") { c.vassalOpinion = -18; c.supplyLimit = 30; }
-        else if (c.countyName == "Norfolk") { c.vassalOpinion = 15; c.supplyLimit = 35; }
-        else if (c.countyName == "Yorkshire") { c.vassalOpinion = 15; c.supplyLimit = 38; }
-        else if (c.countyName == "Chester") { c.vassalOpinion = 15; c.supplyLimit = 24; }
-        else if (c.countyName == "Bamburgh") { c.vassalOpinion = 15; c.supplyLimit = 18; }
-        else if (c.countyName == "Cornwall") { c.vassalOpinion = 15; c.supplyLimit = 22; }
-        else if (c.countyName == "Lothian") { c.vassalOpinion = 15; c.supplyLimit = 24; }
-        else if (c.countyName == "Gowrie") { c.vassalOpinion = 15; c.supplyLimit = 20; }
-        else { c.vassalOpinion = 15; c.supplyLimit = 28; }
     }
 }
 
@@ -856,7 +806,8 @@ void SettlementSystem::syncDynamicVillages(sim::SimulationRegistry& registry) {
         }
 
         bool allied = false;
-        if (rs.kingdomName.find("Wessex") != std::string::npos || rs.kingdomName.find("Cornwall") != std::string::npos) {
+        std::string pK = getPlayerKingdomId();
+        if (rs.kingdomName.find(pK) != std::string::npos || isAllyInWar(rs.kingdomName)) {
             allied = true;
         } else if (controlled) {
             if (v->id == controlled->villageId || (controlled->currentKingdom != 0 && v->kingdomId == controlled->currentKingdom)) {
@@ -1042,9 +993,10 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
 
     auto areArmiesAllied = [&](const std::string& k1, const std::string& k2) -> bool {
         if (k1 == k2) return true;
-        bool k1PlayerSide = (k1 == "Wessex");
+        std::string pK = getPlayerKingdomId();
+        bool k1PlayerSide = (k1 == pK);
         for (const auto& al : activeWarAllies) if (k1 == al) k1PlayerSide = true;
-        bool k2PlayerSide = (k2 == "Wessex");
+        bool k2PlayerSide = (k2 == pK);
         for (const auto& al : activeWarAllies) if (k2 == al) k2PlayerSide = true;
         return (k1PlayerSide && k2PlayerSide);
     };
@@ -1200,8 +1152,9 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
     int factionLevyStrength = 0;
     int royalLevyStrength = 0;
 
+    std::string playerK = getPlayerKingdomId();
     for (const auto& a : mapArmies) {
-        if (a.ownerKingdom == "Wessex") {
+        if (a.ownerKingdom == playerK) {
             royalLevyStrength += a.strength;
         }
     }
@@ -1209,7 +1162,7 @@ void SettlementSystem::update(float dt, float playerX, sim::SimulationRegistry& 
 
     int authOpMod = getAuthorityVassalOpinionMod();
     for (auto& c : counties) {
-        if (c.kingdomName == "Wessex") {
+        if (c.kingdomName == playerK) {
             int netOpinion = c.vassalOpinion + authOpMod;
             if (netOpinion < 0) {
                 c.inFaction = true;
@@ -1721,16 +1674,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
     window.setView(letterboxView);
 
     auto getKingdomBaseColor = [&](const std::string& kName) -> sf::Color {
-        if (kName.find("Rebels") != std::string::npos) return sf::Color(150, 25, 30);
-        if (kName.find("Cadet Wessex") != std::string::npos) return sf::Color(165, 80, 120);
-        if (kName.find("Wessex") != std::string::npos) return sf::Color(185, 55, 65);
-        if (kName.find("Mercia") != std::string::npos) return sf::Color(205, 115, 65);
-        if (kName.find("Northumbria") != std::string::npos) return sf::Color(155, 65, 95);
-        if (kName.find("Alba") != std::string::npos) return sf::Color(65, 105, 145);
-        if (kName.find("Cornwall") != std::string::npos) return sf::Color(155, 135, 75);
-        if (kName.find("East Anglia") != std::string::npos) return sf::Color(210, 160, 60);
-        if (kName.find("Ireland") != std::string::npos) return sf::Color(75, 135, 80);
-        return sf::Color(150, 140, 125);
+        return getKingdomColor(kName);
     };
 
     if (expandAnimT <= 0.005f) {
@@ -1839,7 +1783,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
         } else if (currentLens == MapLens::DeJure) {
             fillCol = getKingdomBaseColor(c.deJureKingdom);
         } else if (currentLens == MapLens::Vassals) {
-            if (c.kingdomName == "Wessex") {
+            if (c.kingdomName == getPlayerKingdomId()) {
                 if (c.vassalOpinion >= 25) fillCol = sf::Color(65, 170, 65);
                 else if (c.vassalOpinion >= 0) fillCol = sf::Color(215, 175, 55);
                 else fillCol = sf::Color(210, 45, 40);
@@ -1847,9 +1791,9 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
                 fillCol = sf::Color(135, 130, 120);
             }
         } else if (currentLens == MapLens::Diplomacy) {
-            if (c.kingdomName.find("Wessex") != std::string::npos) fillCol = sf::Color(55, 125, 215);
-            else if (c.kingdomName.find("Cornwall") != std::string::npos) fillCol = sf::Color(45, 185, 220);
-            else if (c.kingdomName.find("Northumbria") != std::string::npos) fillCol = sf::Color(215, 40, 40);
+            if (c.kingdomName == getPlayerKingdomId()) fillCol = sf::Color(55, 125, 215);
+            else if (isAllyInWar(c.kingdomName)) fillCol = sf::Color(45, 185, 220);
+            else if (activeWar.active && (c.kingdomName == activeWar.enemyKingdom || c.countyName == activeWar.targetCounty)) fillCol = sf::Color(215, 40, 40);
             else fillCol = sf::Color(110, 105, 100);
         } else if (currentLens == MapLens::Economy) {
             if (c.countyName == "Middlesex" || c.countyName == "Hampshire" || c.countyName == "Yorkshire") fillCol = sf::Color(235, 195, 50);
@@ -2232,7 +2176,7 @@ void SettlementSystem::drawMap(sf::RenderWindow& window, const sf::View& letterb
                 mapCanvas.draw(fTxt);
             }
 
-            if (currentLens == MapLens::Vassals && c.kingdomName == "Wessex") {
+            if (currentLens == MapLens::Vassals && c.kingdomName == getPlayerKingdomId()) {
                 std::string opStr = (c.vassalOpinion >= 0 ? "+" : "") + std::to_string(c.vassalOpinion);
                 sf::Text opTxt(opStr, font, 9);
                 opTxt.setStyle(sf::Text::Bold);
@@ -3254,7 +3198,7 @@ const RealSettlement* SettlementSystem::getSettlementByVillageId(sim::VillageID 
 bool SettlementSystem::canFreelyPass(float x) const {
     const RealSettlement* s = getSettlementAt(x);
     if (s) {
-        if (s->isAllied || s->kingdomName.find("Wessex") != std::string::npos || s->kingdomName.find("Cornwall") != std::string::npos) {
+        if (s->isAllied || s->kingdomName.find(getPlayerKingdomId()) != std::string::npos || isAllyInWar(s->kingdomName)) {
             return true;
         }
     }

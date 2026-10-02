@@ -50,9 +50,10 @@ void GameHUD::update(float dt, sim::ApeData* playerApe, sim::SimulationRegistry&
         playerApe->maxAmber = 99999;
     }
 
-    int demesneCount = std::max(1, SettlementSystem::getKingdomDemesneCount("Wessex"));
-    float tradeInc = SettlementSystem::getKingdomTradeIncome("Wessex");
-    float upkeep = SettlementSystem::getKingdomArmyUpkeep("Wessex");
+    std::string playerK = SettlementSystem::getPlayerKingdomId();
+    int demesneCount = std::max(1, SettlementSystem::getKingdomDemesneCount(playerK));
+    float tradeInc = SettlementSystem::getKingdomTradeIncome(playerK);
+    float upkeep = SettlementSystem::getKingdomArmyUpkeep(playerK);
     bool atWar = SettlementSystem::isWarActive();
 
     float taxMult = SettlementSystem::getAuthorityTaxMultiplier();
@@ -198,7 +199,9 @@ void GameHUD::draw(sf::RenderWindow& window, const sim::ApeData* playerApe, sim:
     float centerY = panelY + panelH * 0.5f;
 
     drawOrnatePanel(window, 8.f, panelY, 102.f, panelH);
-    sf::Text titleText("WESSEX", *font, 11);
+    std::string pKBadge = SettlementSystem::getPlayerKingdomId();
+    std::transform(pKBadge.begin(), pKBadge.end(), pKBadge.begin(), ::toupper);
+    sf::Text titleText(pKBadge, *font, 11);
     titleText.setStyle(sf::Text::Bold);
     titleText.setFillColor(sf::Color(240, 210, 135));
     titleText.setOutlineColor(sf::Color(20, 12, 6));
@@ -346,7 +349,8 @@ void GameHUD::draw(sf::RenderWindow& window, const sim::ApeData* playerApe, sim:
     float realmPanelW = 236.f;
     drawOrnatePanel(window, realmPanelX, panelY, realmPanelW, panelH);
 
-    int demesneCount = SettlementSystem::getKingdomDemesneCount("Wessex");
+    std::string playerKDraw = SettlementSystem::getPlayerKingdomId();
+    int demesneCount = SettlementSystem::getKingdomDemesneCount(playerKDraw);
     int maxDemesne = 4;
 
     float domIconX = realmPanelX + 12.f;
@@ -380,7 +384,7 @@ void GameHUD::draw(sf::RenderWindow& window, const sim::ApeData* playerApe, sim:
     domTxt.setPosition(domIconX + 8.f, centerY);
     window.draw(domTxt);
 
-    int raisedTroops = SettlementSystem::getKingdomRaisedTroops("Wessex");
+    int raisedTroops = SettlementSystem::getKingdomRaisedTroops(playerKDraw);
     int levyQuota = SettlementSystem::getAuthorityLevyPerCounty();
     int maxLevies = std::max(25, demesneCount * levyQuota);
 

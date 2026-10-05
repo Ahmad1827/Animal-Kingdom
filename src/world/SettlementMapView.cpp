@@ -1993,22 +1993,14 @@ void SettlementSystem::drawMapChrome(sf::RenderWindow& window) {
         const sf::FloatRect r(tx, tabY, tabW, tabH);
         lensTabBounds[i] = r;
         const bool active = (i == lens);
-        c.button(r, active, r.contains(mouse));
-        c.text(LENS_KEYS[i], r.left + 13.f, headMid, {11, active ? theme::GoldBright : theme::Bronze, true, Align::Center});
-        c.divider(r.left + 24.f, r.top + 6.f, tabH - 12.f);
-        c.text(LENS_NAMES[i], r.left + 24.f + (tabW - 24.f) * 0.5f, headMid, {11, active ? theme::GoldBright : theme::Text, active, Align::Center});
+        c.tab(r, LENS_KEYS[i], LENS_NAMES[i], active, r.contains(mouse));
         tx += tabW + 4.f;
     }
 
     const bool hasFactions = !independenceFaction.memberCounties.empty();
     const sf::FloatRect lawsTab(tx + 10.f, tabY, 142.f, tabH);
     factionsTabBounds = lawsTab;
-    c.button(lawsTab, factionModalOpen, lawsTab.contains(mouse));
-    c.text("F", lawsTab.left + 13.f, headMid, {11, factionModalOpen ? theme::GoldBright : theme::Bronze, true, Align::Center});
-    c.divider(lawsTab.left + 24.f, lawsTab.top + 6.f, tabH - 12.f);
-    c.text("Laws & Factions", lawsTab.left + 24.f + (lawsTab.width - 24.f) * 0.5f, headMid,
-           {11, hasFactions ? theme::Bad : theme::Text, factionModalOpen, Align::Center});
-    if (hasFactions) c.fill({lawsTab.left + lawsTab.width - 9.f, lawsTab.top + 4.f, 5.f, 5.f}, theme::Bad);
+    c.tab(lawsTab, "F", "Laws & Factions", factionModalOpen, lawsTab.contains(mouse), hasFactions);
 
     c.text("TAB / ESC to close", layout::Frame.left + layout::Frame.width - 18.f, headMid, {10, theme::TextMuted, false, Align::Right});
 

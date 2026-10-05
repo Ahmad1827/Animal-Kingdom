@@ -22,22 +22,35 @@
 namespace ui {
 
 namespace theme {
-    inline const sf::Color PanelFill   { 27,  20,  14, 244};
-    inline const sf::Color PanelInset  { 17,  12,   9, 255};
-    inline const sf::Color EdgeDark    {  8,   6,   4, 255};
-    inline const sf::Color Bronze      {122,  90,  48, 255};
-    inline const sf::Color BronzeDim   { 70,  51,  30, 255};
-    inline const sf::Color Gold        {242, 208, 122, 255};
-    inline const sf::Color GoldBright  {255, 236, 170, 255};
-    inline const sf::Color Text        {238, 226, 200, 255};
-    inline const sf::Color TextMuted   {168, 150, 122, 255};
+    // Jungle night: deep canopy greens for surfaces, bronze and gold for trim.
+    // Every UIKit box takes its colours from here, so this is the one place to retune them.
+    inline const sf::Color PanelFill   { 26,  40,  35, 248};   // flat stand-in for a panel surface
+    inline const sf::Color PanelTop    { 38,  58,  49, 250};   // panel surfaces run top -> bottom
+    inline const sf::Color PanelBottom { 17,  28,  25, 250};
+    inline const sf::Color PanelInset  { 10,  17,  16, 255};   // flat stand-in for a recessed box
+    inline const sf::Color InsetTop    {  7,  12,  12, 255};
+    inline const sf::Color InsetBottom { 15,  25,  23, 255};
+    inline const sf::Color ButtonTop   { 40,  60,  51, 255};   // raised cards and idle buttons
+    inline const sf::Color ButtonBottom{ 21,  33,  29, 255};
+    inline const sf::Color HoverTop    { 60,  88,  72, 255};
+    inline const sf::Color HoverBottom { 32,  50,  42, 255};
+    inline const sf::Color ActiveTop   {206, 142,  44, 255};   // selected: polished amber
+    inline const sf::Color ActiveBottom{122,  74,  18, 255};
+    inline const sf::Color EdgeDark    {  5,   9,   8, 255};
+    inline const sf::Color BronzeLight {214, 172,  98, 255};
+    inline const sf::Color Bronze      {156, 116,  60, 255};
+    inline const sf::Color BronzeDim   { 88,  74,  46, 255};
+    inline const sf::Color Gold        {246, 208, 112, 255};
+    inline const sf::Color GoldBright  {255, 238, 176, 255};
+    inline const sf::Color Text        {242, 234, 210, 255};
+    inline const sf::Color TextMuted   {158, 168, 148, 255};
     inline const sf::Color Good        {120, 214, 110, 255};
     inline const sf::Color Bad         {240,  96,  82, 255};
     inline const sf::Color Prestige    {120, 196, 245, 255};
     inline const sf::Color Piety       {196, 160, 250, 255};
     inline const sf::Color Amber       {248, 160,  44, 255};
-    inline const sf::Color ActiveFill  {120,  80,  28, 255};
-    inline const sf::Color HoverFill   { 58,  42,  26, 255};
+    inline const sf::Color ActiveFill  {150,  98,  26, 255};
+    inline const sf::Color HoverFill   { 44,  66,  56, 255};
     inline const sf::Color Shadow      {  0,   0,   0, 150};
 }
 
@@ -85,16 +98,35 @@ public:
     static sf::Vector2f mouse(const sf::RenderWindow& window);
 
     void fill(sf::FloatRect r, sf::Color color);
+    // Two-colour blend, top to bottom (or left to right). Colours may be translucent.
+    void gradient(sf::FloatRect r, sf::Color from, sf::Color to, bool horizontal = false);
+    // Top-to-bottom blend with a fine grain, so large areas read as a material rather than flat colour.
+    void surface(sf::FloatRect r, sf::Color top, sf::Color bottom);
     void frame(sf::FloatRect r, sf::Color color, int steps = 1);   // border drawn inside r
     void panel(sf::FloatRect r, bool shadow = true);
     void inset(sf::FloatRect r);                                   // recessed box inside a panel
-    void button(sf::FloatRect r, bool active, bool hovered);
+    void button(sf::FloatRect r, bool active, bool hovered);       // raised; also the look for small cards
+    // Section title: gold stud, text, and a rule that fades out to the right. Returns the y below it.
+    float heading(float x, float y, float w, const std::string& title, const std::string& aside = "");
     void divider(float x, float y, float h);                       // vertical separator
+
+    // Tab in a strip: hotkey cell on the left (skipped when key is empty), label
+    // centred in the rest. alert adds the red pip used for "needs attention".
+    void tab(sf::FloatRect r, const std::string& key, const std::string& label,
+             bool active, bool hovered, bool alert = false);
+    // Horizontal meter filled left to right; frac is clamped to 0..1.
+    void meter(sf::FloatRect r, float frac, sf::Color color);
+    // Meter that grows left or right from its centre; frac is clamped to -1..1.
+    void balance(sf::FloatRect r, float frac);
 
     // y is the vertical centre of the capital letters, so mixed sizes line up on a row.
     // Returns the drawn width in design units.
     float text(const std::string& str, float x, float y, const TextStyle& st);
     float textWidth(const std::string& str, unsigned size, bool bold = false) const;
+    // str cut down with a trailing "..." so it fits maxW.
+    std::string fit(const std::string& str, float maxW, unsigned size, bool bold = false) const;
+    // Word-wrapped text; y is the cap-centre of the first line. Returns the y of the line after the last.
+    float paragraph(const std::string& str, float x, float y, float maxW, const TextStyle& st, float lineH = 0.f);
 
     // Pixel-art icon centred on (cx, cy). Returns its drawn size in design units.
     float icon(Icon id, float cx, float cy, sf::Color tint = sf::Color::White);
@@ -116,4 +148,4 @@ private:
     unsigned pixelSize(unsigned designSize) const;
 };
 
-} // namespace ui
+} // namespace ui

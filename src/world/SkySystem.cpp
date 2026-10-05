@@ -3,140 +3,331 @@
 #include <cstdlib>
 #include <algorithm>
 
+namespace {
+
+const float PI = 3.14159265f;
+const int   P  = SkySystem::SKY_PIXEL;
+
+// 4x4 ordered-dither matrix, values 0..15.
+const int BAYER[4][4] = {
+    { 0,  8,  2, 10},
+    {12,  4, 14,  6},
+    { 3, 11,  1,  9},
+    {15,  7, 13,  5},
+};
+inline float bayer(int x, int y) { return (static_cast<float>(BAYER[y & 3][x & 3]) + 0.5f) / 16.f; }
+
+inline float frand() { return static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX); }
+inline float frand(float a, float b) { return a + (b - a) * frand(); }
+
+// Snap a view coordinate to the sky-pixel grid.
+inline float snap(float v) { return std::floor(v / static_cast<float>(P)) * static_cast<float>(P); }
+
+const int GRADIENT_STEPS = 16;   // colour bands between zenith and horizon
+const int GLOW_STEPS = 8;
+
+struct Puff { float cx, cy, r; };
+
+} // namespace
+
 SkySystem::SkySystem() {
-    dayPalette.zenith     = sf::Color(32, 68, 140);
-    dayPalette.midSky     = sf::Color(64, 122, 195);
-    dayPalette.lowerSky   = sf::Color(120, 175, 225);
-    dayPalette.horizon    = sf::Color(195, 222, 238);
-    dayPalette.sunTint    = sf::Color(255, 245, 190);
-    dayPalette.sunGlow    = sf::Color(255, 230, 140, 70);
+    dayPalette.zenith     = sf::Color(34, 84, 164);
+    dayPalette.midSky     = sf::Color(72, 138, 208);
+    dayPalette.lowerSky   = sf::Color(134, 190, 230);
+    dayPalette.horizon    = sf::Color(206, 230, 236);
+    dayPalette.sunTint    = sf::Color(255, 244, 186);
+    dayPalette.sunGlow    = sf::Color(255, 240, 190, 80);
     dayPalette.moonTint   = sf::Color(220, 225, 235);
     dayPalette.cloudTop   = sf::Color(255, 255, 255);
-    dayPalette.cloudMid   = sf::Color(200, 212, 228);
-    dayPalette.cloudBase  = sf::Color(135, 150, 175);
+    dayPalette.cloudMid   = sf::Color(214, 226, 240);
+    dayPalette.cloudBase  = sf::Color(160, 180, 212);
 
-    sunsetPalette.zenith    = sf::Color(28, 18, 52);
-    sunsetPalette.midSky    = sf::Color(92, 38, 78);
-    sunsetPalette.lowerSky  = sf::Color(190, 68, 65);
-    sunsetPalette.horizon   = sf::Color(248, 148, 62);
-    sunsetPalette.sunTint   = sf::Color(255, 175, 70);
-    sunsetPalette.sunGlow   = sf::Color(255, 110, 45, 110);
+    sunsetPalette.zenith    = sf::Color(34, 26, 70);
+    sunsetPalette.midSky    = sf::Color(104, 48, 96);
+    sunsetPalette.lowerSky  = sf::Color(206, 84, 76);
+    sunsetPalette.horizon   = sf::Color(250, 164, 72);
+    sunsetPalette.sunTint   = sf::Color(255, 190, 90);
+    sunsetPalette.sunGlow   = sf::Color(255, 150, 60, 150);
     sunsetPalette.moonTint  = sf::Color(230, 210, 220);
-    sunsetPalette.cloudTop  = sf::Color(255, 178, 130);
-    sunsetPalette.cloudMid  = sf::Color(165, 75, 95);
-    sunsetPalette.cloudBase = sf::Color(62, 35, 60);
+    sunsetPalette.cloudTop  = sf::Color(255, 186, 128);
+    sunsetPalette.cloudMid  = sf::Color(196, 96, 104);
+    sunsetPalette.cloudBase = sf::Color(92, 50, 88);
 
-    nightPalette.zenith     = sf::Color(6, 8, 16);
-    nightPalette.midSky     = sf::Color(12, 16, 32);
-    nightPalette.lowerSky   = sf::Color(20, 24, 46);
-    nightPalette.horizon    = sf::Color(35, 34, 62);
+    nightPalette.zenith     = sf::Color(8, 10, 24);
+    nightPalette.midSky     = sf::Color(14, 20, 44);
+    nightPalette.lowerSky   = sf::Color(24, 34, 68);
+    nightPalette.horizon    = sf::Color(44, 54, 96);
     nightPalette.sunTint    = sf::Color(120, 130, 160);
     nightPalette.sunGlow    = sf::Color(0, 0, 0, 0);
-    nightPalette.moonTint   = sf::Color(235, 240, 255);
-    nightPalette.cloudTop   = sf::Color(70, 78, 105);
-    nightPalette.cloudMid   = sf::Color(38, 44, 68);
-    nightPalette.cloudBase  = sf::Color(18, 22, 38);
+    nightPalette.moonTint   = sf::Color(236, 240, 255);
+    nightPalette.cloudTop   = sf::Color(62, 74, 112);
+    nightPalette.cloudMid   = sf::Color(36, 46, 78);
+    nightPalette.cloudBase  = sf::Color(20, 26, 50);
 
-    dawnPalette.zenith    = sf::Color(20, 16, 42);
-    dawnPalette.midSky    = sf::Color(68, 38, 75);
-    dawnPalette.lowerSky  = sf::Color(160, 72, 95);
-    dawnPalette.horizon   = sf::Color(235, 142, 120);
-    dawnPalette.sunTint   = sf::Color(255, 205, 140);
-    dawnPalette.sunGlow   = sf::Color(255, 130, 90, 85);
+    dawnPalette.zenith    = sf::Color(30, 30, 76);
+    dawnPalette.midSky    = sf::Color(96, 62, 118);
+    dawnPalette.lowerSky  = sf::Color(214, 112, 122);
+    dawnPalette.horizon   = sf::Color(252, 188, 134);
+    dawnPalette.sunTint   = sf::Color(255, 214, 150);
+    dawnPalette.sunGlow   = sf::Color(255, 176, 110, 130);
     dawnPalette.moonTint  = sf::Color(220, 210, 230);
-    dawnPalette.cloudTop  = sf::Color(255, 195, 175);
-    dawnPalette.cloudMid  = sf::Color(170, 95, 120);
-    dawnPalette.cloudBase = sf::Color(72, 42, 68);
+    dawnPalette.cloudTop  = sf::Color(255, 206, 178);
+    dawnPalette.cloudMid  = sf::Color(204, 124, 140);
+    dawnPalette.cloudBase = sf::Color(104, 66, 104);
 
-    overcastPalette.zenith    = sf::Color(28, 32, 42);
-    overcastPalette.midSky    = sf::Color(48, 54, 66);
-    overcastPalette.lowerSky  = sf::Color(72, 78, 90);
-    overcastPalette.horizon   = sf::Color(105, 112, 122);
-    overcastPalette.sunTint   = sf::Color(210, 205, 190);
-    overcastPalette.sunGlow   = sf::Color(220, 215, 200, 30);
+    overcastPalette.zenith    = sf::Color(44, 50, 64);
+    overcastPalette.midSky    = sf::Color(66, 74, 90);
+    overcastPalette.lowerSky  = sf::Color(96, 104, 118);
+    overcastPalette.horizon   = sf::Color(134, 142, 150);
+    overcastPalette.sunTint   = sf::Color(214, 210, 196);
+    overcastPalette.sunGlow   = sf::Color(220, 215, 200, 40);
     overcastPalette.moonTint  = sf::Color(180, 185, 195);
-    overcastPalette.cloudTop  = sf::Color(95, 102, 112);
-    overcastPalette.cloudMid  = sf::Color(62, 68, 78);
-    overcastPalette.cloudBase = sf::Color(35, 38, 46);
+    overcastPalette.cloudTop  = sf::Color(150, 158, 170);
+    overcastPalette.cloudMid  = sf::Color(108, 116, 130);
+    overcastPalette.cloudBase = sf::Color(70, 76, 90);
 }
 
-void SkySystem::generateCloudCluster(std::vector<ProceduralCloud>& layer, float startX, float layerDepth) {
-    ProceduralCloud c;
-    c.position = sf::Vector2f(startX, 40.f + static_cast<float>(std::rand() % 160));
-    c.scale = (layerDepth < 0.5f) ? (0.75f + (std::rand() % 30) * 0.01f) : (1.0f + (std::rand() % 45) * 0.01f);
-    c.speedMultiplier = (layerDepth < 0.5f) ? 0.35f : 0.70f;
-    c.layerDepth = layerDepth;
+// ---------------------------------------------------------------------------
+// Setup
+// ---------------------------------------------------------------------------
 
-    int subNodes = 5 + std::rand() % 6;
-    float currentX = 0.f;
-
-    for (int i = 0; i < subNodes; ++i) {
-        CloudSegment seg;
-        float w = (60.f + static_cast<float>(std::rand() % 80)) * c.scale;
-        float h = (28.f + static_cast<float>(std::rand() % 32)) * c.scale;
-        float offsetY = static_cast<float>((std::rand() % 24) - 12) * c.scale;
-
-        seg.offset = sf::Vector2f(currentX, offsetY);
-        seg.size = sf::Vector2f(w, h);
-        c.segments.push_back(seg);
-
-        currentX += w * 0.45f;
+void SkySystem::buildCloudAtlas() {
+    // Each cloud is a row of overlapping round puffs sitting on a flat base.
+    // Three masks are cut from the same puffs: the full silhouette (darkest,
+    // shows as the underside), the puffs nudged up a little (shadow tone) and
+    // nudged up-left further (the lit bulk). Drawn in that order, each puff
+    // keeps a crescent of shade underneath it.
+    struct Spec { int w, h; bool far; };
+    std::vector<Spec> specs;
+    for (int i = 0; i < 10; ++i) {          // near clouds: big
+        int w = static_cast<int>(frand(190.f, 420.f)) / P;
+        int h = static_cast<int>(static_cast<float>(w) * frand(0.24f, 0.32f));
+        specs.push_back({w, std::max(h, 8), false});
+    }
+    for (int i = 0; i < 8; ++i) {           // far clouds: small and flat
+        int w = static_cast<int>(frand(90.f, 220.f)) / P;
+        int h = static_cast<int>(static_cast<float>(w) * frand(0.20f, 0.28f));
+        specs.push_back({w, std::max(h, 5), true});
     }
 
-    layer.push_back(c);
+    unsigned atlasW = 0, atlasH = 0;
+    for (const auto& s : specs) {
+        atlasW = std::max(atlasW, static_cast<unsigned>(s.w * 3 + 3));
+        atlasH += static_cast<unsigned>(s.h + 1);
+    }
+
+    sf::Image img;
+    img.create(atlasW, atlasH, sf::Color::Transparent);
+    nearShapes.clear();
+    farShapes.clear();
+
+    int rowY = 0;
+    for (const auto& s : specs) {
+        const float w = static_cast<float>(s.w), h = static_cast<float>(s.h);
+        const float baseY = h - 1.f;
+
+        // A row of overlapping puffs, tallest near `peak`, all dipping below the
+        // base line so the bottom comes out flat. A few larger puffs are stacked
+        // on top around the peak to break up the outline.
+        std::vector<Puff> puffs;
+        const int count = std::max(4, static_cast<int>(w / (h * 0.40f)));
+        const float peak = frand(0.32f, 0.68f);
+        auto hillAt = [&](float u) {
+            const float d = std::abs(u - peak) / std::max(peak, 1.f - peak);
+            return std::pow(std::max(0.f, 1.f - d), 0.8f);
+        };
+        for (int i = 0; i < count; ++i) {
+            const float u = std::clamp((static_cast<float>(i) + frand(-0.3f, 0.3f)) / static_cast<float>(count - 1), 0.f, 1.f);
+            const float r = std::max(2.5f, h * (0.17f + 0.25f * hillAt(u)) * frand(0.8f, 1.2f));
+            const float cx = r + u * (w - 2.f * r);
+            puffs.push_back({cx, baseY - r * frand(0.30f, 0.70f), r});
+        }
+        std::sort(puffs.begin(), puffs.end(), [](const Puff& a, const Puff& b) { return a.cx < b.cx; });
+        const int crown = 1 + std::rand() % 3;
+        for (int i = 0; i < crown; ++i) {
+            const float u = std::clamp(peak + frand(-0.22f, 0.22f), 0.12f, 0.88f);
+            const float r = h * frand(0.26f, 0.36f);
+            const float cx = std::clamp(u * w, r, w - r);
+            puffs.push_back({cx, r + frand(0.f, h * 0.12f), r});
+        }
+
+        auto inside = [&](float x, float y, float dx, float dy, float rs) {
+            for (const auto& p : puffs) {
+                const float ox = x - (p.cx + dx * p.r), oy = y - (p.cy + dy * p.r);
+                const float rr = p.r * rs;
+                if (ox * ox + oy * oy <= rr * rr) return true;
+            }
+            return false;
+        };
+
+        CloudShape shape;
+        shape.base = sf::IntRect(0, rowY, s.w, s.h);
+        shape.mid  = sf::IntRect(s.w + 1, rowY, s.w, s.h);
+        shape.top  = sf::IntRect((s.w + 1) * 2, rowY, s.w, s.h);
+
+        float left = w, right = 0.f;
+        for (const auto& pf : puffs) { left = std::min(left, pf.cx); right = std::max(right, pf.cx); }
+        for (int y = 0; y < s.h; ++y) {
+            for (int x = 0; x < s.w; ++x) {
+                const float fx = static_cast<float>(x) + 0.5f, fy = static_cast<float>(y) + 0.5f;
+                bool body = inside(fx, fy, 0.f, 0.f, 1.f);
+                // flat base slab joining the puffs
+                if (!body && fy >= baseY - 1.5f && fx >= left && fx <= right) body = true;
+                if (!body || fy > baseY + 0.5f) continue;
+
+                img.setPixel(shape.base.left + x, rowY + y, sf::Color::White);
+                if (inside(fx, fy, 0.f, -0.10f, 1.f) && fy < baseY - 0.5f)
+                    img.setPixel(shape.mid.left + x, rowY + y, sf::Color::White);
+                if (inside(fx, fy, -0.16f, -0.36f, 0.78f) && fy < baseY - 1.5f)
+                    img.setPixel(shape.top.left + x, rowY + y, sf::Color::White);
+            }
+        }
+
+        // Tidy up: where two puffs' shading meets it can leave a speck of the
+        // darker tone. Find small enclosed patches and paint them over.
+        auto fillPockets = [&](const sf::IntRect& layer) {
+            std::vector<char> seen(static_cast<size_t>(s.w * s.h), 0);
+            auto open = [&](int x, int y) {
+                return img.getPixel(static_cast<unsigned>(shape.base.left + x), static_cast<unsigned>(rowY + y)).a != 0 &&
+                       img.getPixel(static_cast<unsigned>(layer.left + x), static_cast<unsigned>(rowY + y)).a == 0;
+            };
+            for (int y = 0; y < s.h; ++y) {
+                for (int x = 0; x < s.w; ++x) {
+                    if (seen[static_cast<size_t>(y * s.w + x)] || !open(x, y)) continue;
+                    std::vector<sf::Vector2i> patch{ {x, y} };
+                    seen[static_cast<size_t>(y * s.w + x)] = 1;
+                    for (size_t i = 0; i < patch.size(); ++i) {
+                        const sf::Vector2i dirs[4] = { {1, 0}, {-1, 0}, {0, 1}, {0, -1} };
+                        for (const auto& d : dirs) {
+                            const int nx = patch[i].x + d.x, ny = patch[i].y + d.y;
+                            if (nx < 0 || ny < 0 || nx >= s.w || ny >= s.h) continue;
+                            if (seen[static_cast<size_t>(ny * s.w + nx)] || !open(nx, ny)) continue;
+                            seen[static_cast<size_t>(ny * s.w + nx)] = 1;
+                            patch.push_back({nx, ny});
+                        }
+                    }
+                    if (patch.size() <= 14) {
+                        for (const auto& q : patch)
+                            img.setPixel(static_cast<unsigned>(layer.left + q.x), static_cast<unsigned>(rowY + q.y), sf::Color::White);
+                    }
+                }
+            }
+        };
+        fillPockets(shape.mid);
+        fillPockets(shape.top);
+
+        (s.far ? farShapes : nearShapes).push_back(shape);
+        rowY += s.h + 1;
+    }
+
+    cloudAtlas.loadFromImage(img);
+    cloudAtlas.setSmooth(false);
+}
+
+void SkySystem::buildBodyAtlas() {
+    const int sunR  = std::max(4, 30 / P);
+    const int coreR = std::max(3, 22 / P);
+    const int moonR = std::max(4, 26 / P);
+
+    const int sunD = sunR * 2 + 1, coreD = coreR * 2 + 1, moonD = moonR * 2 + 1;
+    sf::Image img;
+    img.create(static_cast<unsigned>(sunD + coreD + moonD * 2 + 3),
+               static_cast<unsigned>(std::max(sunD, moonD)), sf::Color::Transparent);
+
+    auto disc = [&](int ox, int r, sf::Color c) {
+        for (int y = -r; y <= r; ++y)
+            for (int x = -r; x <= r; ++x)
+                if (x * x + y * y <= r * r + r / 2)
+                    img.setPixel(static_cast<unsigned>(ox + r + x), static_cast<unsigned>(r + y), c);
+    };
+
+    int ox = 0;
+    sunDiscRect = sf::IntRect(ox, 0, sunD, sunD);   disc(ox, sunR, sf::Color::White);  ox += sunD + 1;
+    sunCoreRect = sf::IntRect(ox, 0, coreD, coreD); disc(ox, coreR, sf::Color::White); ox += coreD + 1;
+    moonDarkRect = sf::IntRect(ox, 0, moonD, moonD); disc(ox, moonR, sf::Color::White); ox += moonD + 1;
+
+    // Lit crescent: the disc minus a second disc pushed up and to the right.
+    moonLitRect = sf::IntRect(ox, 0, moonD, moonD);
+    const float mr = static_cast<float>(moonR);
+    const float sx = mr * 0.42f, sy = -mr * 0.16f, sr = mr * 0.92f;
+    struct Crater { float x, y, r; };
+    const Crater craters[] = { {-0.52f, -0.20f, 0.17f}, {-0.30f, 0.42f, 0.22f}, {-0.66f, 0.26f, 0.11f} };
+    for (int y = -moonR; y <= moonR; ++y) {
+        for (int x = -moonR; x <= moonR; ++x) {
+            if (x * x + y * y > moonR * moonR + moonR / 2) continue;
+            const float fx = static_cast<float>(x), fy = static_cast<float>(y);
+            if ((fx - sx) * (fx - sx) + (fy - sy) * (fy - sy) <= sr * sr) continue;
+            sf::Color c = sf::Color::White;
+            for (const auto& cr : craters) {
+                const float dx = fx - cr.x * mr, dy = fy - cr.y * mr;
+                if (dx * dx + dy * dy <= (cr.r * mr) * (cr.r * mr)) c = sf::Color(196, 204, 226);
+            }
+            img.setPixel(static_cast<unsigned>(ox + moonR + x), static_cast<unsigned>(moonR + y), c);
+        }
+    }
+
+    bodyAtlas.loadFromImage(img);
+    bodyAtlas.setSmooth(false);
 }
 
 void SkySystem::init(float width, float height, int starCount) {
     skyWidth = width;
     skyHeight = height;
 
+    // Stars live on the sky-pixel grid, thinning out toward the horizon.
     stars.clear();
-    stars.reserve(starCount);
+    stars.reserve(static_cast<size_t>(starCount));
+    const int cellsX = static_cast<int>(width) / P;
+    const int cellsY = static_cast<int>(height * 0.62f) / P;
     for (int i = 0; i < starCount; ++i) {
         Star s;
-        s.position = sf::Vector2f(
-            static_cast<float>(std::rand() % static_cast<int>(width)),
-            static_cast<float>(std::rand() % static_cast<int>(height * 0.65f))
-        );
-        s.baseBrightness = 70.f + static_cast<float>(std::rand() % 185);
-        s.twinkleSpeed = 1.0f + static_cast<float>(std::rand() % 35) * 0.1f;
-        s.size = (std::rand() % 12 > 9) ? 2.0f : 1.0f;
+        const float fy = frand();
+        s.cell = sf::Vector2i(std::rand() % std::max(1, cellsX),
+                              static_cast<int>(fy * fy * static_cast<float>(cellsY)));
+        s.brightness = frand(0.35f, 1.0f);
+        s.twinkleSpeed = frand(0.6f, 2.6f);
+        s.phase = frand(0.f, 2.f * PI);
+        s.big = (std::rand() % 14 == 0);
+        const int hue = std::rand() % 10;
+        s.tint = hue < 6 ? sf::Color(226, 234, 255) : (hue < 8 ? sf::Color(255, 238, 206) : sf::Color(190, 210, 255));
         stars.push_back(s);
     }
 
-    backgroundClouds.clear();
-    foregroundClouds.clear();
+    buildCloudAtlas();
+    buildBodyAtlas();
 
-    float spawnX = -1000.f;
-    while (spawnX < skyWidth + 300.f) {
-        generateCloudCluster(backgroundClouds, spawnX, 0.3f);
-        spawnX += 200.f + static_cast<float>(std::rand() % 160);
-    }
+    // Scatter clouds over a strip wider than the screen so they wrap unseen.
+    cloudMargin = 440.f;
+    cloudSpan = skyWidth + cloudMargin * 2.f;
+    clouds.clear();
 
-    spawnX = -1000.f;
-    while (spawnX < skyWidth + 300.f) {
-        generateCloudCluster(foregroundClouds, spawnX, 0.8f);
-        spawnX += 280.f + static_cast<float>(std::rand() % 220);
-    }
+    const int farCount = 12, nearCount = 9;
+    auto scatter = [&](int count, bool far) {
+        std::vector<float> thresholds;
+        for (int i = 0; i < count; ++i)
+            thresholds.push_back(0.04f + 0.86f * (static_cast<float>(i) + 0.5f) / static_cast<float>(count));
+        for (int i = count - 1; i > 0; --i) std::swap(thresholds[i], thresholds[std::rand() % (i + 1)]);
 
-    const int bandCount = 18;
-    skyBands.setPrimitiveType(sf::Quads);
-    skyBands.resize(bandCount * 4);
-
-    float bandH = skyHeight / static_cast<float>(bandCount);
-    for (int i = 0; i < bandCount; ++i) {
-        float y0 = i * bandH;
-        float y1 = (i + 1) * bandH;
-        int idx = i * 4;
-        skyBands[idx + 0].position = sf::Vector2f(0.f, y0);
-        skyBands[idx + 1].position = sf::Vector2f(skyWidth, y0);
-        skyBands[idx + 2].position = sf::Vector2f(skyWidth, y1);
-        skyBands[idx + 3].position = sf::Vector2f(0.f, y1);
-    }
-
-    starVertices.setPrimitiveType(sf::Quads);
-    starVertices.resize(stars.size() * 4);
+        const auto& shapes = far ? farShapes : nearShapes;
+        for (int i = 0; i < count; ++i) {
+            Cloud c;
+            c.far = far;
+            c.shape = std::rand() % static_cast<int>(shapes.size());
+            c.x = cloudSpan * (static_cast<float>(i) + frand(0.1f, 0.9f)) / static_cast<float>(count);
+            c.y = far ? frand(height * 0.16f, height * 0.50f) : frand(height * 0.04f, height * 0.36f);
+            c.speed = far ? frand(0.28f, 0.40f) : frand(0.60f, 0.85f);
+            c.parallax = far ? 0.015f : 0.038f;
+            c.threshold = thresholds[static_cast<size_t>(i)];
+            clouds.push_back(c);
+        }
+    };
+    scatter(farCount, true);
+    scatter(nearCount, false);
 }
+
+// ---------------------------------------------------------------------------
+// Weather and palette
+// ---------------------------------------------------------------------------
 
 void SkySystem::setWeather(SkyWeather weather) {
     targetWeather = weather;
@@ -174,6 +365,7 @@ void SkySystem::updateWeather(float dt) {
 }
 
 sf::Color SkySystem::lerpColor(const sf::Color& a, const sf::Color& b, float t) const {
+    t = std::clamp(t, 0.f, 1.f);
     return sf::Color(
         static_cast<sf::Uint8>(a.r + (b.r - a.r) * t),
         static_cast<sf::Uint8>(a.g + (b.g - a.g) * t),
@@ -182,310 +374,305 @@ sf::Color SkySystem::lerpColor(const sf::Color& a, const sf::Color& b, float t) 
     );
 }
 
+SkyPalette SkySystem::lerpPalette(const SkyPalette& a, const SkyPalette& b, float t) const {
+    return {
+        lerpColor(a.zenith, b.zenith, t),     lerpColor(a.midSky, b.midSky, t),
+        lerpColor(a.lowerSky, b.lowerSky, t), lerpColor(a.horizon, b.horizon, t),
+        lerpColor(a.sunTint, b.sunTint, t),   lerpColor(a.sunGlow, b.sunGlow, t),
+        lerpColor(a.moonTint, b.moonTint, t), lerpColor(a.cloudTop, b.cloudTop, t),
+        lerpColor(a.cloudMid, b.cloudMid, t), lerpColor(a.cloudBase, b.cloudBase, t)
+    };
+}
+
 SkyPalette SkySystem::getBasePalette(float timeOfDay) const {
-    if (timeOfDay < 0.20f) {
-        float t = timeOfDay / 0.20f;
-        return {
-            lerpColor(nightPalette.zenith, dawnPalette.zenith, t),
-            lerpColor(nightPalette.midSky, dawnPalette.midSky, t),
-            lerpColor(nightPalette.lowerSky, dawnPalette.lowerSky, t),
-            lerpColor(nightPalette.horizon, dawnPalette.horizon, t),
-            lerpColor(nightPalette.sunTint, dawnPalette.sunTint, t),
-            lerpColor(nightPalette.sunGlow, dawnPalette.sunGlow, t),
-            lerpColor(nightPalette.moonTint, dawnPalette.moonTint, t),
-            lerpColor(nightPalette.cloudTop, dawnPalette.cloudTop, t),
-            lerpColor(nightPalette.cloudMid, dawnPalette.cloudMid, t),
-            lerpColor(nightPalette.cloudBase, dawnPalette.cloudBase, t)
-        };
-    } else if (timeOfDay < 0.45f) {
-        float t = (timeOfDay - 0.20f) / 0.25f;
-        return {
-            lerpColor(dawnPalette.zenith, dayPalette.zenith, t),
-            lerpColor(dawnPalette.midSky, dayPalette.midSky, t),
-            lerpColor(dawnPalette.lowerSky, dayPalette.lowerSky, t),
-            lerpColor(dawnPalette.horizon, dayPalette.horizon, t),
-            lerpColor(dawnPalette.sunTint, dayPalette.sunTint, t),
-            lerpColor(dawnPalette.sunGlow, dayPalette.sunGlow, t),
-            lerpColor(dawnPalette.moonTint, dayPalette.moonTint, t),
-            lerpColor(dawnPalette.cloudTop, dayPalette.cloudTop, t),
-            lerpColor(dawnPalette.cloudMid, dayPalette.cloudMid, t),
-            lerpColor(dawnPalette.cloudBase, dayPalette.cloudBase, t)
-        };
-    } else if (timeOfDay < 0.70f) {
-        float t = (timeOfDay - 0.45f) / 0.25f;
-        return {
-            lerpColor(dayPalette.zenith, sunsetPalette.zenith, t),
-            lerpColor(dayPalette.midSky, sunsetPalette.midSky, t),
-            lerpColor(dayPalette.lowerSky, sunsetPalette.lowerSky, t),
-            lerpColor(dayPalette.horizon, sunsetPalette.horizon, t),
-            lerpColor(dayPalette.sunTint, sunsetPalette.sunTint, t),
-            lerpColor(dayPalette.sunGlow, sunsetPalette.sunGlow, t),
-            lerpColor(dayPalette.moonTint, sunsetPalette.moonTint, t),
-            lerpColor(dayPalette.cloudTop, sunsetPalette.cloudTop, t),
-            lerpColor(dayPalette.cloudMid, sunsetPalette.cloudMid, t),
-            lerpColor(dayPalette.cloudBase, sunsetPalette.cloudBase, t)
-        };
-    } else {
-        float t = (timeOfDay - 0.70f) / 0.30f;
-        return {
-            lerpColor(sunsetPalette.zenith, nightPalette.zenith, t),
-            lerpColor(sunsetPalette.midSky, nightPalette.midSky, t),
-            lerpColor(sunsetPalette.lowerSky, nightPalette.lowerSky, t),
-            lerpColor(sunsetPalette.horizon, nightPalette.horizon, t),
-            lerpColor(sunsetPalette.sunTint, nightPalette.sunTint, t),
-            lerpColor(sunsetPalette.sunGlow, nightPalette.sunGlow, t),
-            lerpColor(sunsetPalette.moonTint, nightPalette.moonTint, t),
-            lerpColor(sunsetPalette.cloudTop, nightPalette.cloudTop, t),
-            lerpColor(sunsetPalette.cloudMid, nightPalette.cloudMid, t),
-            lerpColor(sunsetPalette.cloudBase, nightPalette.cloudBase, t)
-        };
+    // Keyframes over the day (0 = midnight, 0.5 = noon). The sun is up from
+    // 0.20 to 0.75, so dawn and sunset colours peak right at those moments and
+    // the long middle of the day stays a proper blue.
+    struct Key { float t; const SkyPalette* pal; };
+    const Key keys[] = {
+        {0.00f, &nightPalette},
+        {0.15f, &nightPalette},
+        {0.215f, &dawnPalette},
+        {0.30f, &dayPalette},
+        {0.62f, &dayPalette},
+        {0.735f, &sunsetPalette},
+        {0.82f, &nightPalette},
+        {1.00f, &nightPalette},
+    };
+    const int count = static_cast<int>(sizeof(keys) / sizeof(keys[0]));
+    timeOfDay = std::clamp(timeOfDay, 0.f, 1.f);
+    for (int i = 0; i < count - 1; ++i) {
+        if (timeOfDay <= keys[i + 1].t) {
+            const float span = keys[i + 1].t - keys[i].t;
+            const float t = span > 0.f ? (timeOfDay - keys[i].t) / span : 0.f;
+            return lerpPalette(*keys[i].pal, *keys[i + 1].pal, t);
+        }
     }
+    return nightPalette;
 }
 
 SkyPalette SkySystem::evaluatePalette(float timeOfDay) const {
     SkyPalette base = getBasePalette(timeOfDay);
     if (cloudDensity <= 0.65f) return base;
 
+    // Heavy cloud greys the whole sky, but night stays night.
+    const float night = nightAmount(timeOfDay);
+    SkyPalette grey = overcastPalette;
+    if (night > 0.f) {
+        SkyPalette dark = nightPalette;
+        dark.cloudTop = sf::Color(50, 56, 78);
+        dark.cloudMid = sf::Color(34, 40, 60);
+        dark.cloudBase = sf::Color(22, 26, 42);
+        grey = lerpPalette(overcastPalette, dark, night);
+    }
     float stormBlend = (cloudDensity - 0.65f) / 0.35f;
-    return {
-        lerpColor(base.zenith, overcastPalette.zenith, stormBlend),
-        lerpColor(base.midSky, overcastPalette.midSky, stormBlend),
-        lerpColor(base.lowerSky, overcastPalette.lowerSky, stormBlend),
-        lerpColor(base.horizon, overcastPalette.horizon, stormBlend),
-        lerpColor(base.sunTint, overcastPalette.sunTint, stormBlend),
-        lerpColor(base.sunGlow, overcastPalette.sunGlow, stormBlend),
-        lerpColor(base.moonTint, overcastPalette.moonTint, stormBlend),
-        lerpColor(base.cloudTop, overcastPalette.cloudTop, stormBlend),
-        lerpColor(base.cloudMid, overcastPalette.cloudMid, stormBlend),
-        lerpColor(base.cloudBase, overcastPalette.cloudBase, stormBlend)
-    };
+    return lerpPalette(base, grey, stormBlend);
 }
 
+sf::Color SkySystem::skyColorAt(const SkyPalette& pal, float f) const {
+    // f: 0 at the top of the screen, 1 at the horizon line.
+    if (f < 0.40f) return lerpColor(pal.zenith, pal.midSky, f / 0.40f);
+    if (f < 0.78f) return lerpColor(pal.midSky, pal.lowerSky, (f - 0.40f) / 0.38f);
+    return lerpColor(pal.lowerSky, pal.horizon, (f - 0.78f) / 0.22f);
+}
+
+float SkySystem::nightAmount(float timeOfDay) const {
+    float n = 0.f;
+    if (timeOfDay > 0.76f) n = (timeOfDay - 0.76f) / 0.07f;
+    else if (timeOfDay < 0.20f) n = (0.20f - timeOfDay) / 0.06f;
+    return std::clamp(n, 0.f, 1.f);
+}
+
+SkySystem::Body SkySystem::sunAt(float timeOfDay) const {
+    Body b;
+    const float t = (timeOfDay - 0.20f) / 0.55f;
+    if (t < -0.08f || t > 1.08f) return b;
+    const float rad = std::clamp(t, 0.0f, 1.0f) * PI;
+    b.visible = true;
+    b.x = 140.f + (skyWidth - 280.f) * t;
+    b.y = (skyHeight * 0.86f) - std::sin(rad) * (skyHeight * 0.72f);
+    b.height = std::sin(rad);
+    return b;
+}
+
+SkySystem::Body SkySystem::moonAt(float timeOfDay) const {
+    Body b;
+    const float t = (timeOfDay >= 0.72f) ? ((timeOfDay - 0.72f) / 0.52f) : ((timeOfDay + 0.28f) / 0.52f);
+    if (t < -0.05f || t > 1.05f) return b;
+    const float rad = std::clamp(t, 0.0f, 1.0f) * PI;
+    b.visible = true;
+    b.x = 140.f + (skyWidth - 280.f) * t;
+    b.y = (skyHeight * 0.86f) - std::sin(rad) * (skyHeight * 0.72f);
+    b.height = std::sin(rad);
+    return b;
+}
+
+// ---------------------------------------------------------------------------
+// Per-frame
+// ---------------------------------------------------------------------------
+
 void SkySystem::update(float dt, float timeOfDay, float cameraX) {
+    (void)timeOfDay; (void)cameraX;
     totalTime += dt;
     updateWeather(dt);
 
-    float baseWind = 9.5f;
-
-    for (auto& c : backgroundClouds) {
-        c.position.x += baseWind * c.speedMultiplier * dt;
-        if (c.position.x > 50000.f) c.position.x = std::fmod(c.position.x, skyWidth + 1400.f);
-    }
-
-    for (auto& c : foregroundClouds) {
-        c.position.x += baseWind * c.speedMultiplier * dt;
-        if (c.position.x > 50000.f) c.position.x = std::fmod(c.position.x, skyWidth + 1400.f);
+    const float baseWind = 9.5f;
+    for (auto& c : clouds) {
+        c.x += baseWind * c.speed * dt;
+        if (c.x > cloudSpan * 8.f) c.x = std::fmod(c.x, cloudSpan);
     }
 }
 
 void SkySystem::drawSky(sf::RenderTarget& target, float timeOfDay, float cameraX) {
-    SkyPalette pal = evaluatePalette(timeOfDay);
+    (void)cameraX;
+    const SkyPalette pal = evaluatePalette(timeOfDay);
+    const sf::Vector2f viewSize = target.getView().getSize();
 
-    sf::Vector2f viewSize = target.getView().getSize();
-    float viewW = viewSize.x;
-    float viewH = viewSize.y;
-
-    const int bandCount = 18;
-    float bandH = viewH / static_cast<float>(bandCount);
-
-    sf::VertexArray bands(sf::Quads, bandCount * 4);
-
-    float leftEdge = -60.f;
-    float rightEdge = viewW + 60.f;
-
-    for (int i = 0; i < bandCount; ++i) {
-        float y0 = i * bandH;
-        float y1 = (i + 1) * bandH;
-        float normY = static_cast<float>(i) / static_cast<float>(bandCount - 1);
-
-        sf::Color bandColor;
-        if (normY < 0.33f) {
-            bandColor = lerpColor(pal.zenith, pal.midSky, normY / 0.33f);
-        } else if (normY < 0.70f) {
-            bandColor = lerpColor(pal.midSky, pal.lowerSky, (normY - 0.33f) / 0.37f);
-        } else {
-            bandColor = lerpColor(pal.lowerSky, pal.horizon, (normY - 0.70f) / 0.30f);
-        }
-
-        int idx = i * 4;
-        bands[idx + 0] = sf::Vertex(sf::Vector2f(leftEdge, y0), bandColor);
-        bands[idx + 1] = sf::Vertex(sf::Vector2f(rightEdge, y0), bandColor);
-        bands[idx + 2] = sf::Vertex(sf::Vector2f(rightEdge, y1), bandColor);
-        bands[idx + 3] = sf::Vertex(sf::Vector2f(leftEdge, y1), bandColor);
+    const unsigned gw = static_cast<unsigned>(std::ceil(viewSize.x / static_cast<float>(P)));
+    const unsigned gh = static_cast<unsigned>(std::ceil(viewSize.y / static_cast<float>(P)));
+    if (gw == 0 || gh == 0) return;
+    if (gradientSize.x != gw || gradientSize.y != gh) {
+        gradientSize = sf::Vector2u(gw, gh);
+        gradientPixels.assign(static_cast<size_t>(gw) * gh * 4, 255);
+        gradientTexture.create(gw, gh);
+        gradientTexture.setSmooth(false);
     }
 
-    target.draw(bands);
+    // Colour bands from zenith to horizon.
+    sf::Color steps[GRADIENT_STEPS];
+    for (int i = 0; i < GRADIENT_STEPS; ++i)
+        steps[i] = skyColorAt(pal, static_cast<float>(i) / static_cast<float>(GRADIENT_STEPS - 1));
+
+    // Light sources that tint the sky around them.
+    struct Glow { float x, y, radius, strength; sf::Color color; };
+    Glow glows[2];
+    int glowCount = 0;
+    const float clear = 1.0f - cloudDensity * 0.6f;
+
+    const Body sun = sunAt(timeOfDay);
+    if (sun.visible && pal.sunGlow.a > 4) {
+        const float low = 1.0f - sun.height;                       // 1 at the horizon
+        glows[glowCount++] = { sun.x / P, sun.y / P, (150.f + 190.f * low) / P,
+                               std::min(1.f, pal.sunGlow.a / 255.f * 1.7f) * clear,
+                               sf::Color(pal.sunGlow.r, pal.sunGlow.g, pal.sunGlow.b) };
+    }
+    const Body moon = moonAt(timeOfDay);
+    const float night = nightAmount(timeOfDay);
+    if (moon.visible && night > 0.05f) {
+        glows[glowCount++] = { moon.x / P, moon.y / P, 120.f / P, 0.42f * night * clear,
+                               sf::Color(120, 150, 220) };
+    }
+
+    const float horizonRow = std::max(1.f, static_cast<float>(gh) * HORIZON_FRACTION);
+    sf::Uint8* px = gradientPixels.data();
+
+    for (unsigned y = 0; y < gh; ++y) {
+        const float v = std::min(1.f, static_cast<float>(y) / horizonRow) * static_cast<float>(GRADIENT_STEPS - 1);
+        const int band = static_cast<int>(v);
+        // Flat for the first half of each band, dithered into the next for the second half.
+        const float blend = std::max(0.f, (v - static_cast<float>(band)) * 2.f - 1.f);
+
+        for (unsigned x = 0; x < gw; ++x) {
+            const float d = bayer(static_cast<int>(x), static_cast<int>(y));
+            int idx = band + (blend > d ? 1 : 0);
+            if (idx > GRADIENT_STEPS - 1) idx = GRADIENT_STEPS - 1;
+            sf::Color c = steps[idx];
+
+            for (int g = 0; g < glowCount; ++g) {
+                const float dx = static_cast<float>(x) - glows[g].x;
+                const float dy = (static_cast<float>(y) - glows[g].y) * 1.5f;   // wider than tall
+                const float r = glows[g].radius;
+                if (dx > r || dx < -r || dy > r || dy < -r) continue;
+                const float dist = std::sqrt(dx * dx + dy * dy);
+                if (dist >= r) continue;
+                const float fall = 1.f - dist / r;
+                const int level = static_cast<int>(fall * std::sqrt(fall) * glows[g].strength * GLOW_STEPS + d);
+                if (level > 0)
+                    c = lerpColor(c, glows[g].color, std::min(0.80f, static_cast<float>(level) / GLOW_STEPS));
+            }
+
+            px[0] = c.r; px[1] = c.g; px[2] = c.b; px[3] = 255;
+            px += 4;
+        }
+    }
+
+    gradientTexture.update(gradientPixels.data());
+    sf::Sprite sprite(gradientTexture);
+    sprite.setScale(static_cast<float>(P), static_cast<float>(P));
+    target.draw(sprite);
 }
 
 void SkySystem::drawStars(sf::RenderTarget& target, float timeOfDay) {
-    float nightFactor = 0.f;
-    if (timeOfDay > 0.75f) {
-        nightFactor = (timeOfDay - 0.75f) / 0.15f;
-    } else if (timeOfDay < 0.25f) {
-        nightFactor = 1.0f - (timeOfDay / 0.20f);
-    }
-    nightFactor = std::clamp(nightFactor, 0.f, 1.f) * (1.0f - cloudDensity * 0.85f);
-
+    const float nightFactor = nightAmount(timeOfDay) * (1.0f - cloudDensity * 0.85f);
     if (nightFactor <= 0.02f) return;
 
-    for (size_t i = 0; i < stars.size(); ++i) {
-        const auto& s = stars[i];
-        float twinkle = (std::sin(totalTime * s.twinkleSpeed + s.position.x * 0.5f) + 1.f) * 0.5f;
-        sf::Uint8 alpha = static_cast<sf::Uint8>(s.baseBrightness * (0.4f + 0.6f * twinkle) * nightFactor);
+    sf::VertexArray va(sf::Quads);
+    const float p = static_cast<float>(P);
+    auto cell = [&](int cx, int cy, sf::Color c) {
+        const float x = static_cast<float>(cx) * p, y = static_cast<float>(cy) * p;
+        va.append(sf::Vertex(sf::Vector2f(x, y), c));
+        va.append(sf::Vertex(sf::Vector2f(x + p, y), c));
+        va.append(sf::Vertex(sf::Vector2f(x + p, y + p), c));
+        va.append(sf::Vertex(sf::Vector2f(x, y + p), c));
+    };
 
-        sf::Color sc(220, 230, 255, alpha);
-        int idx = i * 4;
-        float sz = s.size;
+    for (const auto& s : stars) {
+        // Twinkle in three hard steps rather than a smooth fade.
+        const float wave = (std::sin(totalTime * s.twinkleSpeed + s.phase) + 1.f) * 0.5f;
+        const float step = wave > 0.72f ? 1.0f : (wave > 0.30f ? 0.72f : 0.45f);
+        const float a = s.brightness * step * nightFactor;
+        if (a < 0.08f) continue;
 
-        starVertices[idx + 0] = sf::Vertex(s.position, sc);
-        starVertices[idx + 1] = sf::Vertex(s.position + sf::Vector2f(sz, 0.f), sc);
-        starVertices[idx + 2] = sf::Vertex(s.position + sf::Vector2f(sz, sz), sc);
-        starVertices[idx + 3] = sf::Vertex(s.position + sf::Vector2f(0.f, sz), sc);
+        sf::Color c = s.tint;
+        c.a = static_cast<sf::Uint8>(std::min(255.f, a * 255.f));
+        cell(s.cell.x, s.cell.y, c);
+        if (s.big && step > 0.5f) {
+            sf::Color arm = c;
+            arm.a = static_cast<sf::Uint8>(c.a * 0.45f);
+            cell(s.cell.x - 1, s.cell.y, arm);
+            cell(s.cell.x + 1, s.cell.y, arm);
+            cell(s.cell.x, s.cell.y - 1, arm);
+            cell(s.cell.x, s.cell.y + 1, arm);
+        }
     }
-
-    target.draw(starVertices);
+    target.draw(va);
 }
 
 void SkySystem::drawCelestials(sf::RenderTarget& target, float timeOfDay, float cameraX) {
-    SkyPalette pal = evaluatePalette(timeOfDay);
+    (void)cameraX;
+    const SkyPalette pal = evaluatePalette(timeOfDay);
+    const float p = static_cast<float>(P);
+    const float viewH = target.getView().getSize().y;
 
-    float sunT = (timeOfDay - 0.20f) / 0.55f;
-    if (sunT >= -0.08f && sunT <= 1.08f) {
-        float rad = std::clamp(sunT, 0.0f, 1.0f) * 3.14159265f;
-        float sunX = 140.f + (skyWidth - 280.f) * sunT;
-        float sunY = (skyHeight * 0.86f) - std::sin(rad) * (skyHeight * 0.72f);
+    auto place = [&](const sf::IntRect& rect, float cx, float cy, sf::Color tint) {
+        sf::Sprite sp(bodyAtlas, rect);
+        sp.setScale(p, p);
+        sp.setPosition(snap(cx - rect.width * p * 0.5f), snap(cy - rect.height * p * 0.5f));
+        sp.setColor(tint);
+        target.draw(sp);
+    };
 
-        float horizonProximity = 1.0f - std::sin(rad);
-
-        for (int ring = 4; ring >= 1; --ring) {
-            float r = 36.f + ring * 18.f;
-            sf::CircleShape glow(r);
-            glow.setOrigin(r, r);
-            glow.setPosition(sunX, sunY);
-
-            sf::Color gc = pal.sunGlow;
-            gc.a = static_cast<sf::Uint8>((pal.sunGlow.a / ring) * (1.0f - cloudDensity * 0.6f));
-            glow.setFillColor(gc);
-            target.draw(glow);
-        }
-
-        if (horizonProximity > 0.35f) {
-            float hazeW = 280.f + horizonProximity * 220.f;
-            float hazeH = 14.f + horizonProximity * 12.f;
-            sf::RectangleShape haze(sf::Vector2f(hazeW, hazeH));
-            haze.setOrigin(hazeW * 0.5f, hazeH * 0.5f);
-            haze.setPosition(sunX, sunY + 6.f);
-            sf::Color hc = pal.sunTint;
-            hc.a = static_cast<sf::Uint8>(45.f * horizonProximity * (1.0f - cloudDensity * 0.7f));
-            haze.setFillColor(hc);
-            target.draw(haze);
-        }
-
-        sf::CircleShape sun(34.f);
-        sun.setOrigin(34.f, 34.f);
-        sun.setPosition(sunX, sunY);
-        sun.setFillColor(pal.sunTint);
-        target.draw(sun);
-
-        sf::CircleShape core(24.f);
-        core.setOrigin(24.f, 24.f);
-        core.setPosition(sunX, sunY);
-        core.setFillColor(sf::Color(255, 255, 245, 220));
-        target.draw(core);
+    const Body sun = sunAt(timeOfDay);
+    if (sun.visible) {
+        place(sunDiscRect, sun.x, sun.y, pal.sunTint);
+        place(sunCoreRect, sun.x, sun.y, lerpColor(pal.sunTint, sf::Color(255, 255, 246), 0.7f));
     }
 
-    float moonT = (timeOfDay >= 0.72f) ? ((timeOfDay - 0.72f) / 0.52f) : ((timeOfDay + 0.28f) / 0.52f);
-    if (moonT >= -0.05f && moonT <= 1.05f) {
-        float rad = std::clamp(moonT, 0.0f, 1.0f) * 3.14159265f;
-        float moonX = 140.f + (skyWidth - 280.f) * moonT;
-        float moonY = (skyHeight * 0.86f) - std::sin(rad) * (skyHeight * 0.72f);
-
-        sf::CircleShape moonGlow(46.f);
-        moonGlow.setOrigin(46.f, 46.f);
-        moonGlow.setPosition(moonX, moonY);
-        moonGlow.setFillColor(sf::Color(160, 190, 240, static_cast<sf::Uint8>(38 * (1.0f - cloudDensity * 0.7f))));
-        target.draw(moonGlow);
-
-        sf::CircleShape moon(28.f);
-        moon.setOrigin(28.f, 28.f);
-        moon.setPosition(moonX, moonY);
-        moon.setFillColor(pal.moonTint);
-        target.draw(moon);
-
-        sf::CircleShape crater1(4.5f);
-        crater1.setOrigin(4.5f, 4.5f);
-        crater1.setPosition(moonX - 7.f, moonY - 6.f);
-        crater1.setFillColor(sf::Color(180, 190, 205, 140));
-        target.draw(crater1);
-
-        sf::CircleShape crater2(6.5f);
-        crater2.setOrigin(6.5f, 6.5f);
-        crater2.setPosition(moonX + 5.f, moonY + 4.f);
-        crater2.setFillColor(sf::Color(180, 190, 205, 120));
-        target.draw(crater2);
-
-        sf::CircleShape crater3(3.5f);
-        crater3.setOrigin(3.5f, 3.5f);
-        crater3.setPosition(moonX - 8.f, moonY + 9.f);
-        crater3.setFillColor(sf::Color(180, 190, 205, 130));
-        target.draw(crater3);
-
-        sf::CircleShape moonShadow(25.f);
-        moonShadow.setOrigin(25.f, 25.f);
-        moonShadow.setPosition(moonX + 9.f, moonY - 4.f);
-        moonShadow.setFillColor(pal.zenith);
-        target.draw(moonShadow);
+    const Body moon = moonAt(timeOfDay);
+    if (moon.visible) {
+        // Unlit side: the sky colour behind it, lifted slightly, so it hides the stars.
+        const float f = std::min(1.f, moon.y / (viewH * HORIZON_FRACTION));
+        const sf::Color dark = lerpColor(skyColorAt(pal, f), pal.moonTint, 0.10f);
+        const float fade = std::max(nightAmount(timeOfDay), 0.35f);
+        sf::Color lit = pal.moonTint;
+        lit.a = static_cast<sf::Uint8>(255.f * fade);
+        if (fade > 0.9f) place(moonDarkRect, moon.x, moon.y, dark);
+        place(moonLitRect, moon.x, moon.y, lit);
     }
 }
 
 void SkySystem::drawClouds(sf::RenderTarget& target, float timeOfDay, float cameraX) {
-    if (cloudDensity <= 0.05f) return;
+    if (cloudDensity <= 0.02f || clouds.empty()) return;
 
-    SkyPalette pal = evaluatePalette(timeOfDay);
-    float leftBound = -1050.f;
-    float rightBound = skyWidth + 250.f;
-    float span = rightBound - leftBound;
-    float densityAlpha = std::clamp(cloudDensity * 1.25f, 0.15f, 1.0f);
+    const SkyPalette pal = evaluatePalette(timeOfDay);
+    const float p = static_cast<float>(P);
 
-    auto renderList = [&](const std::vector<ProceduralCloud>& list, float parallax, float alphaScale) {
-        for (const auto& c : list) {
-            float rx = c.position.x - (cameraX * parallax);
-            float offset = std::fmod(rx - leftBound, span);
-            if (offset < 0.f) offset += span;
-            rx = leftBound + offset;
+    // Far clouds sit in the haze: pull their colours toward the sky behind them.
+    const sf::Color haze = pal.lowerSky;
+    const sf::Color farBase = lerpColor(pal.cloudBase, haze, 0.55f);
+    const sf::Color farMid  = lerpColor(pal.cloudMid,  haze, 0.50f);
+    const sf::Color farTop  = lerpColor(pal.cloudTop,  haze, 0.40f);
 
-            float finalAlpha = alphaScale * densityAlpha;
+    auto drawLayer = [&](bool far) {
+        for (const auto& c : clouds) {
+            if (c.far != far) continue;
+            // Each cloud has its own density threshold and fades in over a short range,
+            // in four steps so the edge pixels never go mushy.
+            float vis = (cloudDensity - c.threshold) / 0.10f;
+            if (vis <= 0.f) continue;
+            vis = std::ceil(std::min(vis, 1.f) * 4.f) / 4.f;
+            const sf::Uint8 alpha = static_cast<sf::Uint8>(255.f * vis);
 
-            for (const auto& seg : c.segments) {
-                sf::Vector2f sp = sf::Vector2f(rx + seg.offset.x, c.position.y + seg.offset.y);
+            const CloudShape& shape = (far ? farShapes : nearShapes)[static_cast<size_t>(c.shape)];
+            float x = std::fmod(c.x - cameraX * c.parallax, cloudSpan);
+            if (x < 0.f) x += cloudSpan;
+            x -= cloudMargin;
 
-                sf::RectangleShape baseRect(seg.size);
-                baseRect.setOrigin(seg.size.x * 0.5f, seg.size.y * 0.5f);
-                baseRect.setPosition(sp.x, sp.y + seg.size.y * 0.22f);
-                sf::Color baseC = pal.cloudBase;
-                baseC.a = static_cast<sf::Uint8>(baseC.a * finalAlpha);
-                baseRect.setFillColor(baseC);
-                target.draw(baseRect);
-
-                sf::RectangleShape midRect(sf::Vector2f(seg.size.x * 0.92f, seg.size.y * 0.72f));
-                midRect.setOrigin(midRect.getSize().x * 0.5f, midRect.getSize().y * 0.5f);
-                midRect.setPosition(sp.x, sp.y);
-                sf::Color midC = pal.cloudMid;
-                midC.a = static_cast<sf::Uint8>(midC.a * finalAlpha);
-                midRect.setFillColor(midC);
-                target.draw(midRect);
-
-                sf::RectangleShape topRect(sf::Vector2f(seg.size.x * 0.78f, seg.size.y * 0.45f));
-                topRect.setOrigin(topRect.getSize().x * 0.5f, topRect.getSize().y * 0.5f);
-                topRect.setPosition(sp.x, sp.y - seg.size.y * 0.20f);
-                sf::Color topC = pal.cloudTop;
-                topC.a = static_cast<sf::Uint8>(topC.a * finalAlpha);
-                topRect.setFillColor(topC);
-                target.draw(topRect);
-            }
+            const sf::Vector2f pos(snap(x), snap(c.y));
+            auto layer = [&](const sf::IntRect& rect, sf::Color col) {
+                col.a = alpha;
+                sf::Sprite sp(cloudAtlas, rect);
+                sp.setScale(p, p);
+                sp.setPosition(pos);
+                sp.setColor(col);
+                target.draw(sp);
+            };
+            layer(shape.base, far ? farBase : pal.cloudBase);
+            layer(shape.mid,  far ? farMid  : pal.cloudMid);
+            layer(shape.top,  far ? farTop  : pal.cloudTop);
         }
     };
 
-    renderList(backgroundClouds, 0.015f, 0.72f);
-    renderList(foregroundClouds, 0.038f, 0.95f);
+    drawLayer(true);
+    drawLayer(false);
 }

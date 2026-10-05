@@ -23,9 +23,10 @@ struct CountyDef {
     std::string modernName;
     std::string kingdomName;
     std::string deJureKingdom;
-    std::vector<sf::Vector2f> points;
-    sf::ConvexShape shape;
-    sf::Vector2f center;
+    std::vector<sf::Vector2f> points;   // organic outline, also used for hit tests
+    std::vector<sf::Vertex> mesh;       // triangulated fill
+    sf::FloatRect bounds;
+    sf::Vector2f center;                // roomiest spot inside the outline: marker and label anchor
     float siegeProgress = 0.f;
     bool isOccupied = false;
     std::string occupierKingdom;
@@ -34,6 +35,14 @@ struct CountyDef {
     int supplyLimit = 30;
     int fortTier = 0;
     bool leviesRaised = false;
+};
+
+// One stretch of border on the strategic map. County a lies to the right of pts;
+// b is the neighbour on the left, or -1 where the border is coast.
+struct MapBorderEdge {
+    int a = -1;
+    int b = -1;
+    std::vector<sf::Vector2f> pts;
 };
 
 struct FactionState {
@@ -142,23 +151,27 @@ private:
     float maxExploredX = 0.f;
     bool hasExplored = false;
 
-    sf::RectangleShape mapOuterVellum;
-    sf::RectangleShape mapInnerVellum;
-    sf::RectangleShape mapInnerBorder;
+    std::vector<MapBorderEdge> mapEdges;
+    std::vector<sf::Vertex> backdropMesh;
+    std::vector<std::vector<sf::Vector2f>> backdropCoast;
+    sf::FloatRect mapWorldBounds;
+    sf::Texture paperTexture;
+    sf::Texture hatchTexture;
+    sf::RenderTexture seaLayer;         // baked once: water, shallows and the land's shadow
+    bool seaLayerReady = false;
 
-    sf::ConvexShape frankiaCoast;
-    sf::ConvexShape scandiCoast;
-    std::vector<sf::Vertex> rhumbLines;
-    std::vector<sf::Vertex> seaWaves;
-
-    sf::RectangleShape miniFrameOuter;
-    sf::RectangleShape miniFrameInner;
-    sf::RectangleShape miniSea;
-
-    sf::RenderTexture mapCanvas;
+    sf::RenderTexture mapCanvas;        // the painted map, reused until mapBaseSig changes
+    sf::RenderTexture landLayer;
     bool mapCanvasReady = false;
-    sf::Vector2f mapCenter = sf::Vector2f(440.f, 380.f);
-    float mapZoom = 1.0f;
+    std::uint64_t mapBaseSig = 0;
+    sf::Vector2f mapCanvasUsed;         // part of mapCanvas holding the current painting, pixels
+    sf::Vector2f mapCenter = sf::Vector2f(370.f, 340.f);
+    float mapZoom = 1.0f;               // world units per UI pixel
+    float mapZoomTarget = 1.0f;
+    sf::Vector2f zoomAnchorWorld;
+    sf::Vector2f zoomAnchorOffset;
+    sf::Vector2f lastMouseUi;
+    bool mouseOverMap = false;
     bool isDraggingMap = false;
     sf::Vector2i lastDragMouse;
     sf::Vector2i dragStartMouse;
@@ -223,18 +236,33 @@ private:
         float targetSize = 12.f;
         float currentRot = 0.f;
         float targetRot = 0.f;
+        float currentSpan = 0.f;        // width the letters are spread over, world units
+        float targetSpan = 0.f;
         float currentAlpha = 0.f;
         float targetAlpha = 0.f;
         bool initialized = false;
     };
     std::unordered_map<std::string, SmoothedRealmLabel> realmLabels;
+    std::string realmLabelSignature;
     void updateRealmLabels(float dt);
 
     sf::FloatRect closePeaceModalBounds;
     std::unordered_map<std::string, int> kingdomTruces;
 
-    void buildAuthenticMapGeometry();
-    void buildOrganicCounties();
+    void buildMapGeometry();
+    void bakeMapTextures();
+    void updateMapCamera(float dt);
+    void clampMapCenter();
+    void refreshMapHover();
+    sf::Vector2f mapPointAt(sf::Vector2f uiPos) const;
+    const std::string& mapRealmKey(const CountyDef& c) const;
+    sf::Color mapFillColor(const CountyDef& c, MapLens lens) const;
+    std::uint64_t mapBaseSignature(float S) const;
+    void renderMapBase(int Si, float S);
+    void drawMapOverlay(sf::RenderWindow& window, const sf::View& letterboxView, float playerX);
+    void drawMiniMap(sf::RenderWindow& window, float playerX);
+    void drawMapChrome(sf::RenderWindow& window);
+    void drawMapDialogs(sf::RenderWindow& window);
     void syncDynamicVillages(sim::SimulationRegistry& registry);
     bool pointInPolygon(const std::vector<sf::Vector2f>& poly, sf::Vector2f pt) const;
 

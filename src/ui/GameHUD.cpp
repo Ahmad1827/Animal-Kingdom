@@ -1,4 +1,5 @@
 #include "ui/GameHUD.h"
+#include "ui/UIKit.h"
 #include "simulation/SimulationManager.h"
 #include "world/SettlementSystem.h"
 #include <cmath>
@@ -6,6 +7,30 @@
 #include <string>
 #include <iomanip>
 #include <sstream>
+
+namespace {
+
+// Top bar geometry, in the UI view's design units (1280x720).
+const float BAR_Y = 6.f;
+const float BAR_H = 30.f;
+const float MARGIN = 8.f;
+const float GAP = 6.f;
+
+const float SPEED_MULT[6] = { 0.f, 1.f, 2.f, 5.f, 15.f, 60.f };
+
+std::string signedRate(float v) {
+    std::ostringstream s;
+    s << std::fixed << std::setprecision(1) << (v >= 0.f ? "+" : "") << v;
+    return s.str();
+}
+
+sf::Color rateColor(float v) { return v >= 0.f ? ui::theme::Good : ui::theme::Bad; }
+
+std::string speedLabel(int speed) {
+    return "x" + std::to_string(static_cast<int>(SPEED_MULT[std::clamp(speed, 1, 5)]));
+}
+
+} // namespace
 
 GameHUD::GameHUD()
     : font(nullptr), gameSpeed(1), previousGameSpeed(1), isGamePaused(false),
@@ -17,14 +42,8 @@ void GameHUD::init(const sf::Font& f) {
 
 float GameHUD::getSpeedMultiplier() const {
     if (isGamePaused) return 0.0f;
-    switch (gameSpeed) {
-        case 1: return 1.0f;
-        case 2: return 2.0f;
-        case 3: return 5.0f;
-        case 4: return 15.0f;
-        case 5: return 60.0f;
-        default: return 1.0f;
-    }
+    if (gameSpeed >= 1 && gameSpeed <= 5) return SPEED_MULT[gameSpeed];
+    return 1.0f;
 }
 
 void GameHUD::setGameSpeed(int speed) {
@@ -52,21 +71,30 @@ void GameHUD::update(float dt, sim::ApeData* playerApe, sim::SimulationRegistry&
 
     std::string playerK = SettlementSystem::getPlayerKingdomId();
     int demesneCount = std::max(1, SettlementSystem::getKingdomDemesneCount(playerK));
-    float tradeInc = SettlementSystem::getKingdomTradeIncome(playerK);
-    float upkeep = SettlementSystem::getKingdomArmyUpkeep(playerK);
     bool atWar = SettlementSystem::isWarActive();
+    cachedAtWar = atWar;
 
+    // Same numbers as before, just stored per source so the tooltips can list them.
     float taxMult = SettlementSystem::getAuthorityTaxMultiplier();
-    float baseTaxes = (3.5f + static_cast<float>(demesneCount) * 2.2f) * taxMult;
-    cachedAmberRate = baseTaxes + tradeInc - upkeep - (atWar ? 2.5f : 0.f);
+    amberTaxes = (3.5f + static_cast<float>(demesneCount) * 2.2f) * taxMult;
+    amberTrade = SettlementSystem::getKingdomTradeIncome(playerK);
+    amberUpkeep = SettlementSystem::getKingdomArmyUpkeep(playerK);
+    amberWar = atWar ? 2.5f : 0.f;
+    cachedAmberRate = amberTaxes + amberTrade - amberUpkeep - amberWar;
 
     const auto& fState = SettlementSystem::getFactionState();
     bool disloyalVassals = !fState.memberCounties.empty();
-    cachedPrestigeRate = 1.2f + (static_cast<float>(demesneCount) * 0.4f) + (disloyalVassals ? -0.8f : 0.5f);
+    prestigeBase = 1.2f;
+    prestigeDomain = static_cast<float>(demesneCount) * 0.4f;
+    prestigeVassals = disloyalVassals ? -0.8f : 0.5f;
+    cachedPrestigeRate = prestigeBase + prestigeDomain + prestigeVassals;
 
     const auto* shamanMission = SettlementSystem::getCouncilAssignment(sim::CouncilRole::Shaman);
     bool shamanActive = (shamanMission && shamanMission->mission != CouncilMissionType::None);
-    cachedPietyRate = 0.8f + (shamanActive ? 1.4f : 0.0f) + (atWar ? -0.3f : 0.2f);
+    pietyBase = 0.8f;
+    pietyShaman = shamanActive ? 1.4f : 0.0f;
+    pietyWar = atWar ? -0.3f : 0.2f;
+    cachedPietyRate = pietyBase + pietyShaman + pietyWar;
 
     float simMult = getSpeedMultiplier();
     float dayStepTime = 0.35f;
@@ -158,453 +186,257 @@ bool GameHUD::handleEvent(const sf::Event& event, const sf::RenderWindow& window
     return false;
 }
 
-void GameHUD::drawOrnatePanel(sf::RenderWindow& window, float x, float y, float w, float h) {
-    sf::RectangleShape shadow(sf::Vector2f(w + 2.f, h + 2.f));
-    shadow.setPosition(x + 1.f, y + 1.f);
-    shadow.setFillColor(sf::Color(0, 0, 0, 160));
-    window.draw(shadow);
-
-    sf::RectangleShape panel(sf::Vector2f(w, h));
-    panel.setPosition(x, y);
-    panel.setFillColor(sf::Color(14, 10, 8, 235));
-    panel.setOutlineColor(sf::Color(78, 56, 32));
-    panel.setOutlineThickness(1.f);
-    window.draw(panel);
-
-    sf::RectangleShape innerBevel(sf::Vector2f(w - 4.f, h - 4.f));
-    innerBevel.setPosition(x + 2.f, y + 2.f);
-    innerBevel.setFillColor(sf::Color(22, 16, 12, 190));
-    innerBevel.setOutlineColor(sf::Color(38, 26, 16));
-    innerBevel.setOutlineThickness(1.f);
-    window.draw(innerBevel);
-
-    auto drawCornerPiece = [&](float cx, float cy) {
-        sf::RectangleShape dot(sf::Vector2f(1.5f, 1.5f));
-        dot.setPosition(cx, cy);
-        dot.setFillColor(sf::Color(190, 150, 75));
-        window.draw(dot);
-    };
-
-    drawCornerPiece(x + 2.f, y + 2.f);
-    drawCornerPiece(x + w - 3.5f, y + 2.f);
-    drawCornerPiece(x + 2.f, y + h - 3.5f);
-    drawCornerPiece(x + w - 3.5f, y + h - 3.5f);
-}
-
 void GameHUD::draw(sf::RenderWindow& window, const sim::ApeData* playerApe, sim::SimulationManager* simManager) {
     if (!font || !simManager) return;
 
-    float panelH = 24.f;
-    float panelY = 6.f;
-    float centerY = panelY + panelH * 0.5f;
-
-    drawOrnatePanel(window, 8.f, panelY, 102.f, panelH);
-    std::string pKBadge = SettlementSystem::getPlayerKingdomId();
-    std::transform(pKBadge.begin(), pKBadge.end(), pKBadge.begin(), ::toupper);
-    sf::Text titleText(pKBadge, *font, 11);
-    titleText.setStyle(sf::Text::Bold);
-    titleText.setFillColor(sf::Color(240, 210, 135));
-    titleText.setOutlineColor(sf::Color(20, 12, 6));
-    titleText.setOutlineThickness(1.2f);
-    sf::FloatRect ttb = titleText.getLocalBounds();
-    titleText.setOrigin(ttb.left + ttb.width * 0.5f, ttb.top + ttb.height * 0.5f);
-    titleText.setPosition(8.f + 51.f, centerY);
-    window.draw(titleText);
+    using namespace ui;
+    Canvas c(window, *font);
+    const sf::Vector2f mouse = Canvas::mouse(window);
+    const float midY = BAR_Y + BAR_H * 0.5f;
 
     sim::SimulationRegistry& reg = simManager->getRegistry();
 
-    float resPanelX = 114.f;
-    float resPanelW = 425.f;
-    drawOrnatePanel(window, resPanelX, panelY, resPanelW, panelH);
+    // Filled in while drawing; the tooltip is drawn last so it sits on top of everything.
+    bool    hasTip = false;
+    Tooltip tip;
+    float   tipX = 0.f;
+    auto hover = [&](const sf::FloatRect& r) { return r.contains(mouse); };
 
-    float pulseScale = 1.0f;
-    if (amberPulseTimer > 0.f) {
-        pulseScale = 1.0f + std::sin((amberPulseTimer / 0.35f) * 3.14159f) * 0.22f;
+    // ---- Realm name ------------------------------------------------------
+    std::string realmName = SettlementSystem::getPlayerKingdomId();
+    std::transform(realmName.begin(), realmName.end(), realmName.begin(), ::toupper);
+
+    float x = c.left() + MARGIN;
+    const float realmW = std::max(104.f, c.textWidth(realmName, 13, true) + 40.f);
+    c.panel({x, BAR_Y, realmW, BAR_H});
+    // small banner in the realm colour
+    c.fill({x + 10.f, BAR_Y + 8.f, 8.f, 14.f}, theme::EdgeDark);
+    c.fill({x + 10.f + c.px(1), BAR_Y + 8.f + c.px(1), 8.f - c.px(2), 14.f - c.px(2)}, sf::Color(196, 52, 60));
+    c.fill({x + 10.f + c.px(1), BAR_Y + 8.f + c.px(1), 8.f - c.px(2), c.px(1)}, sf::Color(255, 150, 140));
+    c.text(realmName, x + 26.f, midY, {13, theme::Gold, true});
+    x += realmW + GAP;
+
+    // ---- Resources: amber, prestige, piety --------------------------------
+    struct Resource {
+        Icon icon; int value; float rate; sf::Color rateTint; sf::Color valueTint;
+    };
+    const int amber = playerApe ? playerApe->amberCount : 0;
+    const int prestige = playerApe ? playerApe->prestige : 100;
+    const int piety = playerApe ? playerApe->piety : 50;
+
+    // Amber value flashes bright for a moment when it changes (no size change, so it stays sharp).
+    sf::Color amberTint = amber >= 0 ? theme::Text : theme::Bad;
+    if (amberPulseTimer > 0.f && amber >= 0) amberTint = sf::Color::White;
+
+    const Resource resources[3] = {
+        { Icon::Amber, amber,    cachedAmberRate,    rateColor(cachedAmberRate), amberTint },
+        { Icon::Crown, prestige, cachedPrestigeRate, cachedPrestigeRate >= 0.f ? theme::Prestige : theme::Bad, theme::Text },
+        { Icon::Piety, piety,    cachedPietyRate,    cachedPietyRate >= 0.f ? theme::Piety : theme::Bad, theme::Text },
+    };
+
+    const float chipW = 122.f;
+    const float resW = chipW * 3.f;
+    c.panel({x, BAR_Y, resW, BAR_H});
+    for (int i = 0; i < 3; ++i) {
+        const float cx = x + chipW * static_cast<float>(i);
+        const sf::FloatRect chip(cx, BAR_Y, chipW, BAR_H);
+        if (hover(chip)) c.fill({cx + c.px(2), BAR_Y + c.px(2), chipW - c.px(4), BAR_H - c.px(4)}, sf::Color(255, 226, 160, 18));
+        if (i > 0) c.divider(cx, BAR_Y + 6.f, BAR_H - 12.f);
+
+        c.icon(resources[i].icon, cx + 18.f, midY);
+        const float vw = c.text(std::to_string(resources[i].value), cx + 32.f, midY, {14, resources[i].valueTint, true});
+        c.text(signedRate(resources[i].rate), cx + 32.f + vw + 6.f, midY, {11, resources[i].rateTint, true});
+
+        if (hover(chip)) {
+            hasTip = true;
+            tipX = cx + chipW * 0.5f;
+            tip = Tooltip();
+            if (i == 0) {
+                tip.title = "AMBER   " + std::to_string(amber);
+                tip.accent = theme::Amber;
+                tip.rows.push_back({"Taxes", signedRate(amberTaxes), theme::Good});
+                if (amberTrade != 0.f)  tip.rows.push_back({"Trade", signedRate(amberTrade), rateColor(amberTrade)});
+                if (amberUpkeep != 0.f) tip.rows.push_back({"Army upkeep", signedRate(-amberUpkeep), theme::Bad});
+                if (amberWar != 0.f)    tip.rows.push_back({"War costs", signedRate(-amberWar), theme::Bad});
+                tip.rows.push_back({"Per month", signedRate(cachedAmberRate), rateColor(cachedAmberRate), true});
+                tip.note = "Your treasury. Pays for buildings and armies.";
+            } else if (i == 1) {
+                tip.title = "PRESTIGE   " + std::to_string(prestige);
+                tip.accent = theme::Prestige;
+                tip.rows.push_back({"Ruler", signedRate(prestigeBase), theme::Good});
+                tip.rows.push_back({"Counties held", signedRate(prestigeDomain), theme::Good});
+                tip.rows.push_back({prestigeVassals >= 0.f ? "Loyal vassals" : "Vassal faction", signedRate(prestigeVassals), rateColor(prestigeVassals)});
+                tip.rows.push_back({"Per month", signedRate(cachedPrestigeRate), rateColor(cachedPrestigeRate), true});
+                tip.note = "Your standing among the clans.";
+            } else {
+                tip.title = "PIETY   " + std::to_string(piety);
+                tip.accent = theme::Piety;
+                tip.rows.push_back({"Ruler", signedRate(pietyBase), theme::Good});
+                if (pietyShaman != 0.f) tip.rows.push_back({"Shaman on a mission", signedRate(pietyShaman), theme::Good});
+                tip.rows.push_back({cachedAtWar ? "At war" : "At peace", signedRate(pietyWar), rateColor(pietyWar)});
+                tip.rows.push_back({"Per month", signedRate(cachedPietyRate), rateColor(cachedPietyRate), true});
+                tip.note = "Favour of the spirits.";
+            }
+        }
     }
+    x += resW + GAP;
 
-    float itemX = resPanelX + 14.f;
-
-    sf::ConvexShape diamond(4);
-    diamond.setPoint(0, sf::Vector2f(0.f, -5.5f * pulseScale));
-    diamond.setPoint(1, sf::Vector2f(5.f * pulseScale, 0.f));
-    diamond.setPoint(2, sf::Vector2f(0.f, 5.5f * pulseScale));
-    diamond.setPoint(3, sf::Vector2f(-5.f * pulseScale, 0.f));
-    diamond.setPosition(itemX, centerY);
-    diamond.setFillColor(sf::Color(245, 140, 20));
-    diamond.setOutlineColor(sf::Color(90, 42, 8));
-    diamond.setOutlineThickness(1.f);
-    window.draw(diamond);
-
-    sf::ConvexShape facet(3);
-    facet.setPoint(0, sf::Vector2f(0.f, -5.5f * pulseScale));
-    facet.setPoint(1, sf::Vector2f(5.f * pulseScale, 0.f));
-    facet.setPoint(2, sf::Vector2f(-5.f * pulseScale, 0.f));
-    facet.setPosition(itemX, centerY);
-    facet.setFillColor(sf::Color(255, 215, 65, 210));
-    window.draw(facet);
-
-    int curAmber = playerApe ? playerApe->amberCount : 0;
-    sf::Text amberTxt(std::to_string(curAmber), *font, 11);
-    amberTxt.setStyle(sf::Text::Bold);
-    amberTxt.setFillColor(curAmber >= 0 ? sf::Color(245, 225, 160) : sf::Color(245, 80, 70));
-    sf::FloatRect ab = amberTxt.getLocalBounds();
-    amberTxt.setOrigin(0.f, ab.top + ab.height * 0.5f);
-    amberTxt.setPosition(itemX + 9.f, centerY);
-    window.draw(amberTxt);
-
-    std::ostringstream aStream;
-    aStream << std::fixed << std::setprecision(1) << (cachedAmberRate >= 0.f ? "+" : "") << cachedAmberRate;
-    sf::Text aRateTxt(aStream.str(), *font, 9);
-    aRateTxt.setStyle(sf::Text::Bold);
-    aRateTxt.setFillColor(cachedAmberRate >= 0.f ? sf::Color(85, 215, 95) : sf::Color(245, 75, 65));
-    sf::FloatRect arb = aRateTxt.getLocalBounds();
-    aRateTxt.setOrigin(0.f, arb.top + arb.height * 0.5f);
-    aRateTxt.setPosition(amberTxt.getPosition().x + ab.width + 5.f, centerY);
-    window.draw(aRateTxt);
-
-    itemX += 130.f;
-
-    auto drawCrown = [&](float cx, float cy) {
-        sf::ConvexShape crown(5);
-        crown.setPoint(0, sf::Vector2f(-6.f, 4.f));
-        crown.setPoint(1, sf::Vector2f(-7.f, -4.f));
-        crown.setPoint(2, sf::Vector2f(0.f, 0.f));
-        crown.setPoint(3, sf::Vector2f(7.f, -4.f));
-        crown.setPoint(4, sf::Vector2f(6.f, 4.f));
-        crown.setPosition(cx, cy);
-        crown.setFillColor(sf::Color(240, 195, 55));
-        crown.setOutlineColor(sf::Color(65, 38, 12));
-        crown.setOutlineThickness(1.f);
-        window.draw(crown);
-
-        sf::CircleShape pip(1.5f);
-        pip.setOrigin(1.5f, 1.5f);
-        pip.setPosition(cx, cy + 2.f);
-        pip.setFillColor(sf::Color(85, 175, 245));
-        window.draw(pip);
-    };
-
-    drawCrown(itemX, centerY);
-    int curPrestige = playerApe ? playerApe->prestige : 100;
-    sf::Text prestTxt(std::to_string(curPrestige), *font, 11);
-    prestTxt.setStyle(sf::Text::Bold);
-    prestTxt.setFillColor(sf::Color(240, 225, 195));
-    sf::FloatRect prb = prestTxt.getLocalBounds();
-    prestTxt.setOrigin(0.f, prb.top + prb.height * 0.5f);
-    prestTxt.setPosition(itemX + 11.f, centerY);
-    window.draw(prestTxt);
-
-    std::ostringstream pStream;
-    pStream << std::fixed << std::setprecision(1) << (cachedPrestigeRate >= 0.f ? "+" : "") << cachedPrestigeRate;
-    sf::Text pRateTxt(pStream.str(), *font, 9);
-    pRateTxt.setStyle(sf::Text::Bold);
-    pRateTxt.setFillColor(cachedPrestigeRate >= 0.f ? sf::Color(100, 195, 245) : sf::Color(245, 85, 75));
-    sf::FloatRect prrb = pRateTxt.getLocalBounds();
-    pRateTxt.setOrigin(0.f, prrb.top + prrb.height * 0.5f);
-    pRateTxt.setPosition(prestTxt.getPosition().x + prb.width + 5.f, centerY);
-    window.draw(pRateTxt);
-
-    itemX += 135.f;
-
-    auto drawFlame = [&](float fx, float cy) {
-        sf::CircleShape aura(4.5f);
-        aura.setOrigin(4.5f, 4.5f);
-        aura.setPosition(fx, cy);
-        aura.setFillColor(sf::Color(175, 120, 245, 180));
-        window.draw(aura);
-
-        sf::ConvexShape flame(4);
-        flame.setPoint(0, sf::Vector2f(0.f, -5.5f));
-        flame.setPoint(1, sf::Vector2f(3.5f, 1.5f));
-        flame.setPoint(2, sf::Vector2f(0.f, 4.5f));
-        flame.setPoint(3, sf::Vector2f(-3.5f, 1.5f));
-        flame.setPosition(fx, cy);
-        flame.setFillColor(sf::Color(220, 195, 255));
-        flame.setOutlineColor(sf::Color(55, 30, 85));
-        flame.setOutlineThickness(0.8f);
-        window.draw(flame);
-    };
-
-    drawFlame(itemX, centerY);
-    int curPiety = playerApe ? playerApe->piety : 50;
-    sf::Text pietyTxt(std::to_string(curPiety), *font, 11);
-    pietyTxt.setStyle(sf::Text::Bold);
-    pietyTxt.setFillColor(sf::Color(240, 225, 250));
-    sf::FloatRect pitb = pietyTxt.getLocalBounds();
-    pietyTxt.setOrigin(0.f, pitb.top + pitb.height * 0.5f);
-    pietyTxt.setPosition(itemX + 10.f, centerY);
-    window.draw(pietyTxt);
-
-    std::ostringstream piStream;
-    piStream << std::fixed << std::setprecision(1) << (cachedPietyRate >= 0.f ? "+" : "") << cachedPietyRate;
-    sf::Text piRateTxt(piStream.str(), *font, 9);
-    piRateTxt.setStyle(sf::Text::Bold);
-    piRateTxt.setFillColor(cachedPietyRate >= 0.f ? sf::Color(190, 150, 245) : sf::Color(245, 85, 75));
-    sf::FloatRect pirb = piRateTxt.getLocalBounds();
-    piRateTxt.setOrigin(0.f, pirb.top + pirb.height * 0.5f);
-    piRateTxt.setPosition(pietyTxt.getPosition().x + pitb.width + 5.f, centerY);
-    window.draw(piRateTxt);
-
-    float realmPanelX = 544.f;
-    float realmPanelW = 236.f;
-    drawOrnatePanel(window, realmPanelX, panelY, realmPanelW, panelH);
-
+    // ---- Realm status: domain and levies ----------------------------------
     std::string playerKDraw = SettlementSystem::getPlayerKingdomId();
     int demesneCount = SettlementSystem::getKingdomDemesneCount(playerKDraw);
     int maxDemesne = 4;
-
-    float domIconX = realmPanelX + 12.f;
-    sf::RectangleShape towerBase(sf::Vector2f(8.f, 7.f));
-    towerBase.setOrigin(4.f, 0.f);
-    towerBase.setPosition(domIconX, centerY - 2.f);
-    towerBase.setFillColor(demesneCount <= maxDemesne ? sf::Color(165, 140, 95) : sf::Color(215, 65, 55));
-    towerBase.setOutlineColor(sf::Color(35, 22, 12));
-    towerBase.setOutlineThickness(0.8f);
-    window.draw(towerBase);
-
-    for (int cr = 0; cr < 3; ++cr) {
-        sf::RectangleShape tooth(sf::Vector2f(2.f, 2.5f));
-        tooth.setPosition(domIconX - 4.f + cr * 3.f, centerY - 4.5f);
-        tooth.setFillColor(towerBase.getFillColor());
-        window.draw(tooth);
-    }
-
-    sf::RectangleShape slit(sf::Vector2f(1.5f, 3.f));
-    slit.setOrigin(0.75f, 1.5f);
-    slit.setPosition(domIconX, centerY + 1.5f);
-    slit.setFillColor(sf::Color(25, 15, 8));
-    window.draw(slit);
-
-    std::string domStr = "Domain: " + std::to_string(demesneCount) + "/" + std::to_string(maxDemesne);
-    sf::Text domTxt(domStr, *font, 10);
-    domTxt.setStyle(sf::Text::Bold);
-    domTxt.setFillColor(demesneCount <= maxDemesne ? sf::Color(240, 225, 195) : sf::Color(255, 110, 100));
-    sf::FloatRect db = domTxt.getLocalBounds();
-    domTxt.setOrigin(0.f, db.top + db.height * 0.5f);
-    domTxt.setPosition(domIconX + 8.f, centerY);
-    window.draw(domTxt);
-
     int raisedTroops = SettlementSystem::getKingdomRaisedTroops(playerKDraw);
     int levyQuota = SettlementSystem::getAuthorityLevyPerCounty();
     int maxLevies = std::max(25, demesneCount * levyQuota);
+    const bool overLimit = demesneCount > maxDemesne;
 
-    float swordX = realmPanelX + 124.f;
-    sf::Color swCol = (raisedTroops > 0) ? sf::Color(245, 120, 50) : sf::Color(190, 175, 150);
+    const float domW = 112.f;
+    const float levW = 130.f;
+    c.panel({x, BAR_Y, domW + levW, BAR_H});
 
-    sf::Vertex sw1[] = {
-        sf::Vertex(sf::Vector2f(swordX - 4.5f, centerY - 5.5f), swCol),
-        sf::Vertex(sf::Vector2f(swordX + 4.5f, centerY + 5.5f), swCol)
-    };
-    sf::Vertex sw2[] = {
-        sf::Vertex(sf::Vector2f(swordX + 4.5f, centerY - 5.5f), swCol),
-        sf::Vertex(sf::Vector2f(swordX - 4.5f, centerY + 5.5f), swCol)
-    };
-    window.draw(sw1, 2, sf::Lines);
-    window.draw(sw2, 2, sf::Lines);
-
-    sf::CircleShape pommel(1.5f);
-    pommel.setOrigin(1.5f, 1.5f);
-    pommel.setPosition(swordX, centerY);
-    pommel.setFillColor(sf::Color(235, 190, 60));
-    window.draw(pommel);
-
-    std::string levStr = (raisedTroops > 0) ? ("Levies: " + std::to_string(raisedTroops) + "/" + std::to_string(maxLevies))
-                                           : ("Levies: " + std::to_string(maxLevies));
-    sf::Text levTxt(levStr, *font, 10);
-    levTxt.setStyle(sf::Text::Bold);
-    levTxt.setFillColor(raisedTroops > 0 ? sf::Color(255, 195, 135) : sf::Color(220, 210, 190));
-    sf::FloatRect lb = levTxt.getLocalBounds();
-    levTxt.setOrigin(0.f, lb.top + lb.height * 0.5f);
-    levTxt.setPosition(swordX + 9.f, centerY);
-    window.draw(levTxt);
-
-    float btnStartX = 926.f;
-    float btnW = 23.f;
-    float btnH = 24.f;
-    float btnGap = 2.f;
-
-    for (int i = 0; i < 6; ++i) {
-        float bx = btnStartX + i * (btnW + btnGap);
-        float by = panelY;
-        timeButtonBounds[i] = sf::FloatRect(bx, by, btnW, btnH);
-
-        bool isActive = (i == 0) ? isGamePaused : (!isGamePaused && gameSpeed == i);
-
-        sf::RectangleShape shadow(sf::Vector2f(btnW + 2.f, btnH + 2.f));
-        shadow.setPosition(bx + 1.f, by + 1.f);
-        shadow.setFillColor(sf::Color(0, 0, 0, 160));
-        window.draw(shadow);
-
-        sf::RectangleShape btn(sf::Vector2f(btnW, btnH));
-        btn.setPosition(bx, by);
-
-        if (isActive) {
-            btn.setFillColor(sf::Color(115, 75, 26));
-            btn.setOutlineColor(sf::Color(235, 195, 75));
-            btn.setOutlineThickness(1.f);
-        } else {
-            btn.setFillColor(sf::Color(18, 12, 9));
-            btn.setOutlineColor(sf::Color(78, 54, 30));
-            btn.setOutlineThickness(1.f);
+    {   // Domain
+        const sf::FloatRect chip(x, BAR_Y, domW, BAR_H);
+        if (hover(chip)) c.fill({x + c.px(2), BAR_Y + c.px(2), domW - c.px(4), BAR_H - c.px(4)}, sf::Color(255, 226, 160, 18));
+        c.icon(Icon::Tower, x + 18.f, midY, overLimit ? sf::Color(255, 130, 120) : sf::Color::White);
+        const float lw = c.text("Domain", x + 32.f, midY, {11, theme::TextMuted});
+        c.text(std::to_string(demesneCount) + "/" + std::to_string(maxDemesne), x + 32.f + lw + 6.f, midY,
+               {13, overLimit ? theme::Bad : theme::Text, true});
+        if (hover(chip)) {
+            hasTip = true;
+            tipX = x + domW * 0.5f;
+            tip = Tooltip();
+            tip.title = "DOMAIN LIMIT";
+            tip.accent = overLimit ? theme::Bad : theme::Gold;
+            tip.rows.push_back({"Counties you rule directly", std::to_string(demesneCount), theme::Text});
+            tip.rows.push_back({"Limit", std::to_string(maxDemesne), theme::Text});
+            tip.note = "Going over the limit lowers vassal loyalty and taxes.";
         }
-        window.draw(btn);
+    }
+    {   // Levies
+        const float lx = x + domW;
+        const sf::FloatRect chip(lx, BAR_Y, levW, BAR_H);
+        if (hover(chip)) c.fill({lx + c.px(2), BAR_Y + c.px(2), levW - c.px(4), BAR_H - c.px(4)}, sf::Color(255, 226, 160, 18));
+        c.divider(lx, BAR_Y + 6.f, BAR_H - 12.f);
+        const bool raised = raisedTroops > 0;
+        c.icon(Icon::Swords, lx + 18.f, midY, raised ? sf::Color(255, 190, 130) : sf::Color::White);
+        const float lw = c.text("Levies", lx + 32.f, midY, {11, theme::TextMuted});
+        const std::string levStr = raised ? (std::to_string(raisedTroops) + "/" + std::to_string(maxLevies))
+                                          : std::to_string(maxLevies);
+        c.text(levStr, lx + 32.f + lw + 6.f, midY, {13, raised ? theme::Amber : theme::Text, true});
+        if (hover(chip)) {
+            int auth = SettlementSystem::getCrownAuthority();
+            static const std::string authNames[] = { "Autonomous", "Limited", "High", "Absolute" };
+            std::string authLabel = (auth >= 1 && auth <= 4) ? authNames[auth - 1] : "Standard";
 
-        sf::RectangleShape bevel(sf::Vector2f(btnW - 3.f, btnH - 3.f));
-        bevel.setPosition(bx + 1.5f, by + 1.5f);
-        bevel.setFillColor(isActive ? sf::Color(140, 92, 34) : sf::Color(26, 18, 13));
-        window.draw(bevel);
-
-        sf::Color iconCol = isActive ? sf::Color(255, 240, 185) : sf::Color(180, 150, 110);
-
-        if (i == 0) {
-            for (int p = 0; p < 2; ++p) {
-                sf::RectangleShape bar(sf::Vector2f(2.8f, 9.f));
-                bar.setPosition(bx + 6.8f + p * 6.f, by + 7.5f);
-                bar.setFillColor(iconCol);
-                window.draw(bar);
-            }
-        } else {
-            int numArrows = i;
-            float arrowW = (numArrows >= 4) ? 2.5f : ((numArrows == 3) ? 3.0f : 3.8f);
-            float arrowH = (numArrows >= 4) ? 7.0f : ((numArrows == 3) ? 8.0f : 9.0f);
-            float step = (numArrows >= 4) ? 3.2f : ((numArrows == 3) ? 4.0f : 5.0f);
-            float totalW = arrowW + (numArrows - 1) * step;
-            float arrowStartX = bx + (btnW - totalW) * 0.5f;
-            float arrowCenterY = by + btnH * 0.5f;
-
-            for (int a = 0; a < numArrows; ++a) {
-                float ax = arrowStartX + a * step;
-                sf::ConvexShape tri(3);
-                tri.setPoint(0, sf::Vector2f(ax, arrowCenterY - arrowH * 0.5f));
-                tri.setPoint(1, sf::Vector2f(ax + arrowW, arrowCenterY));
-                tri.setPoint(2, sf::Vector2f(ax, arrowCenterY + arrowH * 0.5f));
-                tri.setFillColor(iconCol);
-                window.draw(tri);
-            }
+            hasTip = true;
+            tipX = lx + levW * 0.5f;
+            tip = Tooltip();
+            tip.title = "REALM LEVIES";
+            tip.accent = theme::Amber;
+            tip.rows.push_back({"Warriors you can muster", std::to_string(maxLevies), theme::Text});
+            tip.rows.push_back({"Raised in the field", std::to_string(raisedTroops), raised ? theme::Amber : theme::Text});
+            tip.rows.push_back({"Crown authority", authLabel + " (" + std::to_string(levyQuota) + " per county)", theme::Text});
+            tip.note = "Raised armies cost amber every month.";
         }
     }
 
-    float celX = 1082.f;
-    float celW = 24.f;
-    drawOrnatePanel(window, celX, panelY, celW, panelH);
+    // ---- Right side: game speed and date ----------------------------------
+    const float dateW = 164.f;
+    const float dateX = c.right() - MARGIN - dateW;
 
+    const float pauseW = 30.f;
+    const float barSlot = 15.f;
+    const float labelW = 40.f;
+    const float speedW = pauseW + 8.f + barSlot * 5.f + labelW;
+    const float speedX = dateX - GAP - speedW;
+
+    c.panel({speedX, BAR_Y, speedW, BAR_H});
+
+    // Pause button
+    timeButtonBounds[0] = sf::FloatRect(speedX, BAR_Y, pauseW, BAR_H);
+    {
+        const bool hov = hover(timeButtonBounds[0]);
+        const sf::FloatRect b(speedX + 4.f, BAR_Y + 4.f, pauseW - 8.f, BAR_H - 8.f);
+        c.button(b, isGamePaused, hov);
+        const sf::Color ic = isGamePaused ? theme::GoldBright : (hov ? theme::Text : theme::TextMuted);
+        const float bcx = b.left + b.width * 0.5f;
+        c.fill({bcx - 5.f, midY - 5.f, 3.f, 10.f}, ic);
+        c.fill({bcx + 2.f, midY - 5.f, 3.f, 10.f}, ic);
+        if (hov) {
+            hasTip = true;
+            tipX = bcx;
+            tip = Tooltip();
+            tip.title = isGamePaused ? "RESUME" : "PAUSE";
+            tip.rows.push_back({"Shortcut", "P", theme::Text});
+        }
+    }
+
+    // Speed meter: five bars, taller = faster. Click a bar to pick that speed.
+    const float barsX = speedX + pauseW + 4.f;
+    int hoveredSpeed = 0;
+    for (int i = 1; i <= 5; ++i) {
+        timeButtonBounds[i] = sf::FloatRect(barsX + barSlot * static_cast<float>(i - 1), BAR_Y, barSlot, BAR_H);
+        if (hover(timeButtonBounds[i])) hoveredSpeed = i;
+    }
+    for (int i = 1; i <= 5; ++i) {
+        const float bx = barsX + barSlot * static_cast<float>(i - 1) + 3.f;
+        const float bh = 4.f + 3.f * static_cast<float>(i);
+        const float baseY = BAR_Y + BAR_H - 7.f;
+        sf::Color col = theme::BronzeDim;
+        if (i <= gameSpeed) col = isGamePaused ? theme::Bronze : theme::Gold;
+        if (hoveredSpeed > 0 && i <= hoveredSpeed) col = theme::GoldBright;
+        c.fill({bx - c.px(1), baseY - bh - c.px(1), 9.f + c.px(2), bh + c.px(2)}, theme::EdgeDark);
+        c.fill({bx, baseY - bh, 9.f, bh}, col);
+    }
+    c.text(speedLabel(hoveredSpeed > 0 ? hoveredSpeed : gameSpeed),
+           speedX + speedW - 8.f, midY,
+           {12, isGamePaused && hoveredSpeed == 0 ? theme::TextMuted : theme::Gold, true, Align::Right});
+    if (hoveredSpeed > 0) {
+        hasTip = true;
+        tipX = barsX + barSlot * (static_cast<float>(hoveredSpeed) - 0.5f);
+        tip = Tooltip();
+        tip.title = "SPEED " + std::to_string(hoveredSpeed) + "   " + speedLabel(hoveredSpeed);
+        tip.rows.push_back({"Shortcut", std::to_string(hoveredSpeed), theme::Text});
+        tip.rows.push_back({"Faster / slower", "+  /  -", theme::Text});
+    }
+
+    // Date, with sun or moon for the time of day
     float timeOfDay = simManager->getClock().getTimeOfDay();
     float t24 = timeOfDay * 24.0f;
     bool isDay = (t24 >= 5.5f && t24 < 18.5f);
-
-    if (isDay) {
-        sf::CircleShape sun(4.f);
-        sun.setOrigin(4.f, 4.f);
-        sun.setPosition(celX + 12.f, centerY);
-        sun.setFillColor(sf::Color(255, 210, 60));
-        sun.setOutlineColor(sf::Color(90, 60, 15));
-        sun.setOutlineThickness(0.7f);
-        window.draw(sun);
-
-        for (int a = 0; a < 8; ++a) {
-            float rad = a * (3.14159f / 4.f);
-            sf::RectangleShape ray(sf::Vector2f(2.f, 1.f));
-            ray.setOrigin(0.f, 0.5f);
-            ray.setPosition(celX + 12.f + std::cos(rad) * 5.5f, centerY + std::sin(rad) * 5.5f);
-            ray.setRotation(a * 45.f);
-            ray.setFillColor(sf::Color(255, 220, 85));
-            window.draw(ray);
-        }
-    } else {
-        sf::CircleShape moon(4.5f);
-        moon.setOrigin(4.5f, 4.5f);
-        moon.setPosition(celX + 12.f, centerY);
-        moon.setFillColor(sf::Color(230, 235, 255));
-        moon.setOutlineColor(sf::Color(50, 50, 75));
-        moon.setOutlineThickness(0.7f);
-        window.draw(moon);
-
-        sf::CircleShape moonShade(3.8f);
-        moonShade.setOrigin(3.8f, 3.8f);
-        moonShade.setPosition(celX + 14.f, centerY - 1.2f);
-        moonShade.setFillColor(sf::Color(22, 16, 12));
-        window.draw(moonShade);
-    }
 
     int year = reg.getYear();
     int month = reg.getMonth();
     int day = reg.getDay();
     std::string mName = reg.getMonthName(month);
-
-    float datePanelX = 1112.f;
-    float datePanelW = 160.f;
-    drawOrnatePanel(window, datePanelX, panelY, datePanelW, panelH);
-
     std::string dateStr = std::to_string(day) + " " + mName + ", " + std::to_string(year);
-    sf::Text dateText(dateStr, *font, 11);
-    dateText.setStyle(sf::Text::Bold);
-    dateText.setFillColor(sf::Color(245, 225, 175));
-    dateText.setOutlineColor(sf::Color(10, 8, 5));
-    dateText.setOutlineThickness(1.f);
-    sf::FloatRect dtb = dateText.getLocalBounds();
-    dateText.setOrigin(dtb.left + dtb.width * 0.5f, dtb.top + dtb.height * 0.5f);
-    dateText.setPosition(datePanelX + datePanelW * 0.5f, centerY);
-    window.draw(dateText);
 
-    sf::Vector2i mPixel = sf::Mouse::getPosition(window);
-    sf::Vector2f mCoords = window.mapPixelToCoords(mPixel);
-
-    sf::FloatRect domainHitBox(realmPanelX + 4.f, panelY, 105.f, panelH);
-    sf::FloatRect leviesHitBox(realmPanelX + 115.f, panelY, 115.f, panelH);
-
-    auto drawHoverTooltip = [&](float anchorX, const std::string& title, const std::string& desc, const std::string& note, sf::Color titleCol) {
-        sf::Text t1(title, *font, 10);
-        t1.setStyle(sf::Text::Bold);
-        t1.setFillColor(titleCol);
-
-        sf::Text t2(desc, *font, 9);
-        t2.setFillColor(sf::Color(225, 215, 195));
-
-        sf::Text t3(note, *font, 8);
-        t3.setStyle(sf::Text::Italic);
-        t3.setFillColor(sf::Color(175, 160, 135));
-
-        float tipW = std::max({ t1.getLocalBounds().width, t2.getLocalBounds().width, t3.getLocalBounds().width }) + 22.f;
-        tipW = std::max(tipW, 230.f);
-        float tipH = 46.f;
-        float tipX = std::clamp(anchorX - tipW * 0.5f, 10.f, 1270.f - tipW);
-        float tipY = panelY + panelH + 5.f;
-
-        sf::RectangleShape tipShadow(sf::Vector2f(tipW + 4.f, tipH + 4.f));
-        tipShadow.setPosition(tipX + 2.f, tipY + 2.f);
-        tipShadow.setFillColor(sf::Color(0, 0, 0, 190));
-        window.draw(tipShadow);
-
-        sf::RectangleShape tipBox(sf::Vector2f(tipW, tipH));
-        tipBox.setPosition(tipX, tipY);
-        tipBox.setFillColor(sf::Color(18, 12, 9, 250));
-        tipBox.setOutlineColor(titleCol);
-        tipBox.setOutlineThickness(1.2f);
-        window.draw(tipBox);
-
-        t1.setPosition(tipX + 8.f, tipY + 4.f);
-        window.draw(t1);
-        t2.setPosition(tipX + 8.f, tipY + 18.f);
-        window.draw(t2);
-        t3.setPosition(tipX + 8.f, tipY + 31.f);
-        window.draw(t3);
-    };
-
-    if (domainHitBox.contains(mCoords)) {
-        drawHoverTooltip(domainHitBox.left + domainHitBox.width * 0.5f,
-                         "DOMAIN LIMIT (" + std::to_string(demesneCount) + "/" + std::to_string(maxDemesne) + ")",
-                         "Number of directly ruled counties in your demesne.",
-                         "Exceeding limit penalizes vassal loyalty and tax income.",
-                         sf::Color(245, 215, 120));
-    } else if (leviesHitBox.contains(mCoords)) {
-        int auth = SettlementSystem::getCrownAuthority();
-        static const std::string authNames[] = { "Autonomous", "Limited", "High", "Absolute" };
-        std::string authLabel = (auth >= 1 && auth <= 4) ? authNames[auth - 1] : "Standard";
-
-        drawHoverTooltip(leviesHitBox.left + leviesHitBox.width * 0.5f,
-                         "REALM LEVIES (" + std::to_string(raisedTroops) + "/" + std::to_string(maxLevies) + ")",
-                         "Warrior muster pool (Crown Authority: " + authLabel + " - " + std::to_string(levyQuota) + "/county).",
-                         "Armies raised in the field consume monthly upkeep.",
-                         sf::Color(245, 140, 85));
+    const sf::FloatRect dateRect(dateX, BAR_Y, dateW, BAR_H);
+    c.panel(dateRect);
+    c.icon(isDay ? Icon::Sun : Icon::Moon, dateX + 18.f, midY);
+    c.divider(dateX + 34.f, BAR_Y + 6.f, BAR_H - 12.f);
+    c.text(dateStr, dateX + 34.f + (dateW - 34.f) * 0.5f, midY, {13, theme::Gold, true, Align::Center});
+    if (hover(dateRect)) {
+        int hh = static_cast<int>(t24) % 24;
+        int mm = static_cast<int>((t24 - std::floor(t24)) * 60.f);
+        std::ostringstream clock;
+        clock << std::setw(2) << std::setfill('0') << hh << ":" << std::setw(2) << std::setfill('0') << mm;
+        hasTip = true;
+        tipX = dateX + dateW * 0.5f;
+        tip = Tooltip();
+        tip.title = isDay ? "DAY" : "NIGHT";
+        tip.rows.push_back({"Time", clock.str(), theme::Text});
     }
+
+    // Paused banner under the bar so a stopped clock is never missed
+    if (isGamePaused) {
+        const float bw = 150.f;
+        const float bx = (c.left() + c.right()) * 0.5f - bw * 0.5f;
+        const float by = BAR_Y + BAR_H + 8.f;
+        c.panel({bx, by, bw, 22.f});
+        c.text("PAUSED", bx + 12.f, by + 11.f, {12, theme::Bad, true});
+        c.text("P to resume", bx + bw - 12.f, by + 11.f, {10, theme::TextMuted, false, Align::Right});
+    }
+
+    if (hasTip) c.tooltip(tipX, BAR_Y + BAR_H + 6.f, tip);
 }

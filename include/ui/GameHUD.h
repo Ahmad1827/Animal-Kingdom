@@ -39,5 +39,9 @@ private:
     float cachedPietyRate = 0.f;
     sf::FloatRect timeButtonBounds[6];
 
-    void drawOrnatePanel(sf::RenderWindow& window, float x, float y, float w, float h);
+    // Parts of each monthly rate, kept so the tooltips can show where it comes from.
+    float amberTaxes = 0.f, amberTrade = 0.f, amberUpkeep = 0.f, amberWar = 0.f;
+    float prestigeBase = 0.f, prestigeDomain = 0.f, prestigeVassals = 0.f;
+    float pietyBase = 0.f, pietyShaman = 0.f, pietyWar = 0.f;
+    bool  cachedAtWar = false;
 };

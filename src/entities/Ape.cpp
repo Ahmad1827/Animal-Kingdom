@@ -4,6 +4,40 @@
 #include <memory>
 
 sf::Texture Ape::masterSpriteSheet;
+sf::Texture Ape::outfitSheets[static_cast<int>(ApeOutfit::Count)];
+bool Ape::outfitLoaded[static_cast<int>(ApeOutfit::Count)] = {};
+sf::Texture Ape::itemSheet;
+bool Ape::itemsLoaded = false;
+
+namespace {
+// Same order as ApeOutfit. Files are written by tools/dress_apes.py.
+const char* const OUTFIT_FILES[static_cast<int>(ApeOutfit::Count)] = {
+    "assets/sprites/medieval/apes_peasant_a.png",
+    "assets/sprites/medieval/apes_peasant_b.png",
+    "assets/sprites/medieval/apes_peasant_c.png",
+    "assets/sprites/medieval/apes_guard.png",
+    "assets/sprites/medieval/apes_noble.png",
+    "assets/sprites/medieval/apes_king.png",
+};
+// Cells of assets/sprites/medieval/items.png, as printed by tools/dress_apes.py.
+const sf::IntRect ITEM_SPEAR(0, 0, 25, 110);
+const sf::IntRect ITEM_AXE(30, 0, 45, 65);
+const sf::IntRect ITEM_BASKET(80, 0, 50, 35);
+const sf::IntRect ITEM_BANANAS(135, 0, 45, 35);
+const sf::IntRect ITEM_LOG(185, 0, 60, 25);
+const sf::IntRect ITEM_STONE(250, 0, 40, 25);
+const sf::IntRect ITEM_SHIELD(295, 0, 45, 45);
+}
+
+ApeOutfit Ape::outfitFor(const sim::ApeData& ape, bool king) {
+    if (king) return ApeOutfit::King;
+    if (ape.councilRole != sim::CouncilRole::None || ape.isMainApe) return ApeOutfit::Noble;
+    const bool underArms = ape.currentOccupation == sim::Occupation::Guard || ape.equippedTool == sim::ToolType::WoodenSpear ||
+                           ape.currentJob == sim::Job::Guard || ape.currentJob == sim::Job::Patrol ||
+                           ape.currentJob == sim::Job::Combat || ape.currentJob == sim::Job::March;
+    if (underArms) return ApeOutfit::Guard;
+    return static_cast<ApeOutfit>(static_cast<int>(ape.id % 3));     // three cuts of peasant cloth
+}
 bool Ape::newTexturesLoaded = false;
 float Ape::globalShadowShearX = 0.f;
 float Ape::globalShadowProjY = 0.2f;
@@ -34,6 +68,12 @@ Ape::Ape(float x, float y, sf::Texture& texture, bool isPlayer)
     
     if (!newTexturesLoaded) {
         masterSpriteSheet.loadFromFile("assets/sprites/spritesheet.png");
+        for (int i = 0; i < static_cast<int>(ApeOutfit::Count); ++i) {
+            outfitLoaded[i] = outfitSheets[i].loadFromFile(OUTFIT_FILES[i]);
+            outfitSheets[i].setSmooth(false);
+        }
+        itemsLoaded = itemSheet.loadFromFile("assets/sprites/medieval/items.png");
+        itemSheet.setSmooth(false);
         newTexturesLoaded = true;
     }
 
@@ -256,7 +296,10 @@ void Ape::update(float dt) {
         }
     }
     
-    sprite.setTexture(masterSpriteSheet);
+    // A missing outfit sheet falls back to the bare ape rather than drawing nothing.
+    const int outfitIdx = static_cast<int>(outfit);
+    const bool dressed = outfitIdx >= 0 && outfitIdx < static_cast<int>(ApeOutfit::Count) && outfitLoaded[outfitIdx];
+    sprite.setTexture(dressed ? outfitSheets[outfitIdx] : masterSpriteSheet);
     
     int sheetColumns = 8;
     int sheetRows = 4;
@@ -301,7 +344,7 @@ void Ape::draw(sf::RenderTarget& target) {
     center.y -= sprite.getGlobalBounds().height / 2.f;
     float facingDir = facingRight ? 1.f : -1.f;
 
-    if (isKing) {
+    if (isKing && outfit != ApeOutfit::King) {
         sf::ConvexShape crown(3);
         crown.setPoint(0, sf::Vector2f(-14.f * laneScaleMultiplier, 0.f));
         crown.setPoint(1, sf::Vector2f(14.f * laneScaleMultiplier, 0.f));
@@ -311,6 +354,29 @@ void Ape::draw(sf::RenderTarget& target) {
         crown.setOutlineThickness(1.f);
         crown.setPosition(center.x + (26.f * facingDir * laneScaleMultiplier), center.y - (52.f * laneScaleMultiplier));
         target.draw(crown);
+    }
+
+    // Tools and loads are sprites cut to the same pixel size as the ape; the plain
+    // shapes below them are only the fallback for a missing item sheet.
+    const float itemScale = 0.58f * laneScaleMultiplier;
+    auto drawItem = [&](const sf::IntRect& cell, float dx, float dy, float rotation) {
+        sf::Sprite item(itemSheet, cell);
+        item.setOrigin(static_cast<float>(cell.width) * 0.5f, static_cast<float>(cell.height) * 0.5f);
+        item.setScale(itemScale * facingDir, itemScale);
+        item.setRotation(rotation * facingDir);
+        item.setPosition(std::round(center.x + dx * facingDir * laneScaleMultiplier), std::round(center.y + dy * laneScaleMultiplier));
+        item.setColor(sprite.getColor());
+        target.draw(item);
+    };
+    if (itemsLoaded) {
+        if (currentTool == sim::ToolType::StoneAxe)         drawItem(ITEM_AXE, 30.f, -6.f, 18.f);
+        else if (currentTool == sim::ToolType::WoodenSpear) { drawItem(ITEM_SPEAR, 30.f, -14.f, 6.f); drawItem(ITEM_SHIELD, -22.f, 6.f, 0.f); }
+        else if (currentTool == sim::ToolType::Basket)      drawItem(ITEM_BASKET, -30.f, 12.f, 0.f);
+
+        if (carriedItemType == 1 || (resourceAmount > 0 && currentResource == sim::ResourceType::Food))       drawItem(ITEM_BANANAS, 32.f, 10.f, 0.f);
+        else if (carriedItemType == 2 || (resourceAmount > 0 && currentResource == sim::ResourceType::Wood))  drawItem(ITEM_LOG, 6.f, -40.f, 12.f);
+        else if (carriedItemType == 3 || (resourceAmount > 0 && currentResource == sim::ResourceType::Stone)) drawItem(ITEM_STONE, 30.f, 10.f, 0.f);
+        return;
     }
 
     if (currentTool == sim::ToolType::StoneAxe) {

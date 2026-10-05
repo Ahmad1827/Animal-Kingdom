@@ -57,6 +57,7 @@ void NPCManager::update(float dt, const sf::FloatRect& preloadBounds, const sf::
         }
 
         it->second->setVisualEquipment(data->equippedTool, data->carriedType, data->carriedAmount, isKing);
+        it->second->setOutfit(Ape::outfitFor(*data, isKing));
         it->second->setDepthLane(data->depthLane);
         it->second->update(dt, data, worldManager, timeOfDay, registry, controlledId);
         ++it;

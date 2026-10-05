@@ -26,6 +26,11 @@ private:
 
     sf::Vector2f lastPlayerPos;
 
+    // Menu rows as laid out by the last draw, and the cursor in UI space, so
+    // clicks land on what is actually on screen at any window size.
+    std::vector<sf::FloatRect> rowBounds;
+    sf::Vector2f mouseUi;
+
     float getEase() const;
     void executeEntry(int index);
 
@@ -41,4 +46,6 @@ public:
     void draw(sf::RenderTarget& target);
 
     bool isInteracting() const { return isMenuOpen || isClosing; }
+    // Title of whatever E would use right now, or empty.
+    std::string getPromptTitle() const { return (currentPromptTarget && !isInteracting()) ? currentPromptTarget->getInteractionTitle() : std::string(); }
 };

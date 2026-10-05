@@ -54,7 +54,7 @@ namespace theme {
     inline const sf::Color Shadow      {  0,   0,   0, 150};
 }
 
-enum class Icon { Amber, Crown, Piety, Tower, Swords, Sun, Moon, Count };
+enum class Icon { Amber, Crown, Piety, Tower, Swords, Sun, Moon, Fruit, Scroll, Horn, Hand, Count };
 enum class Align { Left, Center, Right };
 
 struct TextStyle {
@@ -131,8 +131,9 @@ public:
     // Pixel-art icon centred on (cx, cy). Returns its drawn size in design units.
     float icon(Icon id, float cx, float cy, sf::Color tint = sf::Color::White);
 
-    // Tooltip hanging below (anchorX, topY), kept inside the view.
-    void tooltip(float anchorX, float topY, const Tooltip& tip);
+    // Tooltip hanging below (anchorX, topY), kept inside the view. With above set
+    // it sits on top of that point instead, for things along the bottom edge.
+    void tooltip(float anchorX, float topY, const Tooltip& tip, bool above = false);
 
 private:
     sf::RenderTarget& target;
@@ -148,4 +149,4 @@ private:
     unsigned pixelSize(unsigned designSize) const;
 };
 
-} // namespace ui
+} // namespace ui

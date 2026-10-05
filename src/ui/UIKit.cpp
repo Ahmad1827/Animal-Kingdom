@@ -31,6 +31,7 @@ const PaletteEntry PALETTE[] = {
     {'i', {150, 158, 172}},   // steel shade
     {'M', {232, 236, 255}},   // moonlight
     {'m', {168, 178, 220}},   // moon shade
+    {'E', {110, 196,  96}},   // leaf green
 };
 
 const char* const ICONS[static_cast<int>(Icon::Count)][ICON_PX] = {
@@ -124,6 +125,58 @@ const char* const ICONS[static_cast<int>(Icon::Count)][ICON_PX] = {
         ".MMMMmmmMM.",
         "..MMMMMMM..",
         "....mmm....",
+    },
+    { // Fruit (feast)
+        "......oo...",
+        ".....oEEo..",
+        "....ogoo...",
+        "..ooogooo..",
+        ".oRRRoRRRo.",
+        "oRWRRRRRRRo",
+        "oRRRRRRRRDo",
+        "oRRRRRRRDDo",
+        ".oRRRRRDDo.",
+        "..oRRRDDo..",
+        "...ooooo...",
+    },
+    { // Scroll (quests)
+        ".ooooooooo.",
+        "oSSSSSSSSSo",
+        "oSooooooSso",
+        ".oSSSSSSSo.",
+        ".oSiiiiSSo.",
+        ".oSSSSSSSo.",
+        ".oSiiiSSSo.",
+        ".oSSSSSSSo.",
+        "oSooooooSso",
+        "oSSSSSSSSso",
+        ".ooooooooo.",
+    },
+    { // Horn (call the clan)
+        "...........",
+        "........ooo",
+        "......ooYYo",
+        "....ooYYYGo",
+        "..ooYYYYGGo",
+        "ooGYYYYGGGo",
+        "oIoGGGGGGgo",
+        "ooooGGGGggo",
+        "....ooGgggo",
+        "......ooggo",
+        "........ooo",
+    },
+    { // Hand (use)
+        "....oo.....",
+        "...oSSo.o..",
+        "...oSSooSo.",
+        ".o.oSSoSSo.",
+        "oSooSSSSSo.",
+        "oSSoSSSSSSo",
+        ".oSSSSSSSSo",
+        ".oSSSSSSSso",
+        "..oSSSSSso.",
+        "...oSSSso..",
+        "....oooo...",
     },
 };
 
@@ -489,7 +542,7 @@ float Canvas::icon(Icon id, float cx, float cy, sf::Color tint) {
     return drawn;
 }
 
-void Canvas::tooltip(float anchorX, float topY, const Tooltip& tip) {
+void Canvas::tooltip(float anchorX, float topY, const Tooltip& tip, bool above) {
     const unsigned titleSize = 12, rowSize = 11, noteSize = 10;
     const float padX = 10.f, padY = 8.f, rowH = 16.f, gap = 18.f;
 
@@ -507,7 +560,7 @@ void Canvas::tooltip(float anchorX, float topY, const Tooltip& tip) {
     h += padY - 2.f;
 
     const float x = std::clamp(anchorX - w * 0.5f, left() + 6.f, std::max(left() + 6.f, right() - 6.f - w));
-    const float y = topY;
+    const float y = above ? topY - h : topY;
 
     panel({x, y, w, h});
     fill({x + px(2), y + px(2), w - px(4), px(2)}, tip.accent);
@@ -540,4 +593,4 @@ void Canvas::tooltip(float anchorX, float topY, const Tooltip& tip) {
     }
 }
 
-} // namespace ui
+} // namespace ui

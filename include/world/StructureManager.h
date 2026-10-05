@@ -51,6 +51,7 @@ private:
     sf::Color shadowColor = sf::Color(10, 14, 22, 100);
     bool enableShadows = true;
 
+    void drawCastle(sf::RenderTarget& target, const sim::VillageData& village, float groundY);
     void drawSpriteAnchored(sf::RenderTarget& target, const sf::IntRect& rect, float x, float y, float scale, sf::Color color = sf::Color::White);
 
     VillageUpgradePhase upgradePhase = VillageUpgradePhase::Idle;

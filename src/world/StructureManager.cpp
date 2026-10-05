@@ -1,4 +1,5 @@
 #include "world/StructureManager.h"
+#include "ui/UIKit.h"
 #include "world/WorldManager.h"
 #include <cmath>
 #include <algorithm>
@@ -144,7 +145,48 @@ void StructureManager::drawRearLawn(sf::RenderTarget& target, const sim::Village
     }
 }
 
+namespace {
+
+// The stone stronghold behind a settlement, one sprite per tier, made by
+// tools/build_castle.py. Loaded on first use; a missing file just means no castle.
+const sf::Texture* castleTexture(sim::SettlementTier tier) {
+    static sf::Texture textures[3];
+    static bool tried = false, loaded[3] = { false, false, false };
+    if (!tried) {
+        tried = true;
+        for (int i = 0; i < 3; ++i) {
+            loaded[i] = textures[i].loadFromFile("assets/sprites/medieval/castle_" + std::to_string(i) + ".png");
+            textures[i].setSmooth(false);
+        }
+    }
+    const int idx = std::min(2, static_cast<int>(tier));
+    return loaded[idx] ? &textures[idx] : nullptr;
+}
+
+} // namespace
+
+void StructureManager::drawCastle(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
+    if (village.id == 0) return;
+    const sf::Texture* tex = castleTexture(village.tier);
+    if (!tex) return;
+
+    const sf::View view = target.getView();
+    const float scale = 1.0f;
+    const float halfW = static_cast<float>(tex->getSize().x) * scale * 0.5f;
+    if (village.centerX + halfW < view.getCenter().x - view.getSize().x * 0.5f ||
+        village.centerX - halfW > view.getCenter().x + view.getSize().x * 0.5f) return;
+
+    // It stands on the rise behind the rear palisade, which is drawn straight after and hides its foot.
+    sf::Sprite castle(*tex);
+    castle.setOrigin(static_cast<float>(tex->getSize().x) * 0.5f, static_cast<float>(tex->getSize().y));
+    castle.setScale(scale, scale);
+    castle.setPosition(std::round(village.centerX), std::round(groundY - 223.f - 60.f));
+    castle.setColor(sf::Color(214, 220, 236));        // a step back in the haze, like the rear fence
+    target.draw(castle);
+}
+
 void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
+    drawCastle(target, village, groundY);
     if (!villageTexture || villageTexture->getSize().x == 0) return;
 
     sf::View view = target.getView();
@@ -1075,76 +1117,51 @@ bool StructureManager::handleModalClick(const sf::Vector2f& uiCoords, sim::Villa
 
 void StructureManager::drawUpgradeModal(sf::RenderTarget& target, const sf::Font& font, int villageAmber, sim::SettlementTier tier) {
     if (!upgradeModalOpen) return;
+    using namespace ui;
+    Canvas c(target, font);
 
-    sf::RectangleShape dim(sf::Vector2f(1280.f, 720.f));
-    dim.setFillColor(sf::Color(0, 0, 0, 160));
-    target.draw(dim);
+    c.fill({c.left(), 40.f, c.right() - c.left(), c.bottom() - 40.f}, sf::Color(8, 7, 6, 150));
 
-    float panelW = 460.f;
-    float panelH = 300.f;
-    float panelX = (1280.f - panelW) * 0.5f;
-    float panelY = (720.f - panelH) * 0.5f;
+    const sf::FloatRect P(410.f, 210.f, 460.f, 300.f);
+    c.panel(P);
+    c.gradient({P.left + c.px(2), P.top + c.px(2), P.width - c.px(4), 44.f}, sf::Color(255, 214, 140, 40), sf::Color(255, 214, 140, 0));
+    c.icon(Icon::Tower, P.left + 24.f, P.top + 24.f);
+    c.text("RAISE THE SETTLEMENT", P.left + 42.f, P.top + 24.f, {15, theme::Gold, true});
+    c.fill({P.left + c.px(2), P.top + 46.f, P.width - c.px(4), c.px(1)}, theme::Bronze);
 
-    sf::RectangleShape panel(sf::Vector2f(panelW, panelH));
-    panel.setPosition(panelX, panelY);
-    panel.setFillColor(sf::Color(22, 16, 12, 245));
-    panel.setOutlineColor(sf::Color(180, 140, 60));
-    panel.setOutlineThickness(3.f);
-    target.draw(panel);
+    modalCloseButtonBounds = sf::FloatRect(P.left + P.width - 36.f, P.top + 12.f, 24.f, 24.f);
+    c.button(modalCloseButtonBounds, false, false);
+    c.text("x", modalCloseButtonBounds.left + 12.f, modalCloseButtonBounds.top + 11.f, {12, theme::TextMuted, true, Align::Center});
 
-    sf::Text title("VILLAGE UPGRADE", font, 22);
-    title.setFillColor(sf::Color(255, 215, 90));
-    title.setOutlineColor(sf::Color::Black);
-    title.setOutlineThickness(1.5f);
-    sf::FloatRect tb = title.getLocalBounds();
-    title.setPosition(panelX + (panelW - tb.width) * 0.5f, panelY + 24.f);
-    target.draw(title);
+    // what it is now, and what it becomes
+    const std::string currentStr = (tier == sim::SettlementTier::FirePit) ? "Fire pit" : "Camp";
+    const std::string nextStr = (tier == sim::SettlementTier::FirePit) ? "Camp" : "Village";
+    const float boxW = 180.f, boxY = P.top + 66.f;
+    const sf::FloatRect now(P.left + 24.f, boxY, boxW, 64.f), next(P.left + P.width - 24.f - boxW, boxY, boxW, 64.f);
+    c.inset(now);
+    c.text("NOW", now.left + 12.f, now.top + 17.f, {9, theme::TextMuted, true});
+    c.text(currentStr, now.left + 12.f, now.top + 41.f, {16, theme::Text, true});
+    c.button(next, false, true);
+    c.text("BECOMES", next.left + 12.f, next.top + 17.f, {9, theme::Gold, true});
+    c.text(nextStr, next.left + 12.f, next.top + 41.f, {16, theme::GoldBright, true});
+    c.text(">", P.left + P.width * 0.5f, boxY + 32.f, {18, theme::BronzeLight, true, Align::Center});
 
-    std::string currentStr = (tier == sim::SettlementTier::FirePit) ? "Campfire" : "Hut Encampment";
-    std::string nextStr = (tier == sim::SettlementTier::FirePit) ? "Hut Encampment" : "Village Compound";
-    sf::Text desc("Current: " + currentStr + "\nNext:    " + nextStr, font, 16);
-    desc.setFillColor(sf::Color(220, 210, 195));
-    desc.setOutlineColor(sf::Color::Black);
-    desc.setOutlineThickness(1.f);
-    desc.setPosition(panelX + 44.f, panelY + 85.f);
-    target.draw(desc);
+    // the clan chest against the price
+    const bool canAfford = (villageAmber >= upgradeCost);
+    const float barY = P.top + 150.f;
+    c.text("CLAN CHEST", P.left + 24.f, barY, {9, theme::TextMuted, true});
+    c.text(std::to_string(villageAmber) + " / " + std::to_string(upgradeCost) + " amber", P.left + P.width - 24.f, barY,
+           {11, canAfford ? theme::Good : theme::Bad, true, Align::Right});
+    c.meter({P.left + 24.f, barY + 10.f, P.width - 48.f, 10.f},
+            upgradeCost > 0 ? static_cast<float>(villageAmber) / static_cast<float>(upgradeCost) : 1.f, theme::Amber);
 
-    bool canAfford = (villageAmber >= upgradeCost);
-    float btnW = 280.f;
-    float btnH = 46.f;
-    float btnX = panelX + (panelW - btnW) * 0.5f;
-    float btnY = panelY + 165.f;
-    modalUpgradeButtonBounds = sf::FloatRect(btnX, btnY, btnW, btnH);
+    modalUpgradeButtonBounds = sf::FloatRect(P.left + 90.f, P.top + 190.f, P.width - 180.f, 44.f);
+    if (canAfford) c.button(modalUpgradeButtonBounds, true, false); else c.inset(modalUpgradeButtonBounds);
+    c.icon(Icon::Amber, modalUpgradeButtonBounds.left + 24.f, modalUpgradeButtonBounds.top + 22.f, canAfford ? sf::Color::White : sf::Color(255, 255, 255, 90));
+    c.text(canAfford ? "Raise it for " + std::to_string(upgradeCost) + " amber" : "The chest is too light",
+           modalUpgradeButtonBounds.left + modalUpgradeButtonBounds.width * 0.5f + 10.f, modalUpgradeButtonBounds.top + 22.f,
+           {13, canAfford ? sf::Color(255, 248, 224) : theme::TextMuted, true, Align::Center});
 
-    sf::RectangleShape btn(sf::Vector2f(btnW, btnH));
-    btn.setPosition(btnX, btnY);
-    btn.setFillColor(canAfford ? sf::Color(55, 40, 20) : sf::Color(35, 25, 22));
-    btn.setOutlineColor(canAfford ? sf::Color(240, 185, 50) : sf::Color(110, 50, 40));
-    btn.setOutlineThickness(2.f);
-    target.draw(btn);
-
-    sf::CircleShape amberGem(6.f, 4);
-    amberGem.setOrigin(6.f, 6.f);
-    amberGem.setPosition(btnX + 22.f, btnY + 23.f);
-    amberGem.setFillColor(sf::Color(255, 185, 25));
-    target.draw(amberGem);
-
-    std::string btnStr = "Upgrade (" + std::to_string(upgradeCost) + " Amber)";
-    sf::Text btnText(btnStr, font, 15);
-    btnText.setFillColor(canAfford ? sf::Color(255, 235, 180) : sf::Color(170, 90, 80));
-    btnText.setOutlineColor(sf::Color::Black);
-    btnText.setOutlineThickness(1.f);
-    btnText.setPosition(btnX + 40.f, btnY + 13.f);
-    target.draw(btnText);
-
-    modalCloseButtonBounds = sf::FloatRect(panelX + panelW - 42.f, panelY + 12.f, 30.f, 30.f);
-    sf::Text closeText("X", font, 18);
-    closeText.setFillColor(sf::Color(200, 80, 80));
-    closeText.setPosition(modalCloseButtonBounds.left + 8.f, modalCloseButtonBounds.top + 4.f);
-    target.draw(closeText);
-
-    sf::Text escPrompt("[ESC] Close   |   [E / Enter] Confirm", font, 13);
-    escPrompt.setFillColor(sf::Color(140, 130, 120));
-    escPrompt.setPosition(panelX + 44.f, panelY + 248.f);
-    target.draw(escPrompt);
+    c.text(canAfford ? "E / Enter confirm      ESC close" : "Fill the chest with T, then come back.      ESC close",
+           P.left + P.width * 0.5f, P.top + P.height - 24.f, {10, theme::TextMuted, false, Align::Center, false, true});
 }

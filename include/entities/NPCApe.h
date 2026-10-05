@@ -42,6 +42,7 @@ public:
     sim::EntityID getId() const { return simId; }
     sf::FloatRect getBounds() const { return physicalApe.getBounds(); }
 
+    void setOutfit(ApeOutfit outfit) { physicalApe.setOutfit(outfit); }
     void setVisualEquipment(sim::ToolType tool, sim::ResourceType res, int amount, bool isKing) {
         physicalApe.setVisualEquipment(tool, res, amount, isKing);
     }

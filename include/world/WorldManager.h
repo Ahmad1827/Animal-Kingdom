@@ -26,8 +26,8 @@ private:
     float swayTime = 0.f;
     const sf::Texture* villageTexture = nullptr;
 
-    const sf::IntRect rectBorderMonument = sf::IntRect(1070, 1423, 224, 666);
-    const sf::IntRect rectLookpost       = sf::IntRect(1832, 1430, 275, 659);
+    const sf::IntRect rectBorderMonument = sf::IntRect(1766, 2, 120, 324);
+    const sf::IntRect rectLookpost       = sf::IntRect(772, 2, 240, 552);
     float shadowShearX = 0.f;
     float shadowProjY = 0.2f;
     sf::Color shadowColor = sf::Color(10, 14, 22, 100);

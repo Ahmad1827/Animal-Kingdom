@@ -685,7 +685,7 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
                 sf::Sprite lookpost(*villageTexture, rectLookpost);
                 lookpost.setOrigin(static_cast<float>(rectLookpost.width) * 0.5f, static_cast<float>(rectLookpost.height));
                 lookpost.setPosition(leftEdge + 360.f, lookpostGroundY);
-                lookpost.setScale(0.82f, 0.82f);
+                lookpost.setScale(1.0f, 1.0f);
 
                 sf::Transform lookpostShadowProj(
                     1.f, -shadowShearX, shadowShearX * lookpostGroundY,
@@ -700,7 +700,7 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
                 sf::Sprite totem(*villageTexture, rectBorderMonument);
                 totem.setOrigin(static_cast<float>(rectBorderMonument.width) * 0.5f, static_cast<float>(rectBorderMonument.height));
                 totem.setPosition(leftEdge, groundY);
-                totem.setScale(0.48f, 0.48f);
+                totem.setScale(1.0f, 1.0f);
 
                 sf::Transform totemShadowProj(
                     1.f, -shadowShearX, shadowShearX * groundY,
@@ -743,7 +743,7 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
                 sf::Sprite lookpost(*villageTexture, rectLookpost);
                 lookpost.setOrigin(static_cast<float>(rectLookpost.width) * 0.5f, static_cast<float>(rectLookpost.height));
                 lookpost.setPosition(rightEdge - 360.f, lookpostGroundY);
-                lookpost.setScale(0.82f, 0.82f);
+                lookpost.setScale(1.0f, 1.0f);
 
                 sf::Transform lookpostShadowProj(
                     1.f, -shadowShearX, shadowShearX * lookpostGroundY,
@@ -758,7 +758,7 @@ void WorldManager::drawTerritoryMarkers(sf::RenderTarget& target, sim::Simulatio
                 sf::Sprite totem(*villageTexture, rectBorderMonument);
                 totem.setOrigin(static_cast<float>(rectBorderMonument.width) * 0.5f, static_cast<float>(rectBorderMonument.height));
                 totem.setPosition(rightEdge, groundY);
-                totem.setScale(0.48f, 0.48f);
+                totem.setScale(1.0f, 1.0f);
 
                 sf::Transform totemShadowProj(
                     1.f, -shadowShearX, shadowShearX * groundY,

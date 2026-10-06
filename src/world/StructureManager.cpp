@@ -41,7 +41,7 @@ void StructureManager::drawSpriteAnchored(sf::RenderTarget& target, const sf::In
     sprite.setPosition(x, y);
     sprite.setScale(scale, scale);
 
-    if (enableShadows && rect != rectFxFire && rect != rectFxSmoke) {
+    if (enableShadows && rect != rectFxFire) {
         sf::Sprite shadowSpr = sprite;
         shadowSpr.setColor(shadowColor);
         sf::Transform shadowProj(
@@ -109,10 +109,10 @@ static void drawEmptyPlot(sf::RenderTarget& target, const sim::StructureData& s,
 
 void StructureManager::drawMeetingGround(sf::RenderTarget& target, float worldX, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectMeetingRootLog, worldX - 320.f, groundY, 0.90f);
+        drawSpriteAnchored(target, rectMeetingHollowLog, worldX - 320.f, groundY, 1.0f);
         drawSpriteAnchored(target, rectBorderMonument, worldX, groundY, 1.0f);
-        drawSpriteAnchored(target, rectMeetingStone, worldX + 160.f, groundY, 0.90f);
-        drawSpriteAnchored(target, rectMeetingHollowLog, worldX + 320.f, groundY, 0.90f);
+        drawSpriteAnchored(target, rectMeetingStone, worldX + 160.f, groundY, 1.0f);
+        drawSpriteAnchored(target, rectMeetingHollowLog, worldX + 320.f, groundY, 1.0f);
     }
 }
 
@@ -163,6 +163,152 @@ const sf::Texture* castleTexture(sim::SettlementTier tier) {
     return loaded[idx] ? &textures[idx] : nullptr;
 }
 
+// ---------------------------------------------------------------------------
+// Raising a new hall. Nothing sinks into the ground or rises out of it: the old
+// work is knocked apart block by block, and the new one goes up the same way,
+// bottom course first, inside a scaffold.
+// ---------------------------------------------------------------------------
+const int   kPieceSize    = 48;      // sixteen art pixels: the size of one block
+const float kDemolishTime = 2.6f;
+const float kFinishTime   = 1.6f;
+
+float pieceHash(int a, int b, int c) {
+    sf::Uint32 n = (static_cast<sf::Uint32>(a) * 73856093u) ^ (static_cast<sf::Uint32>(b) * 19349663u) ^ (static_cast<sf::Uint32>(c) * 83492791u);
+    n = (n ^ (n >> 13)) * 1274126177u;
+    return static_cast<float>((n ^ (n >> 16)) & 0xFFFFu) / 65535.f;
+}
+
+// Puffs of dust kicked up along the foot of the work. t runs 0..1.
+void drawDust(sf::RenderTarget& target, float x, float groundY, float halfWidth, float t) {
+    for (int i = 0; i < 9; ++i) {
+        const float start = pieceHash(i, 3, 1) * 0.65f;
+        const float k = (t - start) / 0.35f;
+        if (k <= 0.f || k >= 1.f) continue;
+        const float r = 9.f + 30.f * k;
+        sf::CircleShape puff(r, 8);
+        puff.setOrigin(r, r);
+        puff.setPosition(std::round(x + (pieceHash(i, 5, 2) - 0.5f) * 2.f * halfWidth), std::round(groundY - 8.f - 22.f * k));
+        puff.setFillColor(sf::Color(168, 150, 122, static_cast<sf::Uint8>(120.f * (1.f - k))));
+        target.draw(puff);
+    }
+}
+
+// The old work coming down: blocks shake loose from the top, tumble and are gone.
+void drawDemolition(sf::RenderTarget& target, const sf::Texture& tex, const sf::IntRect& rect, float x, float groundY, float t) {
+    const int cols = (rect.width + kPieceSize - 1) / kPieceSize;
+    const int rows = (rect.height + kPieceSize - 1) / kPieceSize;
+    const float left = std::round(x) - static_cast<float>(rect.width) * 0.5f;
+    const float top = std::round(groundY) - static_cast<float>(rect.height);
+
+    for (int r = rows - 1; r >= 0; --r) {
+        for (int c = 0; c < cols; ++c) {
+            const int w = std::min(kPieceSize, rect.width - c * kPieceSize);
+            const int h = std::min(kPieceSize, rect.height - r * kPieceSize);
+            const float h1 = pieceHash(c, r, 1), h2 = pieceHash(c, r, 2), h3 = pieceHash(c, r, 3);
+            const float release = (static_cast<float>(r) / static_cast<float>(rows)) * 0.55f * kDemolishTime + h1 * 0.18f * kDemolishTime;
+
+            sf::Sprite piece(tex, sf::IntRect(rect.left + c * kPieceSize, rect.top + r * kPieceSize, w, h));
+            piece.setOrigin(static_cast<float>(w) * 0.5f, static_cast<float>(h) * 0.5f);
+            float px = left + static_cast<float>(c * kPieceSize) + static_cast<float>(w) * 0.5f;
+            float py = top + static_cast<float>(r * kPieceSize) + static_cast<float>(h) * 0.5f;
+
+            if (t < release) {
+                if (release - t < 0.18f) px += (static_cast<int>(t * 40.f) % 2 == 0) ? 2.f : -2.f;      // working loose
+            } else {
+                const float f = t - release;
+                px += (h2 - 0.5f) * 190.f * f;
+                py += -110.f * h3 * f + 0.5f * 900.f * f * f;
+                if (py > groundY - 6.f) continue;                                                      // hit the ground
+                piece.setRotation((h2 - 0.5f) * 420.f * f);
+                piece.setColor(sf::Color(255, 255, 255, static_cast<sf::Uint8>(255.f * (1.f - std::clamp(f / 0.9f, 0.f, 1.f)))));
+            }
+            piece.setPosition(std::round(px), std::round(py));
+            target.draw(piece);
+        }
+    }
+    drawDust(target, x, groundY, static_cast<float>(rect.width) * 0.42f, t / kDemolishTime);
+}
+
+// The new work going up: block after block along each course, lowest course first.
+void drawPiecewiseBuild(sf::RenderTarget& target, const sf::Texture& tex, const sf::IntRect& rect, float x, float groundY, float progress) {
+    const int cols = (rect.width + kPieceSize - 1) / kPieceSize;
+    const int rows = (rect.height + kPieceSize - 1) / kPieceSize;
+    const float left = std::round(x) - static_cast<float>(rect.width) * 0.5f;
+    const float bottom = std::round(groundY);
+    const float total = static_cast<float>(cols * rows);
+
+    for (int rb = 0; rb < rows; ++rb) {                       // rb counts courses up from the ground
+        const int y1 = rect.height - rb * kPieceSize;         // bottom of this course inside the sprite
+        const int y0 = std::max(0, y1 - kPieceSize);
+        for (int c = 0; c < cols; ++c) {
+            const int order = (rb % 2 == 0) ? c : (cols - 1 - c);
+            const float start = static_cast<float>(rb * cols + order) / total * 0.95f;
+            const float k = std::clamp((progress - start) / 0.03f, 0.f, 1.f);
+            if (k <= 0.f) continue;
+
+            const int w = std::min(kPieceSize, rect.width - c * kPieceSize);
+            const float settle = (1.f - k) * (1.f - k);
+            sf::Sprite piece(tex, sf::IntRect(rect.left + c * kPieceSize, rect.top + y0, w, y1 - y0));
+            const float px = left + static_cast<float>(c * kPieceSize);
+            const float py = bottom - static_cast<float>(rect.height - y0);
+            piece.setPosition(px, std::round(py - settle * 30.f));
+            piece.setColor(sf::Color(255, 255, 255, static_cast<sf::Uint8>(255.f * std::min(1.f, k * 2.f))));
+            target.draw(piece);
+
+            if (k < 1.f) {                                    // a knock of dust where the block lands
+                const float r = 6.f + 12.f * k;
+                sf::CircleShape puff(r, 8);
+                puff.setOrigin(r, r);
+                puff.setPosition(px + static_cast<float>(w) * 0.5f, py + static_cast<float>(y1 - y0));
+                puff.setFillColor(sf::Color(190, 174, 146, static_cast<sf::Uint8>(110.f * (1.f - k))));
+                target.draw(puff);
+            }
+        }
+    }
+}
+
+// Poles, walkways and cross-braces up to the given height.
+void drawScaffold(sf::RenderTarget& target, float x, float groundY, float height, float halfWidth) {
+    if (height < 8.f) return;
+    const int posts = 7;
+    const float startX = x - halfWidth;
+    const float spacing = (halfWidth * 2.f) / static_cast<float>(posts - 1);
+    const float level = 48.f;
+
+    const int planks = static_cast<int>((height - 12.f) / level);
+    for (int i = 1; i <= planks; ++i) {
+        const float py = groundY - static_cast<float>(i) * level;
+        for (int j = 0; j < posts - 1; ++j) {
+            const float x1 = startX + j * spacing, x2 = startX + (j + 1) * spacing;
+            sf::Vertex brace[] = {
+                sf::Vertex(sf::Vector2f(x1, py), sf::Color(84, 54, 26)),
+                sf::Vertex(sf::Vector2f(x2, py + level), sf::Color(84, 54, 26)),
+                sf::Vertex(sf::Vector2f(x2, py), sf::Color(84, 54, 26)),
+                sf::Vertex(sf::Vector2f(x1, py + level), sf::Color(84, 54, 26))
+            };
+            target.draw(brace, 4, sf::Lines);
+        }
+    }
+    for (int i = 0; i < posts; ++i) {
+        sf::RectangleShape post(sf::Vector2f(9.f, height));
+        post.setOrigin(4.5f, height);
+        post.setPosition(std::round(startX + i * spacing), groundY);
+        post.setFillColor(sf::Color(108, 72, 38));
+        post.setOutlineColor(sf::Color(32, 18, 8));
+        post.setOutlineThickness(3.f);
+        target.draw(post);
+    }
+    for (int i = 1; i <= planks; ++i) {
+        sf::RectangleShape plank(sf::Vector2f(halfWidth * 2.f + 30.f, 9.f));
+        plank.setOrigin(halfWidth + 15.f, 4.5f);
+        plank.setPosition(std::round(x), groundY - static_cast<float>(i) * level);
+        plank.setFillColor(sf::Color(138, 96, 52));
+        plank.setOutlineColor(sf::Color(32, 18, 8));
+        plank.setOutlineThickness(3.f);
+        target.draw(plank);
+    }
+}
+
 } // namespace
 
 void StructureManager::drawCastle(sf::RenderTarget& target, const sim::VillageData& village, float groundY) {
@@ -198,13 +344,13 @@ void StructureManager::drawRearPalisade(sf::RenderTarget& target, const sim::Vil
     if (drawStart >= drawEnd) return;
 
     float rearFenceBaseY = groundY - 223.f;
-    float fenceScale = 0.30f;
-    float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
+    float fenceScale = 1.0f;
+    float stepW = static_cast<float>(rectPalisadeRear.width) * fenceScale;
     sf::Color fenceBgColor(180, 185, 200, 245);
 
     float startX = std::floor(drawStart / stepW) * stepW;
     for (float fx = startX; fx < drawEnd; fx += stepW) {
-        drawSpriteAnchored(target, rectPalisadeMiddle, fx, rearFenceBaseY, fenceScale, fenceBgColor);
+        drawSpriteAnchored(target, rectPalisadeRear, fx, rearFenceBaseY, fenceScale, fenceBgColor);
     }
 }
 
@@ -220,8 +366,8 @@ void StructureManager::drawMiddlePalisade(sf::RenderTarget& target, const sim::V
     if (drawStart >= drawEnd) return;
 
     float midFenceBaseY = groundY - 14.f;
-    float fenceScale = 0.58f;
-    float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale * 0.96f;
+    float fenceScale = 1.0f;
+    float stepW = static_cast<float>(rectPalisadeMiddle.width) * fenceScale;
     sf::Color fenceColor(230, 230, 235, 255);
 
     float lodgeHalfWidth = 240.f;
@@ -375,7 +521,7 @@ bool StructureManager::tryStartUpgrade(sim::VillageData& village, sim::Simulatio
     if (village.amber < upgradeCost) return false;
 
     village.amber -= upgradeCost;
-    upgradePhase = VillageUpgradePhase::Sinking;
+    upgradePhase = VillageUpgradePhase::Demolishing;
     upgradeTimer = 0.f;
     buildProgress = 0.f;
     upgradeModalOpen = false;
@@ -419,14 +565,14 @@ void StructureManager::updateUpgrades(float dt, sim::SimulationRegistry& registr
 
     upgradeTimer += dt;
 
-    if (upgradePhase == VillageUpgradePhase::Sinking) {
+    if (upgradePhase == VillageUpgradePhase::Demolishing) {
         sim::ApeData* builder = registry.getApe(activeBuilderId);
         if (builder && builder->alive) {
             builder->depthLane = sim::DepthLane::Foreground;
             builder->currentJob = sim::Job::Builder;
         }
 
-        if (upgradeTimer >= 2.0f) {
+        if (upgradeTimer >= kDemolishTime) {
             upgradePhase = VillageUpgradePhase::WaitingForBuilder;
             upgradeTimer = 0.f;
             buildProgress = 0.f;
@@ -471,14 +617,14 @@ void StructureManager::updateUpgrades(float dt, sim::SimulationRegistry& registr
             buildProgress += (dt / totalBuildDuration);
             if (buildProgress >= 1.0f) {
                 buildProgress = 1.0f;
-                upgradePhase = VillageUpgradePhase::Rising;
+                upgradePhase = VillageUpgradePhase::Finishing;
                 upgradeTimer = 0.f;
             }
         } else {
             upgradePhase = VillageUpgradePhase::WaitingForBuilder;
         }
-    } else if (upgradePhase == VillageUpgradePhase::Rising) {
-        if (upgradeTimer >= 2.5f) {
+    } else if (upgradePhase == VillageUpgradePhase::Finishing) {
+        if (upgradeTimer >= kFinishTime) {
             upgradePhase = VillageUpgradePhase::Idle;
             upgradeTimer = 0.f;
             buildProgress = 0.f;
@@ -503,116 +649,57 @@ void StructureManager::updateUpgrades(float dt, sim::SimulationRegistry& registr
 }
 
 void StructureManager::drawVillageCenter(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
-    if (upgradePhase == VillageUpgradePhase::Sinking) {
-        float p = std::clamp(upgradeTimer / 2.0f, 0.0f, 1.0f);
-        float ease = p * p;
+    if (!villageTexture || villageTexture->getSize().x == 0) return;
 
-        if (village.tier == sim::SettlementTier::FirePit) {
-            float sinkY = groundY + (ease * 110.f);
-            drawSpriteAnchored(target, rectFirePit, s.worldX, sinkY, 1.0f);
-            drawSpriteAnchored(target, rectFxFire, s.worldX, sinkY - 4.f, std::max(0.0f, 1.0f - ease));
-        } else {
-            float sinkY = groundY + (ease * 480.f);
-            drawSpriteAnchored(target, tier1Visual.spriteRect, s.worldX, sinkY, tier1Visual.scale);
+    const bool fromFirePit = village.tier == sim::SettlementTier::FirePit;
+    const BuildingTierVisual& standing = (village.tier == sim::SettlementTier::Camp) ? tier1Visual : tier2Visual;
+    const sf::IntRect oldRect = fromFirePit ? rectFirePit : standing.spriteRect;
+    const sf::IntRect newRect = fromFirePit ? tier1Visual.spriteRect : tier2Visual.spriteRect;
+    const float newH = static_cast<float>(newRect.height);
+    const float scaffoldHalf = static_cast<float>(newRect.width) * 0.5f + 14.f;
+
+    if (upgradePhase == VillageUpgradePhase::Demolishing) {
+        if (fromFirePit && upgradeTimer < 0.5f) {             // the fire is doused first
+            const sf::Uint8 a = static_cast<sf::Uint8>(255.f * (1.f - upgradeTimer / 0.5f));
+            drawSpriteAnchored(target, rectFxFire, s.worldX, groundY - 18.f, 1.0f, sf::Color(255, 255, 255, a));
         }
+        drawDemolition(target, *villageTexture, oldRect, s.worldX, groundY, upgradeTimer);
         return;
     }
 
     if (upgradePhase == VillageUpgradePhase::WaitingForBuilder) {
-        float scaffoldH = 75.f;
-        int posts = 7;
-        float startX = s.worldX - 220.f;
-        float spacing = 440.f / static_cast<float>(posts - 1);
-
-        for (int i = 0; i < posts; ++i) {
-            float px = startX + i * spacing;
-            sf::RectangleShape post(sf::Vector2f(12.f, scaffoldH));
-            post.setOrigin(6.f, scaffoldH);
-            post.setPosition(px, groundY);
-            post.setFillColor(sf::Color(108, 72, 38));
-            post.setOutlineColor(sf::Color(32, 18, 8));
-            post.setOutlineThickness(2.f);
-            target.draw(post);
-        }
-
-        sf::RectangleShape plank(sf::Vector2f(470.f, 11.f));
-        plank.setOrigin(235.f, 5.5f);
-        plank.setPosition(s.worldX, groundY - 35.f);
-        plank.setFillColor(sf::Color(138, 96, 52));
-        plank.setOutlineColor(sf::Color(32, 18, 8));
-        plank.setOutlineThickness(1.5f);
-        target.draw(plank);
+        drawScaffold(target, s.worldX, groundY, 75.f, scaffoldHalf);
         return;
     }
 
     if (upgradePhase == VillageUpgradePhase::Building) {
-        float p = std::clamp(buildProgress, 0.0f, 1.0f);
-        float scaffoldH = 75.f + p * 320.f;
-
-        int posts = 7;
-        float startX = s.worldX - 220.f;
-        float spacing = 440.f / static_cast<float>(posts - 1);
-
-        for (int i = 0; i < posts; ++i) {
-            float px = startX + i * spacing;
-            sf::RectangleShape post(sf::Vector2f(12.f, scaffoldH));
-            post.setOrigin(6.f, scaffoldH);
-            post.setPosition(px, groundY);
-            post.setFillColor(sf::Color(108, 72, 38));
-            post.setOutlineColor(sf::Color(32, 18, 8));
-            post.setOutlineThickness(2.f);
-            target.draw(post);
-        }
-
-        int planks = std::max(1, static_cast<int>(1 + p * 6.0f));
-        for (int i = 1; i <= planks; ++i) {
-            float py = groundY - (i * 48.f);
-            sf::RectangleShape plank(sf::Vector2f(470.f, 11.f));
-            plank.setOrigin(235.f, 5.5f);
-            plank.setPosition(s.worldX, py);
-            plank.setFillColor(sf::Color(138, 96, 52));
-            plank.setOutlineColor(sf::Color(32, 18, 8));
-            plank.setOutlineThickness(1.5f);
-            target.draw(plank);
-
-            for (int j = 0; j < posts - 1; ++j) {
-                float x1 = startX + j * spacing;
-                float x2 = startX + (j + 1) * spacing;
-                sf::Vertex brace[] = {
-                    sf::Vertex(sf::Vector2f(x1, py), sf::Color(84, 54, 26)),
-                    sf::Vertex(sf::Vector2f(x2, py + 48.f), sf::Color(84, 54, 26)),
-                    sf::Vertex(sf::Vector2f(x2, py), sf::Color(84, 54, 26)),
-                    sf::Vertex(sf::Vector2f(x1, py + 48.f), sf::Color(84, 54, 26))
-                };
-                target.draw(brace, 4, sf::Lines);
-            }
-        }
+        const float p = std::clamp(buildProgress, 0.0f, 1.0f);
+        drawScaffold(target, s.worldX, groundY, std::min(newH + 24.f, 75.f + p * newH), scaffoldHalf);
+        drawPiecewiseBuild(target, *villageTexture, newRect, s.worldX, groundY, p);
         return;
     }
 
-    if (upgradePhase == VillageUpgradePhase::Rising) {
-        float p = std::clamp(upgradeTimer / 2.5f, 0.0f, 1.0f);
-        float ease = 1.0f - std::pow(1.0f - p, 3.0f);
-        float riseY = groundY + ((1.0f - ease) * 480.f);
-
-        if (village.tier == sim::SettlementTier::FirePit) {
-            drawSpriteAnchored(target, tier1Visual.spriteRect, s.worldX, riseY, tier1Visual.scale);
-        } else {
-            drawSpriteAnchored(target, tier2Visual.spriteRect, s.worldX, riseY, tier2Visual.scale);
-        }
+    if (upgradePhase == VillageUpgradePhase::Finishing) {     // the scaffold is struck and the braziers lit
+        const float k = std::clamp(upgradeTimer / kFinishTime, 0.0f, 1.0f);
+        drawScaffold(target, s.worldX, groundY, (newH + 24.f) * (1.f - k) * (1.f - k), scaffoldHalf);
+        drawSpriteAnchored(target, newRect, s.worldX, groundY, 1.0f);
+        const sf::Color lit(255, 255, 255, static_cast<sf::Uint8>(255.f * k));
+        drawSpriteAnchored(target, rectBrazier, s.worldX - 111.f, groundY, 1.0f, lit);
+        drawSpriteAnchored(target, rectBrazier, s.worldX + 111.f, groundY, 1.0f, lit);
         return;
     }
 
     if (village.tier == sim::SettlementTier::FirePit) {
         drawSpriteAnchored(target, rectFirePit, s.worldX, groundY, 1.0f);
-        drawSpriteAnchored(target, rectFxFire, s.worldX, groundY - 4.f, 1.0f);
+        drawSpriteAnchored(target, rectFxFire, s.worldX, groundY - 18.f, 1.0f);
         return;
     }
 
     if (villageTexture && villageTexture->getSize().x > 0) {
         const BuildingTierVisual& visual = (village.tier == sim::SettlementTier::Camp) ? tier1Visual : tier2Visual;
         drawSpriteAnchored(target, visual.spriteRect, s.worldX, groundY, visual.scale);
-        drawSpriteAnchored(target, rectFxFire, s.worldX - 44.f, groundY - 2.f, 0.88f);
+        drawSpriteAnchored(target, rectBrazier, s.worldX - 111.f, groundY, 1.0f);
+        drawSpriteAnchored(target, rectBrazier, s.worldX + 111.f, groundY, 1.0f);
     }
 }
 
@@ -630,7 +717,7 @@ void StructureManager::drawForeground(sf::RenderTarget& target, sim::SimulationR
                 float groundY = world ? world->getTerrainHeight(mover->worldX) : 500.0f;
 
                 if (villageTexture && villageTexture->getSize().x > 0) {
-                    drawSpriteAnchored(target, rectBorderMonument, mover->worldX, groundY, 0.95f);
+                    drawSpriteAnchored(target, rectBorderMonument, mover->worldX, groundY, 1.0f);
                 } else {
                     sf::RectangleShape pole(sf::Vector2f(10.f, 90.f));
                     pole.setOrigin(5.f, 45.f);
@@ -813,11 +900,11 @@ void StructureManager::drawStockpileProps(sf::RenderTarget& target, const sim::S
 void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData& village, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
         sf::Color fenceBgColor(255, 255, 255, 220);
-        float scale = 0.95f;
+        float scale = 1.0f;
         if (s.worldX < village.centerX) {
-            drawSpriteAnchored(target, rectPalisadeLeft, s.worldX, groundY, scale, fenceBgColor);
+            drawSpriteAnchored(target, rectPalisadeMiddle, s.worldX, groundY, scale, fenceBgColor);
         } else if (s.worldX > village.centerX) {
-            drawSpriteAnchored(target, rectPalisadeRight, s.worldX, groundY, scale, fenceBgColor);
+            drawSpriteAnchored(target, rectPalisadeMiddle, s.worldX, groundY, scale, fenceBgColor);
         } else {
             drawSpriteAnchored(target, rectPalisadeMiddle, s.worldX, groundY, scale, fenceBgColor);
         }
@@ -848,7 +935,7 @@ void StructureManager::drawSimpleBarrier(sf::RenderTarget& target, const sim::St
 
 void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.65f);
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 1.0f);
         return;
     }
 
@@ -880,7 +967,7 @@ void StructureManager::drawNest(sf::RenderTarget& target, const sim::StructureDa
 
 void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 0.70f);
+        drawSpriteAnchored(target, rectVillageHut, s.worldX, groundY, 1.0f);
         return;
     }
 
@@ -913,7 +1000,7 @@ void StructureManager::drawStorageHut(sf::RenderTarget& target, const sim::Struc
 
 void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 0.75f);
+        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 1.0f);
         return;
     }
 
@@ -954,7 +1041,7 @@ void StructureManager::drawWatchPlatform(sf::RenderTarget& target, const sim::St
 
 void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 0.75f);
+        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 1.0f);
         return;
     }
 
@@ -986,8 +1073,8 @@ void StructureManager::drawBuilderHut(sf::RenderTarget& target, const sim::Struc
 
 void StructureManager::drawBonfire(sf::RenderTarget& target, const sim::StructureData& s, const sim::VillageData&, float groundY) {
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectFirePit, s.worldX, groundY, 0.72f);
-        drawSpriteAnchored(target, rectFxFire, s.worldX, groundY - 4.f, 0.72f);
+        drawSpriteAnchored(target, rectFirePit, s.worldX, groundY, 1.0f);
+        drawSpriteAnchored(target, rectFxFire, s.worldX, groundY - 18.f, 1.0f);
         return;
     }
 
@@ -1013,7 +1100,7 @@ void StructureManager::drawConstructionSite(sf::RenderTarget& target, const sim:
     float progressRatio = std::clamp(s.progress / std::max(1.f, s.maxProgress), 0.f, 1.f);
 
     if (villageTexture && villageTexture->getSize().x > 0) {
-        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 0.75f, sf::Color(255, 255, 255, static_cast<sf::Uint8>(120 + progressRatio * 135)));
+        drawSpriteAnchored(target, rectLookpostBamboo, s.worldX, groundY, 1.0f, sf::Color(255, 255, 255, static_cast<sf::Uint8>(120 + progressRatio * 135)));
     } else {
         sf::RectangleShape stakeL(sf::Vector2f(14.f, 65.f));
         stakeL.setOrigin(7.f, 65.f);

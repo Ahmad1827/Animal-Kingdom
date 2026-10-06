@@ -9,10 +9,10 @@ class WorldManager;
 
 enum class VillageUpgradePhase {
     Idle,
-    Sinking,
+    Demolishing,
     WaitingForBuilder,
     Building,
-    Rising
+    Finishing
 };
 
 struct BuildingTierVisual {
@@ -25,24 +25,21 @@ class StructureManager {
 private:
     const sf::Texture* villageTexture = nullptr;
 
-    const sf::IntRect rectCenterBuilding   = sf::IntRect(8,    1406, 771, 683);
-    const sf::IntRect rectBorderMonument   = sf::IntRect(1070, 1423, 224, 666);
-    const sf::IntRect rectLookpost         = sf::IntRect(1832, 1430, 275, 659);
-    const sf::IntRect rectLookpostBamboo   = sf::IntRect(1039, 303,  285, 388);
-    const sf::IntRect rectToolRack         = sf::IntRect(227,  411,  334, 280);
-    const sf::IntRect rectFirePit          = sf::IntRect(278,  1206, 232, 184);
-    const sf::IntRect rectVillageHut       = sf::IntRect(1806, 2569, 327, 219);
-    const sf::IntRect rectMeetingRootLog   = sf::IntRect(233,  2631, 321, 157);
-    const sf::IntRect rectMeetingStone     = sf::IntRect(1080, 2634, 204, 154);
-    const sf::IntRect rectMeetingHollowLog = sf::IntRect(251,  3388, 285, 99);
-    const sf::IntRect rectGateProfile      = sf::IntRect(2706, 3947, 104, 239);
-    const sf::IntRect rectGateFront        = sf::IntRect(3358, 3930, 376, 256);
-    const sf::IntRect rectPalisadeLeft     = sf::IntRect(306,  3956, 175, 230);
-    const sf::IntRect rectPalisadeMiddle   = sf::IntRect(1014, 3955, 335, 231);
-    const sf::IntRect rectPalisadeRight    = sf::IntRect(1883, 3956, 173, 230);
-    const sf::IntRect rectBambooNode       = sf::IntRect(4223, 3957, 222, 229);
-    const sf::IntRect rectFxFire           = sf::IntRect(359,  4795, 70,  90);
-    const sf::IntRect rectFxSmoke          = sf::IntRect(1148, 4794, 68,  91);
+    // Cells of assets/sprites/medieval/village.png, as printed by tools/build_village.py.
+    // Every piece is drawn at scale 1, standing on its bottom edge.
+    const sf::IntRect rectHallTimber       = sf::IntRect(1014, 2, 750, 510);
+    const sf::IntRect rectHallStone        = sf::IntRect(2, 2, 768, 648);
+    const sf::IntRect rectLookpostBamboo   = sf::IntRect(2, 652, 228, 300);
+    const sf::IntRect rectBorderMonument   = sf::IntRect(1766, 2, 120, 324);
+    const sf::IntRect rectToolRack         = sf::IntRect(232, 652, 312, 216);
+    const sf::IntRect rectVillageHut       = sf::IntRect(546, 652, 228, 168);
+    const sf::IntRect rectFirePit          = sf::IntRect(1424, 652, 216, 108);
+    const sf::IntRect rectBrazier          = sf::IntRect(1642, 652, 48, 108);
+    const sf::IntRect rectFxFire           = sf::IntRect(1692, 652, 72, 90);
+    const sf::IntRect rectMeetingHollowLog = sf::IntRect(1170, 652, 252, 114);
+    const sf::IntRect rectMeetingStone     = sf::IntRect(970, 652, 198, 120);
+    const sf::IntRect rectPalisadeMiddle   = sf::IntRect(776, 652, 192, 138);
+    const sf::IntRect rectPalisadeRear     = sf::IntRect(1766, 652, 180, 75);
 
     const sf::Texture* groundTexture = nullptr;
     const sf::Texture* rearLawnTexture = nullptr;
@@ -65,8 +62,8 @@ private:
     sf::FloatRect modalUpgradeButtonBounds;
     sf::FloatRect modalCloseButtonBounds;
 
-    BuildingTierVisual tier1Visual = { "village_assets", sf::IntRect(8, 1406, 771, 683), 1.0f };
-    BuildingTierVisual tier2Visual = { "village_assets", sf::IntRect(8, 1406, 771, 683), 1.0f };
+    BuildingTierVisual tier1Visual = { "village_assets", sf::IntRect(1014, 2, 750, 510), 1.0f };
+    BuildingTierVisual tier2Visual = { "village_assets", sf::IntRect(2, 2, 768, 648), 1.0f };
 
 public:
     StructureManager();
